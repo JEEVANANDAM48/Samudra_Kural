@@ -15,7 +15,6 @@ import { FishingNet, TrajectoryResponse, EnvironmentalState } from '../types/net
 import { FishermanGPS } from '../utils/location';
 import { DriftMap } from './DriftMap';
 import { EnvironmentCard } from './EnvironmentCard';
-import { DataSourceCard } from './DataSourceCard';
 import { fetchNetDetails, regeneratePrediction } from '../services/netService';
 
 interface NetDriftDetailModalProps {
@@ -215,12 +214,8 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
               </View>
             )}
 
-            {/* Data Provenance Card */}
-            <DataSourceCard
-              dataSources={trajectory?.data_sources}
-              dataAgeMinutes={environment?.data_age_minutes || 10}
-              modelVersion={trajectory?.model_version}
-            />
+            {/* Bottom spacing */}
+            <View style={{ height: 32 }} />
           </ScrollView>
         )}
       </SafeAreaView>

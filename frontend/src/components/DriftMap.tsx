@@ -1,17 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
-import Svg, {
-  Circle,
-  Line,
-  Polyline,
-  Text as SvgText,
-  G,
-  Path,
-  Defs,
-  LinearGradient,
-  Stop,
-  Rect
-} from 'react-native-svg';
+import React, { useRef, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Colors } from '../theme/colors';
 import { TrajectoryPoint, SearchArea } from '../types/net';
 
@@ -33,10 +22,11 @@ export const DriftMap: React.FC<DriftMapProps> = ({
   releaseLon,
   fishermanLat,
   fishermanLon,
-  width = Dimensions.get('window').width - 48,
-  height = 250,
+  width = Dimensions.get('window').width - 32,
+  height = 320,
 }) => {
-  const [zoomScale, setZoomScale] = useState<number>(1.0);
+  const webViewRef = useRef<WebView>(null);
+  const [mapLoaded, setMapLoaded] = useState<boolean>(false);
 
   if (!points || points.length === 0) {
     return (
@@ -46,270 +36,358 @@ export const DriftMap: React.FC<DriftMapProps> = ({
     );
   }
 
-  const lats = [releaseLat, searchArea.center_latitude, ...points.map((p) => p.latitude)];
-  const lons = [releaseLon, searchArea.center_longitude, ...points.map((p) => p.longitude)];
+  // Trajectory coordinates array for Leaflet: [[lat, lon], ...]
+  const trajCoords = points.map((p) => [p.latitude, p.longitude]);
 
-  if (fishermanLat !== undefined && fishermanLon !== undefined) {
-    lats.push(fishermanLat);
-    lons.push(fishermanLon);
-  }
+  // Intermediate checkpoints
+  const checkpoints = points.map((p, idx) => ({
+    lat: p.latitude,
+    lon: p.longitude,
+    step: p.step_number,
+    time: p.prediction_time_ist,
+    dist: p.cumulative_distance_km,
+    speed: p.drift_speed_mps,
+    dir: p.drift_direction_cardinal,
+    isRelease: idx === 0,
+    isFinal: idx === points.length - 1,
+  }));
 
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
+  const radiusMeters = (searchArea.uncertainty_radius_km || 1.0) * 1000;
+  const searchCenterLat = searchArea.center_latitude || points[points.length - 1]?.latitude || releaseLat;
+  const searchCenterLon = searchArea.center_longitude || points[points.length - 1]?.longitude || releaseLon;
 
-  const baseLatSpan = Math.max(0.015, maxLat - minLat) * 1.5;
-  const baseLonSpan = Math.max(0.015, maxLon - minLon) * 1.5;
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body, #map {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #E6F2F5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .leaflet-control-attribution {
+      font-size: 8px !important;
+      background: rgba(255,255,255,0.7) !important;
+    }
+    .custom-popup .leaflet-popup-content-wrapper {
+      background: #004D40;
+      color: #FFFFFF;
+      border-radius: 8px;
+      padding: 2px;
+      font-size: 11px;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .custom-popup .leaflet-popup-tip {
+      background: #004D40;
+    }
+    .pulse-marker {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pulse-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2.5px solid #FFFFFF;
+      box-shadow: 0 0 8px rgba(0,0,0,0.4);
+    }
+    .pulse-ring {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      animation: pulsate 2s infinite ease-out;
+      opacity: 0;
+    }
+    @keyframes pulsate {
+      0% { transform: scale(0.3); opacity: 0.9; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    // Initialize map
+    var map = L.map('map', {
+      zoomControl: true,
+      attributionControl: true
+    }).setView([${releaseLat}, ${releaseLon}], 13);
 
-  const latSpan = baseLatSpan / zoomScale;
-  const lonSpan = baseLonSpan / zoomScale;
+    // High quality OpenStreetMap standard tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
 
-  const midLat = (minLat + maxLat) / 2.0;
-  const midLon = (minLon + maxLon) / 2.0;
+    var bounds = L.latLngBounds();
 
-  const mapMinLat = midLat - latSpan / 2.0;
-  const mapMaxLat = midLat + latSpan / 2.0;
-  const mapMinLon = midLon - lonSpan / 2.0;
-  const mapMaxLon = midLon + lonSpan / 2.0;
+    // 1. Probable Search Area (Yellow semi-transparent circle)
+    var searchCircle = L.circle([${searchCenterLat}, ${searchCenterLon}], {
+      radius: ${radiusMeters},
+      color: '#D4AC0D',
+      weight: 2.5,
+      dashArray: '6, 6',
+      fillColor: '#F4D03F',
+      fillOpacity: 0.28
+    }).addTo(map);
+    searchCircle.bindPopup("<b>🎯 Predicted Search Area</b><br>±${searchArea.uncertainty_radius_km} km radius<br>${searchArea.sector_description}", { className: 'custom-popup' });
+    bounds.extend(searchCircle.getBounds());
 
-  const padding = 28;
-  const projX = (lon: number) => padding + ((lon - mapMinLon) / (mapMaxLon - mapMinLon)) * (width - 2 * padding);
-  const projY = (lat: number) => height - padding - ((lat - mapMinLat) / (mapMaxLat - mapMinLat)) * (height - 2 * padding);
+    // 2. Trajectory Polyline (Cyan glow)
+    var trajCoords = ${JSON.stringify(trajCoords)};
+    
+    // Polyline shadow
+    L.polyline(trajCoords, {
+      color: '#006064',
+      weight: 6,
+      opacity: 0.5,
+      lineCap: 'round'
+    }).addTo(map);
 
-  const releaseX = projX(releaseLon);
-  const releaseY = projY(releaseLat);
+    // Main Polyline
+    var polyline = L.polyline(trajCoords, {
+      color: '#00BCD4',
+      weight: 4,
+      opacity: 1.0,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(map);
+    bounds.extend(polyline.getBounds());
 
-  const predictedX = projX(searchArea.center_latitude);
-  const predictedY = projY(searchArea.center_latitude);
+    // 3. Intermediate Checkpoint markers
+    var checkpoints = ${JSON.stringify(checkpoints)};
+    checkpoints.forEach(function(cp) {
+      if (!cp.isRelease && !cp.isFinal) {
+        var marker = L.circleMarker([cp.lat, cp.lon], {
+          radius: 4,
+          fillColor: '#00BCD4',
+          color: '#FFFFFF',
+          weight: 2,
+          fillOpacity: 1
+        }).addTo(map);
+        marker.bindPopup("<b>⏱️ Step " + cp.step + " (" + cp.time + ")</b><br>+" + cp.dist + " km • " + cp.dir + " (" + cp.speed.toFixed(2) + " m/s)", { className: 'custom-popup' });
+      }
+    });
 
-  const polyPoints = points.map((p) => `${projX(p.longitude)},${projY(p.latitude)}`).join(' ');
+    // 4. Blue Marker: Original Net Release Point
+    var releaseIcon = L.divIcon({
+      className: 'pulse-marker',
+      html: '<div class="pulse-ring" style="border: 2px solid #2980B9; background: rgba(41,128,185,0.2);"></div><div class="pulse-dot" style="background: #2980B9;"></div>',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    var releaseMarker = L.marker([${releaseLat}, ${releaseLon}], { icon: releaseIcon }).addTo(map);
+    releaseMarker.bindPopup("<b>📍 Net Release Point</b><br>Lat: ${releaseLat.toFixed(4)}<br>Lon: ${releaseLon.toFixed(4)}", { className: 'custom-popup' });
+    bounds.extend([${releaseLat}, ${releaseLon}]);
 
-  const radiusKm = searchArea.uncertainty_radius_km || 1.0;
-  const latRadiusDeg = radiusKm / 111.0;
-  const pixelRadius = Math.max(20, Math.min(width / 2.8, (latRadiusDeg / latSpan) * (height - 2 * padding)));
+    // 5. Predicted Endpoint Marker (Target Pin)
+    var finalCp = checkpoints[checkpoints.length - 1];
+    if (finalCp) {
+      var endIcon = L.divIcon({
+        className: 'pulse-marker',
+        html: '<div class="pulse-ring" style="border: 2px solid #D4AC0D; background: rgba(244,208,63,0.3);"></div><div class="pulse-dot" style="background: #D4AC0D;"></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+      var endMarker = L.marker([finalCp.lat, finalCp.lon], { icon: endIcon }).addTo(map);
+      endMarker.bindPopup("<b>🎯 Final Predicted Center</b><br>Movement: ~" + finalCp.dist + " km " + finalCp.dir + "<br>Time: " + finalCp.time, { className: 'custom-popup' });
+      bounds.extend([finalCp.lat, finalCp.lon]);
+    }
 
-  // YELLOW / Amber theme for predicted search area
-  const searchAreaColor = '#F4D03F';
+    // 6. Green Marker: Current Fisherman GPS (if available)
+    ${fishermanLat !== undefined && fishermanLon !== undefined ? `
+    var fishermanIcon = L.divIcon({
+      className: 'pulse-marker',
+      html: '<div class="pulse-ring" style="border: 2px solid #2ECC71; background: rgba(46,204,113,0.25);"></div><div class="pulse-dot" style="background: #2ECC71;"></div>',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    var fishermanMarker = L.marker([${fishermanLat}, ${fishermanLon}], { icon: fishermanIcon }).addTo(map);
+    fishermanMarker.bindPopup("<b>👤 Your Current Location (Boat)</b><br>Lat: ${fishermanLat.toFixed(4)}<br>Lon: ${fishermanLon.toFixed(4)}", { className: 'custom-popup' });
+    bounds.extend([${fishermanLat}, ${fishermanLon}]);
+    ` : ''}
+
+    // Fit map to show all points with comfortable padding
+    map.fitBounds(bounds, { padding: [35, 35] });
+
+    // Function to re-center
+    window.resetMapBounds = function() {
+      map.fitBounds(bounds, { padding: [35, 35] });
+    };
+  </script>
+</body>
+</html>
+  `;
 
   return (
-    <View style={[styles.container, { width, height }]}>
-      <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-        <Defs>
-          <LinearGradient id="seaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#0B3036" />
-            <Stop offset="100%" stopColor="#061B20" />
-          </LinearGradient>
-          <LinearGradient id="searchGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor={searchAreaColor} stopOpacity="0.4" />
-            <Stop offset="100%" stopColor={searchAreaColor} stopOpacity="0.08" />
-          </LinearGradient>
-        </Defs>
-
-        <Rect x="0" y="0" width={width} height={height} rx="16" fill="url(#seaGrad)" />
-
-        {/* Waves effect */}
-        <Path
-          d={`M0 ${height * 0.3} Q ${width * 0.25} ${height * 0.25}, ${width * 0.5} ${height * 0.3} T ${width} ${height * 0.3}`}
-          stroke="rgba(0, 168, 150, 0.15)"
-          strokeWidth="1.5"
-          fill="none"
+    <View style={[styles.cardContainer, { width }]}>
+      <View style={[styles.mapWrapper, { height }]}>
+        <WebView
+          ref={webViewRef}
+          originWhitelist={['*']}
+          source={{ html: htmlContent }}
+          style={styles.webView}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          onLoadEnd={() => setMapLoaded(true)}
         />
 
-        {/* YELLOW: Predicted Search Area Circle */}
-        <Circle
-          cx={predictedX}
-          cy={predictedY}
-          r={pixelRadius}
-          fill="url(#searchGlow)"
-          stroke={searchAreaColor}
-          strokeWidth="2.5"
-          strokeDasharray="6, 4"
-        />
-
-        {/* CYAN: Predicted Trajectory Path */}
-        <Polyline
-          points={polyPoints}
-          fill="none"
-          stroke="#00E5FF"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* Checkpoint dots */}
-        {points.map((p, idx) => {
-          if (idx === 0 || idx === points.length - 1) return null;
-          const px = projX(p.longitude);
-          const py = projY(p.latitude);
-          return (
-            <Circle
-              key={idx}
-              cx={px}
-              cy={py}
-              r="3.5"
-              fill="#FFFFFF"
-              stroke="#00A896"
-              strokeWidth="1.5"
-            />
-          );
-        })}
-
-        {/* Drift direction guide line */}
-        <Line
-          x1={releaseX}
-          y1={releaseY}
-          x2={predictedX}
-          y2={predictedY}
-          stroke="rgba(255, 255, 255, 0.3)"
-          strokeWidth="1.5"
-          strokeDasharray="4, 4"
-        />
-
-        {/* BLUE: Original Release Point Marker */}
-        <Circle cx={releaseX} cy={releaseY} r="10" fill="#3498DB" opacity="0.4" />
-        <Circle cx={releaseX} cy={releaseY} r="6" fill="#2980B9" stroke="#FFFFFF" strokeWidth="2" />
-        <SvgText x={releaseX} y={releaseY + 18} fill="#5DADE2" fontSize="11" fontWeight="800" textAnchor="middle">
-          Release Point
-        </SvgText>
-
-        {/* Predicted Point Center */}
-        <Circle cx={predictedX} cy={predictedY} r="11" fill={searchAreaColor} opacity="0.4" />
-        <Circle cx={predictedX} cy={predictedY} r="6" fill="#F39C12" stroke="#FFFFFF" strokeWidth="2" />
-        <SvgText x={predictedX} y={predictedY - 14} fill={searchAreaColor} fontSize="11" fontWeight="900" textAnchor="middle">
-          Search Area
-        </SvgText>
-
-        {/* GREEN: Current Fisherman GPS Location (if provided) */}
-        {fishermanLat !== undefined && fishermanLon !== undefined && (
-          <G>
-            <Circle cx={projX(fishermanLon)} cy={projY(fishermanLat)} r="10" fill="#2ECC71" opacity="0.3" />
-            <Circle cx={projX(fishermanLon)} cy={projY(fishermanLat)} r="5.5" fill="#2ECC71" stroke="#FFFFFF" strokeWidth="2" />
-            <SvgText x={projX(fishermanLon)} y={projY(fishermanLat) + 16} fill="#2ECC71" fontSize="10" fontWeight="800" textAnchor="middle">
-              You
-            </SvgText>
-          </G>
+        {!mapLoaded && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={styles.mapLoadingText}>Loading live map...</Text>
+          </View>
         )}
 
-        {/* Compass Rose */}
-        <G transform={`translate(${width - 30}, 28)`}>
-          <Circle cx="0" cy="0" r="13" fill="rgba(0,0,0,0.5)" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
-          <Line x1="0" y1="8" x2="0" y2="-8" stroke="#FF5252" strokeWidth="2" />
-          <Line x1="-8" y1="0" x2="8" y2="0" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-          <SvgText x="0" y="-10" fill="#FF5252" fontSize="9" fontWeight="900" textAnchor="middle">
-            N
-          </SvgText>
-        </G>
-      </Svg>
+        {/* Floating Reset Button */}
+        <TouchableOpacity
+          style={styles.recenterBtn}
+          activeOpacity={0.8}
+          onPress={() => {
+            webViewRef.current?.injectJavaScript('window.resetMapBounds && window.resetMapBounds(); true;');
+          }}
+        >
+          <Text style={styles.recenterIcon}>🎯 Center</Text>
+        </TouchableOpacity>
+      </View>
 
-      {/* Floating Legend and Zoom Controls */}
-      <View style={styles.controlsRow}>
-        <View style={styles.legendContainer}>
-          <View style={styles.legendItem}>
-            <View style={[styles.dot, { backgroundColor: '#2980B9' }]} />
-            <Text style={styles.legendTxt}>Release (Blue)</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.dot, { backgroundColor: '#00E5FF' }]} />
-            <Text style={styles.legendTxt}>Trajectory (Cyan)</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.dot, { backgroundColor: searchAreaColor }]} />
-            <Text style={styles.legendTxt}>Search Area (Yellow)</Text>
-          </View>
+      {/* Map Legend Banner */}
+      <View style={styles.legendContainer}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#2980B9' }]} />
+          <Text style={styles.legendLabel}>Release (Blue)</Text>
         </View>
 
-        <View style={styles.zoomButtons}>
-          <TouchableOpacity
-            style={styles.zoomBtn}
-            onPress={() => setZoomScale((prev) => Math.min(2.5, prev + 0.3))}
-          >
-            <Text style={styles.zoomBtnTxt}>+</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.zoomBtn}
-            onPress={() => setZoomScale((prev) => Math.max(0.7, prev - 0.3))}
-          >
-            <Text style={styles.zoomBtnTxt}>−</Text>
-          </TouchableOpacity>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
+          <Text style={styles.legendLabel}>Trajectory (Cyan)</Text>
         </View>
+
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#F4D03F', borderColor: '#D4AC0D', borderWidth: 1 }]} />
+          <Text style={styles.legendLabel}>Search Area (Yellow)</Text>
+        </View>
+
+        {fishermanLat !== undefined && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#2ECC71' }]} />
+            <Text style={styles.legendLabel}>You (Green)</Text>
+          </View>
+        )}
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  cardContainer: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
+    marginBottom: 16,
     overflow: 'hidden',
-    backgroundColor: '#071F23',
-    alignSelf: 'center',
-    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#D8ECE8',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  emptyContainer: {
-    borderRadius: 16,
-    backgroundColor: Colors.secondary,
+  mapWrapper: {
+    width: '100%',
+    position: 'relative',
+    backgroundColor: '#E6F2F5',
+  },
+  webView: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#E6F2F5',
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  controlsRow: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 8,
+  },
+  mapLoadingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  recenterBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#B2DFDB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  recenterIcon: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primary,
   },
   legendContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(5, 20, 24, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#F7FCFB',
+    borderTopWidth: 1,
+    borderTopColor: '#E0F2F1',
+    gap: 6,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    marginRight: 4,
-  },
-  legendTxt: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#E0F2F1',
-  },
-  zoomButtons: {
-    flexDirection: 'row',
     gap: 4,
   },
-  zoomBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 95, 96, 0.9)',
+  legendDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+  },
+  legendLine: {
+    width: 14,
+    height: 3.5,
+    borderRadius: 2,
+  },
+  legendLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  emptyContainer: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
-  zoomBtnTxt: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    lineHeight: 18,
+  emptyText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
   },
 });
