@@ -20,6 +20,8 @@ import { getUserSession, clearSession } from '../storage/storage';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { BottomNavBar } from '../components/BottomNavBar';
 
+import { MyNetsScreen } from './MyNetsScreen';
+
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
 
@@ -33,7 +35,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onLogout,
 }) => {
   const [user, setUser] = useState<FishermanUser | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('nav');
+  const [activeTab, setActiveTab] = useState<string>('nets');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
   // Slide animation for side menu drawer
@@ -71,11 +73,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleTabPress = (tabId: string) => {
     setActiveTab(tabId);
+    if (tabId === 'nets') {
+      // Direct view of My Nets
+      return;
+    }
     const tabNames: Record<string, string> = {
       nav: t('placeholderNav', currentLanguage),
       fishing: t('placeholderFishing', currentLanguage),
       bot: 'Ask Bot (AI Marine Chatbot)',
-      nets: t('placeholderNets', currentLanguage),
       sos: 'Emergency SOS',
     };
 
@@ -128,52 +133,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </View>
 
       {/* Main Content Area */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.featureCard}>
-          <View style={styles.cardTop}>
-            {activeTab === 'bot' ? (
-              <Image
-                source={require('../../assets/chatbot-logo.png')}
-                style={styles.botFeatureLogo}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text style={styles.featureIcon}>
-                {activeTab === 'nav'
-                  ? '🧭'
-                  : activeTab === 'fishing'
-                  ? '🎣'
-                  : activeTab === 'nets'
-                  ? '🕸️'
-                  : '🆘'}
-              </Text>
-            )}
-            <Text style={styles.featureTitle}>
-              {activeTab === 'nav'
-                ? t('placeholderNav', currentLanguage)
-                : activeTab === 'fishing'
-                ? t('placeholderFishing', currentLanguage)
-                : activeTab === 'bot'
-                ? 'Ask Bot (AI Chatbot)'
-                : activeTab === 'nets'
-                ? t('placeholderNets', currentLanguage)
-                : 'Emergency SOS'}
-            </Text>
-          </View>
+      <View style={styles.mainContainer}>
+        {activeTab === 'nets' ? (
+          <MyNetsScreen />
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.featureCard}>
+              <View style={styles.cardTop}>
+                {activeTab === 'bot' ? (
+                  <Image
+                    source={require('../../assets/chatbot-logo.png')}
+                    style={styles.botFeatureLogo}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.featureIcon}>
+                    {activeTab === 'nav'
+                      ? '🧭'
+                      : activeTab === 'fishing'
+                      ? '🎣'
+                      : '🆘'}
+                  </Text>
+                )}
+                <Text style={styles.featureTitle}>
+                  {activeTab === 'nav'
+                    ? t('placeholderNav', currentLanguage)
+                    : activeTab === 'fishing'
+                    ? t('placeholderFishing', currentLanguage)
+                    : activeTab === 'bot'
+                    ? 'Ask Bot (AI Chatbot)'
+                    : 'Emergency SOS'}
+                </Text>
+              </View>
 
-          <View style={styles.noticeBox}>
-            <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
-            <Text style={styles.noticeText}>
-              {t('comingSoon', currentLanguage)}. This section will integrate real-time spatial navigation, PFZ fishing zones, AI Chatbot assistance, and safety alerts in the next update.
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
+              <View style={styles.noticeBox}>
+                <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
+                <Text style={styles.noticeText}>
+                  {t('comingSoon', currentLanguage)}. This section will integrate real-time spatial navigation, PFZ fishing zones, AI Chatbot assistance, and safety alerts in the next update.
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+        )}
+      </View>
 
-      {/* Floating Bottom Navigation Bar (Center Ask Bot with custom Whale Logo, Right SOS) */}
+      {/* Floating Bottom Navigation Bar */}
       <BottomNavBar
         activeTab={activeTab}
         onTabPress={handleTabPress}
@@ -322,9 +329,15 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     fontWeight: '900',
   },
+  mainContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 90,
+  },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingHorizontal: 4,
+    paddingTop: 8,
     paddingBottom: 110,
   },
   featureCard: {
