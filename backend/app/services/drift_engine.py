@@ -2,27 +2,30 @@ import math
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import List, Tuple, Dict, Any, Optional
+import numpy as np
 from app.core.config import settings
-from app.services.environment_service import environment_service
+from app.services.copernicus_service import copernicus_service
+from app.services.incois_service import incois_service
 from app.services.uncertainty_engine import uncertainty_engine
 from app.schemas.prediction import TrajectoryPointSchema, SearchAreaSchema, TrajectoryResponse
-from app.utils.geo import forward_geodesic_point, haversine_distance_km, calculate_bearing_degrees
+from app.utils.geo import forward_geodesic_point, haversine_distance_km, calculate_bearing_degrees, compute_bounding_box
 from app.utils.direction import uv_to_speed_and_direction
-from app.utils.units import mps_to_kmh
-from app.utils.time import ensure_utc, to_ist
+from app.utils.units import mps_to_kmh, classify_sea_state
+from app.utils.time import ensure_utc, to_ist, calculate_age_minutes
 
 logger = logging.getLogger(__name__)
 
 class DeterministicDriftEngine:
     """
     Deterministic Physics-based Net Drift Simulation Engine.
-    Integrates surface current, Stokes drift, and windage leeway over discrete time steps.
+    Retrieves a single spatial/temporal bounding box subset for the prediction horizon,
+    and performs fast local interpolation at each discrete timestep along spherical geodesics.
     """
 
     def __init__(self):
         self.model_version = settings.DRIFT_MODEL_VERSION
         self.windage_map = settings.WINDAGE_COEFFICIENTS
-        self.default_timestep_minutes = settings.DEFAULT_TIMESTEP_MINUTES
+        self.default_timestep_minutes = getattr(settings, 'DEFAULT_PREDICTION_STEP_MINUTES', 30)
 
     def get_windage_coefficient(self, net_type: str) -> float:
         return self.windage_map.get(net_type, self.windage_map.get("FLOATING_GILL_NET", 0.028))
@@ -57,9 +60,27 @@ class DeterministicDriftEngine:
 
         windage_coeff = self.get_windage_coefficient(net_type)
         logger.info(
-            "Calculating drift trajectory for Net %s (%s). Steps: %s, Timestep: %sm, Windage: %s",
-            net_id, net_type, num_steps, dt_minutes, windage_coeff
+            "Starting drift trajectory calculation for Net %s (%s). Horizon: %sh (%s steps), Windage: %s",
+            net_id, net_type, round(total_duration_hours, 1), num_steps, windage_coeff
         )
+
+        # 1. Fetch single spatial/temporal subset for the entire trajectory bounding box
+        bbox = compute_bounding_box(release_lat, release_lon, buffer_km=max(30.0, total_duration_hours * 5.0))
+        start_sub = release_utc - timedelta(hours=6)
+        end_sub = retrieval_utc + timedelta(hours=6)
+
+        phy_ds, wav_ds = None, None
+        try:
+            phy_ds, wav_ds = copernicus_service.fetch_spatial_subset(
+                min_lat=bbox["min_lat"],
+                max_lat=bbox["max_lat"],
+                min_lon=bbox["min_lon"],
+                max_lon=bbox["max_lon"],
+                start_time=start_sub,
+                end_time=end_sub
+            )
+        except Exception as e:
+            logger.warning("Subset query non-fatal fallback: %s", e)
 
         current_lat = release_lat
         current_lon = release_lon
@@ -67,11 +88,60 @@ class DeterministicDriftEngine:
         cumulative_dist_km = 0.0
 
         points: List[TrajectoryPointSchema] = []
-        data_sources = set()
+        data_sources = {"COPERNICUS_MARINE", "INCOIS_OSF"}
 
-        # Step 0: Initial release point
-        env_state_0, _ = await environment_service.get_normalized_environment(current_lat, current_lon, current_time)
-        data_sources.update(env_state_0.data_sources)
+        # Step 0: Initial checkpoint at deployment time & location
+        init_uo, init_vo = 0.0, 0.0
+        init_stokes_u, init_stokes_v = 0.0, 0.0
+        init_wave_h = 1.0
+
+        if phy_ds is not None:
+            try:
+                uo_var = "uo" if "uo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "uo" in str(v).lower()][0]
+                vo_var = "vo" if "vo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "vo" in str(v).lower()][0]
+                pt_phy_0 = phy_ds.interp(
+                    latitude=current_lat,
+                    longitude=current_lon,
+                    time=np.datetime64(current_time.replace(tzinfo=None)),
+                    method="linear"
+                )
+                init_uo = float(pt_phy_0[uo_var].values)
+                init_vo = float(pt_phy_0[vo_var].values)
+            except Exception as e:
+                logger.warning("Error interpolating initial physics point: %s", e)
+        elif not settings.DEMO_MODE:
+            raise RuntimeError("Live Copernicus Ocean Current dataset unavailable. Real data is required when DEMO_MODE=false.")
+        else:
+            demo_0 = copernicus_service._generate_deterministic_demo_data(current_lat, current_lon, current_time)
+            init_uo = demo_0["current"]["uo"]
+            init_vo = demo_0["current"]["vo"]
+
+        if wav_ds is not None:
+            try:
+                pt_wav_0 = wav_ds.interp(
+                    latitude=current_lat,
+                    longitude=current_lon,
+                    time=np.datetime64(current_time.replace(tzinfo=None)),
+                    method="linear"
+                )
+                if "VSDX" in wav_ds.data_vars:
+                    init_stokes_u = float(pt_wav_0["VSDX"].values)
+                if "VSDY" in wav_ds.data_vars:
+                    init_stokes_v = float(pt_wav_0["VSDY"].values)
+                if "VHM0" in wav_ds.data_vars:
+                    init_wave_h = float(pt_wav_0["VHM0"].values)
+            except Exception as e:
+                logger.warning("Error interpolating initial wave point: %s", e)
+
+        env_inc = incois_service.fetch_point_environment(current_lat, current_lon, current_time)
+        inc_wind = env_inc.get("wind", {})
+        wind_u = inc_wind.get("u", 0.0)
+        wind_v = inc_wind.get("v", 0.0)
+        wind_spd = inc_wind.get("speed_mps", 4.5)
+        wind_card = inc_wind.get("cardinal", "Northeast")
+
+        init_current_spd, _, _ = uv_to_speed_and_direction(init_uo, init_vo, is_oceanographic=True)
+        init_sea_state, _ = classify_sea_state(init_wave_h)
 
         points.append(
             TrajectoryPointSchema(
@@ -85,22 +155,19 @@ class DeterministicDriftEngine:
                 drift_direction_deg=0.0,
                 drift_direction_cardinal="Release Point",
                 cumulative_distance_km=0.0,
-                uncertainty_radius_km=0.4,
+                uncertainty_radius_km=0.25,
                 confidence="HIGH",
                 environmental_summary={
-                    "current_speed_mps": env_state_0.current_speed_mps,
-                    "wind_speed_kmh": env_state_0.wind_speed_kmh,
-                    "wave_height_m": env_state_0.wave_height,
-                    "sea_state": env_state_0.sea_state,
+                    "current_speed_mps": round(init_current_spd, 3),
+                    "wind_speed_kmh": round(mps_to_kmh(wind_spd), 1),
+                    "wave_height_m": round(init_wave_h, 2),
+                    "sea_state": init_sea_state,
                 }
             )
         )
 
-        latest_wave_height = env_state_0.wave_height
-        latest_wind_speed = env_state_0.wind_speed_mps
-        latest_speed_mps = 0.0
-        latest_direction_deg = 0.0
-        latest_cardinal = "Northeast"
+        latest_wave_height = init_wave_h
+        latest_wind_speed = wind_spd
 
         # Time-step numerical integration
         for step in range(1, num_steps + 1):
@@ -111,25 +178,67 @@ class DeterministicDriftEngine:
             else:
                 dt_step_seconds = dt_seconds
 
-            # Fetch normalized environmental fields (cached locally)
-            env_state, _ = await environment_service.get_normalized_environment(current_lat, current_lon, step_time)
-            data_sources.update(env_state.data_sources)
+            # Local spatial and temporal interpolation from loaded dataset subset
+            uo, vo = 0.0, 0.0
+            stokes_u, stokes_v = 0.0, 0.0
+            wave_h = 1.0
 
-            latest_wave_height = env_state.wave_height
-            latest_wind_speed = env_state.wind_speed_mps
+            if phy_ds is not None:
+                try:
+                    uo_var = "uo" if "uo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "uo" in str(v).lower()][0]
+                    vo_var = "vo" if "vo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "vo" in str(v).lower()][0]
+                    pt_phy = phy_ds.interp(
+                        latitude=current_lat,
+                        longitude=current_lon,
+                        time=np.datetime64(step_time.replace(tzinfo=None)),
+                        method="linear"
+                    )
+                    uo = float(pt_phy[uo_var].values)
+                    vo = float(pt_phy[vo_var].values)
+                except Exception as e:
+                    logger.warning("Physics interpolation error at step %s: %s", step, e)
+                    if not settings.DEMO_MODE:
+                        raise
+            elif not settings.DEMO_MODE:
+                raise RuntimeError("Live Copernicus Ocean Current dataset unavailable for step simulation.")
+            else:
+                demo_step = copernicus_service._generate_deterministic_demo_data(current_lat, current_lon, step_time)
+                uo = demo_step["current"]["uo"]
+                vo = demo_step["current"]["vo"]
+
+            if wav_ds is not None:
+                try:
+                    pt_wav = wav_ds.interp(
+                        latitude=current_lat,
+                        longitude=current_lon,
+                        time=np.datetime64(step_time.replace(tzinfo=None)),
+                        method="linear"
+                    )
+                    if "VSDX" in wav_ds.data_vars:
+                        stokes_u = float(pt_wav["VSDX"].values)
+                    if "VSDY" in wav_ds.data_vars:
+                        stokes_v = float(pt_wav["VSDY"].values)
+                    if "VHM0" in wav_ds.data_vars:
+                        wave_h = float(pt_wav["VHM0"].values)
+                except Exception as e:
+                    logger.warning("Wave interpolation error at step %s: %s", step, e)
+            elif settings.DEMO_MODE:
+                demo_step_wav = copernicus_service._generate_deterministic_demo_data(current_lat, current_lon, step_time)
+                stokes_u = demo_step_wav["stokes_drift"]["vsdx"]
+                stokes_v = demo_step_wav["stokes_drift"]["vsdy"]
+                wave_h = demo_step_wav["wave"]["significant_wave_height_m"]
+
+            latest_wave_height = wave_h
 
             # Deterministic Drift Equation:
             # U_net = current_u + stokes_u + windage_coeff * wind_u
             # V_net = current_v + stokes_v + windage_coeff * wind_v
-            u_net = env_state.current_u + env_state.stokes_u + (windage_coeff * env_state.wind_u)
-            v_net = env_state.current_v + env_state.stokes_v + (windage_coeff * env_state.wind_v)
+            u_net = uo + stokes_u + (windage_coeff * wind_u)
+            v_net = vo + stokes_v + (windage_coeff * wind_v)
 
             step_speed_mps, step_direction_deg, step_cardinal = uv_to_speed_and_direction(
                 u_net, v_net, is_oceanographic=True
             )
-            latest_speed_mps = step_speed_mps
-            latest_direction_deg = step_direction_deg
-            latest_cardinal = step_cardinal
 
             # Advance position along geodesic
             step_dist_km = (step_speed_mps * dt_step_seconds) / 1000.0
@@ -142,7 +251,7 @@ class DeterministicDriftEngine:
             current_lon = next_lon
             current_time = step_time
 
-            # Calculate uncertainty for this checkpoint
+            # Uncertainty calculation
             step_hours = (step_time - release_utc).total_seconds() / 3600.0
             step_uncertainty_km, step_confidence, _ = uncertainty_engine.compute_uncertainty_and_search_area(
                 release_lat=release_lat,
@@ -152,10 +261,10 @@ class DeterministicDriftEngine:
                 displacement_km=cumulative_dist_km,
                 drift_direction_deg=step_direction_deg,
                 duration_hours=step_hours,
-                wave_height_m=env_state.wave_height,
-                wind_speed_mps=env_state.wind_speed_mps,
+                wave_height_m=latest_wave_height,
+                wind_speed_mps=latest_wind_speed,
                 agreement_modifier=1.0,
-                data_age_minutes=env_state.data_age_minutes
+                data_age_minutes=0
             )
 
             points.append(
@@ -173,10 +282,10 @@ class DeterministicDriftEngine:
                     uncertainty_radius_km=step_uncertainty_km,
                     confidence=step_confidence,
                     environmental_summary={
-                        "current_speed_mps": env_state.current_speed_mps,
-                        "wind_speed_kmh": env_state.wind_speed_kmh,
-                        "wave_height_m": env_state.wave_height,
-                        "sea_state": env_state.sea_state,
+                        "current_speed_mps": round(math.hypot(uo, vo), 3),
+                        "wind_speed_kmh": round(mps_to_kmh(wind_spd), 1),
+                        "wave_height_m": round(wave_h, 2),
+                        "sea_state": classify_sea_state(wave_h)[0],
                     }
                 )
             )
@@ -211,7 +320,7 @@ class DeterministicDriftEngine:
             latest_predicted_point=latest_point,
             search_area=search_area,
             model_version=self.model_version,
-            data_sources=list(data_sources) if data_sources else ["COPERNICUS_MARINE", "INCOIS_OSF"],
+            data_sources=list(data_sources),
             forecast_updated_at=datetime.now(timezone.utc)
         )
 

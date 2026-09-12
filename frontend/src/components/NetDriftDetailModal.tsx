@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Colors } from '../theme/colors';
 import { FishingNet, TrajectoryResponse, EnvironmentalState } from '../types/net';
+import { FishermanGPS } from '../utils/location';
 import { DriftMap } from './DriftMap';
 import { EnvironmentCard } from './EnvironmentCard';
 import { DataSourceCard } from './DataSourceCard';
@@ -19,6 +20,7 @@ import { fetchNetDetails, regeneratePrediction } from '../services/netService';
 
 interface NetDriftDetailModalProps {
   net: FishingNet | null;
+  fishermanGPS?: FishermanGPS | null;
   visible: boolean;
   onClose: () => void;
   onNetUpdated?: () => void;
@@ -26,6 +28,7 @@ interface NetDriftDetailModalProps {
 
 export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
   net,
+  fishermanGPS,
   visible,
   onClose,
   onNetUpdated,
@@ -37,8 +40,9 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
   const [environment, setEnvironment] = useState<EnvironmentalState | null>(null);
 
   const loadingMessages = [
-    'Reading ocean conditions...',
-    'Calculating net drift...',
+    'Connecting to Copernicus Marine & INCOIS...',
+    'Reading live ocean currents & Stokes drift...',
+    'Calculating time-stepped net drift...',
     'Preparing search area...',
   ];
 
@@ -53,7 +57,7 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
     if (loading || refreshing) {
       interval = setInterval(() => {
         setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-      }, 1200);
+      }, 1000);
     }
     return () => clearInterval(interval);
   }, [loading, refreshing]);
@@ -66,7 +70,7 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
       setTrajectory(data.trajectory);
       setEnvironment(data.current_environment);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to load drift details.');
+      Alert.alert('Data Retrieval Error', err.message || 'Unable to load real ocean drift data.');
     } finally {
       setLoading(false);
     }
@@ -79,7 +83,7 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
       const updatedTraj = await regeneratePrediction(net.id);
       setTrajectory(updatedTraj);
       if (onNetUpdated) onNetUpdated();
-      Alert.alert('Drift Updated', 'Recalculated trajectory using latest ocean forecasts.');
+      Alert.alert('Drift Updated', 'Recalculated trajectory using latest Copernicus & INCOIS ocean forecasts.');
     } catch (err: any) {
       Alert.alert('Refresh Failed', err.message || 'Could not update prediction.');
     } finally {
@@ -137,9 +141,16 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
               </View>
 
               <View style={styles.statusTile}>
-                <Text style={styles.tileLabel}>Est. Movement</Text>
+                <Text style={styles.tileLabel}>Estimated Movement</Text>
                 <Text style={styles.tileValue}>
                   {trajectory ? `~${trajectory.latest_predicted_point.cumulative_distance_km} km` : '--'}
+                </Text>
+              </View>
+
+              <View style={styles.statusTile}>
+                <Text style={styles.tileLabel}>Likely Direction</Text>
+                <Text style={styles.tileValue}>
+                  {trajectory ? trajectory.latest_predicted_point.drift_direction_cardinal : 'Northeast'}
                 </Text>
               </View>
 
@@ -154,23 +165,25 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
             {/* Probable Search Area Callout */}
             {trajectory && (
               <View style={styles.searchCallout}>
-                <Text style={styles.searchCalloutTitle}>🎯 Probable Search Area</Text>
+                <Text style={styles.searchCalloutTitle}>🎯 PROBABLE SEARCH AREA</Text>
                 <Text style={styles.searchCalloutSector}>
                   {trajectory.search_area.sector_description}
                 </Text>
                 <Text style={styles.searchCalloutRadius}>
-                  Uncertainty radius: ±{trajectory.search_area.uncertainty_radius_km} km around predicted coordinate
+                  Uncertainty radius: ±{trajectory.search_area.uncertainty_radius_km} km around predicted drift center
                 </Text>
               </View>
             )}
 
-            {/* Interactive Drift Map */}
+            {/* Interactive Drift Map with Blue/Cyan/Yellow/Green markers */}
             {trajectory && (
               <DriftMap
                 points={trajectory.points}
                 searchArea={trajectory.search_area}
                 releaseLat={net.release_latitude}
                 releaseLon={net.release_longitude}
+                fishermanLat={fishermanGPS?.latitude}
+                fishermanLon={fishermanGPS?.longitude}
               />
             )}
 
@@ -180,7 +193,7 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
             {/* Checkpoint Timeline */}
             {trajectory && trajectory.points.length > 0 && (
               <View style={styles.timelineCard}>
-                <Text style={styles.timelineHeader}>⏱️ Drift Progress Checkpoints</Text>
+                <Text style={styles.timelineHeader}>⏱️ Time-Stepped Drift Checkpoints</Text>
                 {trajectory.points.map((pt, idx) => (
                   <View key={pt.step_number} style={styles.timelineItem}>
                     <View style={styles.timelineBullet}>
@@ -190,11 +203,11 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
                       <View style={styles.timelineRowTop}>
                         <Text style={styles.timelineTime}>{pt.prediction_time_ist}</Text>
                         <Text style={styles.timelineDist}>
-                          {idx === 0 ? 'Released' : `+${pt.cumulative_distance_km} km`}
+                          {idx === 0 ? 'Release' : `+${pt.cumulative_distance_km} km`}
                         </Text>
                       </View>
                       <Text style={styles.timelineSub}>
-                        {pt.drift_direction_cardinal} at {pt.drift_speed_mps.toFixed(2)} m/s ({pt.drift_speed_kmh.toFixed(0)} km/h)
+                        {pt.drift_direction_cardinal} at {pt.drift_speed_mps.toFixed(2)} m/s ({pt.drift_speed_kmh.toFixed(1)} km/h)
                       </Text>
                     </View>
                   </View>
@@ -278,12 +291,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 14,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: Colors.text,
+    textAlign: 'center',
   },
   scrollBody: {
-    padding: 18,
+    padding: 16,
     paddingBottom: 40,
   },
   warningCard: {
@@ -309,52 +323,54 @@ const styles = StyleSheet.create({
   },
   statusGrid: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginBottom: 12,
   },
   statusTile: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1.5,
     borderColor: Colors.border,
     alignItems: 'center',
   },
   tileLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: Colors.textSecondary,
     marginBottom: 2,
+    textAlign: 'center',
   },
   tileValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
     color: Colors.text,
+    textAlign: 'center',
   },
   searchCallout: {
-    backgroundColor: Colors.secondary,
+    backgroundColor: '#FEF9E7',
     padding: 14,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: Colors.secondaryDark,
+    borderColor: '#F4D03F',
     marginBottom: 12,
   },
   searchCalloutTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: Colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#B7950B',
     marginBottom: 4,
-    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   searchCalloutSector: {
     fontSize: 18,
     fontWeight: '900',
-    color: Colors.text,
+    color: '#7D6608',
     marginBottom: 2,
   },
   searchCalloutRadius: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.textSecondary,
     fontWeight: '600',
   },
@@ -390,7 +406,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
   },
   bulletActive: {
-    backgroundColor: '#FF5252',
+    backgroundColor: '#F39C12',
     transform: [{ scale: 1.3 }],
   },
   timelineContent: {

@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { Colors } from '../theme/colors';
 import { FishingNet, CreateNetPayload } from '../types/net';
+import { FishermanGPS, getCurrentFishermanGPS } from '../utils/location';
 import { NetCard } from '../components/NetCard';
 import { AddNetModal } from '../components/AddNetModal';
+import { FindNetModal } from '../components/FindNetModal';
 import { NetDriftDetailModal } from '../components/NetDriftDetailModal';
 import { fetchActiveNets, createFishingNet } from '../services/netService';
 
@@ -21,8 +23,11 @@ export const MyNetsScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [addModalVisible, setAddModalVisible] = useState<boolean>(false);
+  
   const [selectedNet, setSelectedNet] = useState<FishingNet | null>(null);
-  const [detailModalVisible, setDetailModalVisible] = useState<boolean>(false);
+  const [fishermanGps, setFishermanGps] = useState<FishermanGPS | null>(null);
+  const [findNetModalVisible, setFindNetModalVisible] = useState<boolean>(false);
+  const [driftModalVisible, setDriftModalVisible] = useState<boolean>(false);
 
   useEffect(() => {
     loadNets();
@@ -33,7 +38,7 @@ export const MyNetsScreen: React.FC = () => {
       const data = await fetchActiveNets();
       setNets(data);
     } catch (err: any) {
-      console.log('Error fetching nets, using offline state:', err.message);
+      console.log('Error fetching active nets:', err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -51,9 +56,16 @@ export const MyNetsScreen: React.FC = () => {
     Alert.alert('Net Deployed', `"${created.name}" is now being monitored with drift prediction.`);
   };
 
-  const handleViewDrift = (net: FishingNet) => {
+  const handleOpenFindNet = (net: FishingNet) => {
     setSelectedNet(net);
-    setDetailModalVisible(true);
+    setFindNetModalVisible(true);
+  };
+
+  const handleProceedToDrift = (net: FishingNet, gps: FishermanGPS) => {
+    setFindNetModalVisible(false);
+    setFishermanGps(gps);
+    setSelectedNet(net);
+    setDriftModalVisible(true);
   };
 
   return (
@@ -91,7 +103,7 @@ export const MyNetsScreen: React.FC = () => {
               <Text style={styles.emptyIcon}>🕸️</Text>
               <Text style={styles.emptyTitle}>No Active Nets Deployed</Text>
               <Text style={styles.emptyDesc}>
-                Deploy a floating gill or drifting net to start real-time drift estimation based on INCOIS and Copernicus ocean currents.
+                Deploy a floating gill or drifting net to start real-time drift estimation based on Copernicus Marine and INCOIS ocean currents.
               </Text>
               <TouchableOpacity
                 style={styles.emptyActionBtn}
@@ -105,7 +117,7 @@ export const MyNetsScreen: React.FC = () => {
               <NetCard
                 key={item.id}
                 net={item}
-                onViewDrift={handleViewDrift}
+                onViewDrift={handleOpenFindNet}
               />
             ))
           )}
@@ -119,11 +131,20 @@ export const MyNetsScreen: React.FC = () => {
         onSubmit={handleCreateNet}
       />
 
-      {/* Net Drift Details Modal */}
+      {/* Step 1: Find Your Net & Navigation to Release Point */}
+      <FindNetModal
+        net={selectedNet}
+        visible={findNetModalVisible}
+        onClose={() => setFindNetModalVisible(false)}
+        onProceedToDrift={handleProceedToDrift}
+      />
+
+      {/* Step 2: Net Drift Trajectory & Search Area Details */}
       <NetDriftDetailModal
         net={selectedNet}
-        visible={detailModalVisible}
-        onClose={() => setDetailModalVisible(false)}
+        fishermanGPS={fishermanGps}
+        visible={driftModalVisible}
+        onClose={() => setDriftModalVisible(false)}
         onNetUpdated={loadNets}
       />
     </View>

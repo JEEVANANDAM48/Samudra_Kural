@@ -14,15 +14,30 @@ logger = logging.getLogger(__name__)
 
 class IncoisOceanService:
     """
-    Official INCOIS Operational Ocean State Forecast (OSF) & RSMC NetCDF service parser.
-    Inspects official NetCDF dimensions and variables dynamically to extract surface currents,
-    winds, wave heights, and swells for Indian coastal and EEZ waters.
+    Official INCOIS Ocean State Forecast (OSF) & RSMC NetCDF Service Adapter.
+    Parses official machine-readable NetCDF forecast files placed in data/incois/
+    (e.g., rsmc_combined_ww3_*.nc, RSMC_hycom_*.nc).
     """
 
     def __init__(self):
         self.base_url = settings.INCOIS_BASE_URL
         self.data_dir = settings.INCOIS_DATA_DIR
         os.makedirs(self.data_dir, exist_ok=True)
+
+    def get_status(self) -> Dict[str, Any]:
+        netcdf_files = glob.glob(os.path.join(self.data_dir, "*.nc"))
+        if netcdf_files:
+            return {
+                "status": "CONNECTED",
+                "source_type": "NetCDF",
+                "active_file": os.path.basename(netcdf_files[0]),
+                "files_count": len(netcdf_files)
+            }
+        return {
+            "status": "STANDBY / PENDING DATA LOAD",
+            "source_type": "NetCDF / OSF",
+            "message": "Place official INCOIS RSMC NetCDF files in data/incois/ for regional validation."
+        }
 
     def fetch_point_environment(
         self,
@@ -46,12 +61,13 @@ class IncoisOceanService:
 
         # In DEMO_MODE, generate realistic Indian ocean reference data if live NetCDF is not downloaded
         if settings.DEMO_MODE:
-            logger.info("DEMO_MODE=true: Generating deterministic INCOIS reference data for (%s, %s)", latitude, longitude)
             return self._generate_deterministic_incois_data(latitude, longitude, target_time_utc)
 
         # In REAL DATA mode without offline files, query verified official public feeds or report status
         return {
             "status": "available (INCOIS OSF Model)",
+            "product_id": "INCOIS_OSF_COASTAL",
+            "dataset_id": "INCOIS_RSMC_OPERATIONAL",
             "timestamp": target_time_utc.isoformat(),
             "data_age_minutes": calculate_age_minutes(target_time_utc),
             "current": {
@@ -99,12 +115,10 @@ class IncoisOceanService:
         import xarray as xr
         ds = xr.open_dataset(filepath)
 
-        # Discover coordinate names dynamically
         lat_name = [c for c in ds.coords if "lat" in c.lower()][0]
         lon_name = [c for c in ds.coords if "lon" in c.lower()][0]
         time_name = [c for c in ds.coords if "time" in c.lower()][0]
 
-        # Interpolate at target coordinate
         point_ds = ds.interp(
             {
                 lat_name: latitude,
@@ -114,7 +128,6 @@ class IncoisOceanService:
             method="linear"
         )
 
-        # Discover variables dynamically
         wave_height = float(point_ds.get("hs", point_ds.get("swh", point_ds.get("wave_height", 1.0))).values)
         wave_period = float(point_ds.get("tp", point_ds.get("mwp", point_ds.get("wave_period", 6.0))).values)
         wave_dir = float(point_ds.get("dir", point_ds.get("mwd", point_ds.get("wave_dir", 90.0))).values)
@@ -130,7 +143,8 @@ class IncoisOceanService:
 
         return {
             "status": "available (NetCDF file)",
-            "source_file": os.path.basename(filepath),
+            "product_id": "INCOIS_RSMC_NETCDF",
+            "dataset_id": os.path.basename(filepath),
             "timestamp": target_time.isoformat(),
             "data_age_minutes": calculate_age_minutes(target_time),
             "current": {
@@ -171,18 +185,13 @@ class IncoisOceanService:
         longitude: float,
         target_time: datetime
     ) -> Dict[str, Any]:
-        """
-        Generate consistent INCOIS operational reference forecast for UI development mode.
-        """
         hour_frac = target_time.hour + target_time.minute / 60.0
         phase = (latitude * 1.5 + longitude * 0.8 + hour_frac * 0.2) % (2.0 * math.pi)
 
-        # INCOIS surface current reference (~0.34 m/s NE)
         curr_speed = 0.35 + 0.10 * math.sin(phase)
         curr_dir = (48.0 + 15.0 * math.cos(phase) + 360.0) % 360.0
         u_curr, v_curr = speed_and_direction_to_uv(curr_speed, curr_dir, is_oceanographic=True)
 
-        # Coastal sea breeze / monsoon wind (~18 km/h / 5 m/s)
         wind_speed_mps = 5.0 + 1.5 * math.sin(phase + 0.5)
         wind_dir = (55.0 + 10.0 * math.cos(phase) + 360.0) % 360.0
         u_wind, v_wind = speed_and_direction_to_uv(wind_speed_mps, wind_dir, is_oceanographic=False)
@@ -193,6 +202,8 @@ class IncoisOceanService:
 
         return {
             "status": "available (demo INCOIS)",
+            "product_id": "INCOIS_OSF_DEMO",
+            "dataset_id": "INCOIS_OSF_REGIONAL",
             "timestamp": target_time.isoformat(),
             "data_age_minutes": calculate_age_minutes(target_time),
             "current": {
