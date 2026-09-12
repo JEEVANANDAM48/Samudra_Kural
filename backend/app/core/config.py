@@ -1,4 +1,4 @@
-﻿from typing import Optional
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "samudra_dev_password"
     POSTGRES_DB: str = "samudra_kural"
     ASYNC_DATABASE_URL: Optional[str] = None
+
+    # JWT Settings
+    JWT_SECRET_KEY: str = "samudra_kural_dev_secret_key_change_in_production_32bytes"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     @property
     def database_url(self) -> str:
