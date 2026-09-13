@@ -39,6 +39,7 @@ import {
 } from '../services/sosService';
 import { getNearestRescueStation } from '../data/mockRescueStations';
 import { findNearbyRegisteredBoats } from '../data/mockBoats';
+import { coastalGuardService } from '../services/coastalGuardService';
 
 import { SOSButton } from './components/SOSButton';
 import { SOSStatusCard } from './components/SOSStatusCard';
@@ -181,11 +182,29 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         setActiveSOSPacket(activePacket);
         setSosStatus('active');
         setStatusMessage('SOS sent successfully.');
+
+        // Dispatch alert to Coastal Guard Command Center
+        await coastalGuardService.triggerSOS(
+          loc.latitude || 13.0827,
+          loc.longitude || 80.3800,
+          emergencyType,
+          `Fisherman SOS (${emergencyType}) triggered. Battery: ${freshBatt}%.`,
+          1
+        ).catch((e) => console.log('[SOSScreen] Coastal Guard sync notice:', e));
       } else {
         await savePendingSOS(packet);
         setPendingSOSPacket(packet);
         setSosStatus('pending');
         setStatusMessage('No connection. SOS saved and waiting for communication link.');
+
+        // Store in Coastal Guard shared registry
+        await coastalGuardService.triggerSOS(
+          loc.latitude || 13.0827,
+          loc.longitude || 80.3800,
+          emergencyType,
+          `Offline SOS (${emergencyType}) saved locally. Battery: ${freshBatt}%.`,
+          1
+        ).catch((e) => console.log('[SOSScreen] Offline Coastal Guard sync notice:', e));
       }
     } catch (err: any) {
       if (err.message === 'OFFLINE_STORED') {

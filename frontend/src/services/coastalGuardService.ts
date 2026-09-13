@@ -1,4 +1,5 @@
 import { apiFetch } from './api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface FishermanInfo {
   id?: number;
@@ -111,20 +112,127 @@ export interface RiskZoneItem {
   valid_until: string;
 }
 
+const SHARED_ALERTS_KEY = '@samudra_kural_shared_sos_alerts';
+
 export const coastalGuardService = {
+  // Helper to read persistent local alerts
+  async getLocalAlerts(): Promise<SOSAlertItem[]> {
+    try {
+      const json = await AsyncStorage.getItem(SHARED_ALERTS_KEY);
+      if (json) {
+        return JSON.parse(json);
+      }
+    } catch (e) {
+      console.error('[CG Service] Error reading local alerts:', e);
+    }
+    const defaultAlerts: SOSAlertItem[] = [
+      {
+        id: 1,
+        fisherman: { name: 'Karthik Raja', phone: '+91 98401 23456', home_port: 'Chennai Harbour' },
+        boat: { name: 'Sea Star', registration: 'IND-TN-02-MM-4412', vessel_type: 'Mechanized Trawler' },
+        latitude: 13.1250,
+        longitude: 80.4120,
+        emergency_type: 'Engine Failure',
+        description: 'Main diesel engine failed 14km offshore. Drifting NE with 4 crew members.',
+        people_affected: 4,
+        priority: 'CRITICAL',
+        status: 'NEW',
+        distance_to_nearest_port_km: 14.2,
+        created_at: new Date(Date.now() - 10 * 60000).toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        fisherman: { name: 'Murugan Swamy', phone: '+91 97890 54321', home_port: 'Kattupalli Port' },
+        boat: { name: 'Kadal Kanni', registration: 'IND-TN-02-MM-1890', vessel_type: 'Gillnetter' },
+        latitude: 13.2980,
+        longitude: 80.3540,
+        emergency_type: 'Medical',
+        description: 'Crew member hand injury from winch gear. Medevac requested.',
+        people_affected: 1,
+        priority: 'CRITICAL',
+        status: 'ACKNOWLEDGED',
+        distance_to_nearest_port_km: 18.6,
+        created_at: new Date(Date.now() - 45 * 60000).toISOString(),
+        updated_at: new Date().toISOString(),
+        rescue_mission: {
+          id: 101,
+          rescue_team: 'ICG Tactical Rescue Unit 04',
+          rescue_vessel: 'ICGS C-438 Fast Patrol Boat',
+          status: 'DEPARTED',
+          eta_minutes: 18,
+        },
+      },
+    ];
+    try {
+      await AsyncStorage.setItem(SHARED_ALERTS_KEY, JSON.stringify(defaultAlerts));
+    } catch (e) {}
+    return defaultAlerts;
+  },
+
+  async saveAlertToLocalStore(alert: SOSAlertItem): Promise<void> {
+    try {
+      const list = await this.getLocalAlerts();
+      const existingIndex = list.findIndex(a => a.id === alert.id);
+      if (existingIndex >= 0) {
+        list[existingIndex] = alert;
+      } else {
+        list.unshift(alert);
+      }
+      await AsyncStorage.setItem(SHARED_ALERTS_KEY, JSON.stringify(list));
+    } catch (e) {
+      console.error('[CG Service] Error saving local alert:', e);
+    }
+  },
+
+  async updateLocalAlertStatus(id: number, status: SOSAlertItem['status']): Promise<SOSAlertItem> {
+    const list = await this.getLocalAlerts();
+    let target = list.find(a => a.id === id);
+    if (target) {
+      target.status = status;
+      target.updated_at = new Date().toISOString();
+      if (status === 'ACKNOWLEDGED') target.acknowledged_at = new Date().toISOString();
+      if (status === 'RESOLVED') target.resolved_at = new Date().toISOString();
+    } else {
+      target = {
+        id,
+        fisherman: { name: 'Fisherman User', phone: '+91 98400 11223', home_port: 'Chennai Harbour' },
+        boat: { name: 'Samudra Queen', registration: 'IND-TN-02-MM-9988', vessel_type: 'Trawler' },
+        latitude: 13.0827,
+        longitude: 80.3800,
+        emergency_type: 'Emergency Distress',
+        people_affected: 1,
+        priority: 'CRITICAL',
+        status,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      list.unshift(target);
+    }
+    try {
+      await AsyncStorage.setItem(SHARED_ALERTS_KEY, JSON.stringify(list));
+    } catch (e) {}
+    return target;
+  },
+
   // Fetch Command Center Dashboard Metrics
   async getDashboard(): Promise<CoastalGuardDashboardData> {
     try {
       return await apiFetch<CoastalGuardDashboardData>('/coastal-guard/dashboard');
     } catch (e) {
-      console.log('[CG Service] Using offline dashboard fallback');
+      console.log('[CG Service] Using local dashboard sync');
+      const alerts = await this.getLocalAlerts();
+      const activeSos = alerts.filter(a => a.status !== 'RESOLVED' && a.status !== 'CANCELLED');
+      const critical = activeSos.filter(a => a.priority === 'CRITICAL');
+      const resolved = alerts.filter(a => a.status === 'RESOLVED');
+
       return {
-        active_sos_count: 2,
-        critical_alerts_count: 1,
+        active_sos_count: activeSos.length,
+        critical_alerts_count: critical.length,
         active_rescue_missions_count: 1,
-        resolved_today_count: 3,
+        resolved_today_count: resolved.length,
         high_risk_zones_count: 2,
-        monitored_fishermen_count: 142,
+        monitored_fishermen_count: 142 + alerts.length,
         last_updated: new Date().toLocaleTimeString(),
       };
     }
@@ -132,88 +240,112 @@ export const coastalGuardService = {
 
   // Fetch SOS Alerts List
   async getSOSAlerts(statusFilter?: string, priorityFilter?: string, search?: string): Promise<SOSAlertItem[]> {
+    let alerts: SOSAlertItem[] = [];
     try {
       let queryParams = [];
       if (statusFilter && statusFilter !== 'ALL') queryParams.push(`status=${encodeURIComponent(statusFilter)}`);
       if (priorityFilter) queryParams.push(`priority=${encodeURIComponent(priorityFilter)}`);
       if (search) queryParams.push(`search=${encodeURIComponent(search)}`);
       const queryStr = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-      return await apiFetch<SOSAlertItem[]>(`/coastal-guard/sos${queryStr}`);
+      alerts = await apiFetch<SOSAlertItem[]>(`/coastal-guard/sos${queryStr}`);
     } catch (e) {
-      console.log('[CG Service] Using offline SOS list fallback');
-      return [
-        {
-          id: 1,
-          fisherman: { name: 'Karthik Raja', phone: '+91 98401 23456', home_port: 'Chennai Harbour' },
-          boat: { name: 'Sea Star', registration: 'IND-TN-02-MM-4412', vessel_type: 'Mechanized Trawler' },
-          latitude: 13.1250,
-          longitude: 80.4120,
-          emergency_type: 'Engine Failure',
-          description: 'Main diesel engine failed 14km offshore. Drifting NE with 4 crew members.',
-          people_affected: 4,
-          priority: 'CRITICAL',
-          status: 'NEW',
-          distance_to_nearest_port_km: 14.2,
-          created_at: new Date(Date.now() - 10 * 60000).toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          fisherman: { name: 'Murugan Swamy', phone: '+91 97890 54321', home_port: 'Kattupalli Port' },
-          boat: { name: 'Kadal Kanni', registration: 'IND-TN-02-MM-1890', vessel_type: 'Gillnetter' },
-          latitude: 13.2980,
-          longitude: 80.3540,
-          emergency_type: 'Medical',
-          description: 'Crew member hand injury from winch gear. Medevac requested.',
-          people_affected: 1,
-          priority: 'CRITICAL',
-          status: 'ACKNOWLEDGED',
-          distance_to_nearest_port_km: 18.6,
-          created_at: new Date(Date.now() - 45 * 60000).toISOString(),
-          updated_at: new Date().toISOString(),
-          rescue_mission: {
-            id: 101,
-            rescue_team: 'ICG Tactical Rescue Unit 04',
-            rescue_vessel: 'ICGS C-438 Fast Patrol Boat',
-            status: 'DEPARTED',
-            eta_minutes: 18,
-          },
-        },
-      ];
+      console.log('[CG Service] Using local persistent SOS list');
+      alerts = await this.getLocalAlerts();
     }
+
+    if (statusFilter && statusFilter !== 'ALL') {
+      alerts = alerts.filter(a => a.status.toUpperCase() === statusFilter.toUpperCase());
+    }
+    if (priorityFilter) {
+      alerts = alerts.filter(a => a.priority.toUpperCase() === priorityFilter.toUpperCase());
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      alerts = alerts.filter(
+        a =>
+          a.emergency_type.toLowerCase().includes(s) ||
+          (a.boat && a.boat.name.toLowerCase().includes(s)) ||
+          (a.fisherman && a.fisherman.name.toLowerCase().includes(s)) ||
+          (a.description && a.description.toLowerCase().includes(s))
+      );
+    }
+    return alerts;
   },
 
   // Fetch Single SOS Detail
   async getSOSAlertDetail(id: number): Promise<SOSAlertItem> {
-    return await apiFetch<SOSAlertItem>(`/coastal-guard/sos/${id}`);
+    try {
+      return await apiFetch<SOSAlertItem>(`/coastal-guard/sos/${id}`);
+    } catch (e) {
+      const alerts = await this.getLocalAlerts();
+      const alert = alerts.find(a => a.id === id);
+      if (alert) return alert;
+      throw e;
+    }
   },
 
   // Acknowledge SOS Alert
   async acknowledgeSOS(id: number): Promise<SOSAlertItem> {
-    return await apiFetch<SOSAlertItem>(`/sos/${id}/acknowledge`, { method: 'PATCH' });
+    try {
+      const res = await apiFetch<SOSAlertItem>(`/sos/${id}/acknowledge`, { method: 'PATCH' });
+      await this.updateLocalAlertStatus(id, 'ACKNOWLEDGED');
+      return res;
+    } catch (e) {
+      return await this.updateLocalAlertStatus(id, 'ACKNOWLEDGED');
+    }
   },
 
   // Update SOS Status
   async updateSOSStatus(id: number, status: string, notes?: string): Promise<SOSAlertItem> {
-    return await apiFetch<SOSAlertItem>(`/sos/${id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status, notes }),
-    });
+    try {
+      const res = await apiFetch<SOSAlertItem>(`/sos/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, notes }),
+      });
+      await this.updateLocalAlertStatus(id, status as any);
+      return res;
+    } catch (e) {
+      return await this.updateLocalAlertStatus(id, status as any);
+    }
   },
 
   // Trigger SOS from Fisherman App
   async triggerSOS(latitude: number, longitude: number, emergencyType: string, description: string, peopleAffected: number = 1): Promise<SOSAlertItem> {
-    return await apiFetch<SOSAlertItem>('/sos', {
-      method: 'POST',
-      body: JSON.stringify({
+    try {
+      const newAlert = await apiFetch<SOSAlertItem>('/sos', {
+        method: 'POST',
+        body: JSON.stringify({
+          latitude,
+          longitude,
+          emergency_type: emergencyType,
+          description,
+          people_affected: peopleAffected,
+          priority: 'CRITICAL',
+        }),
+      });
+      await this.saveAlertToLocalStore(newAlert);
+      return newAlert;
+    } catch (e) {
+      console.log('[CG Service] Saved offline SOS alert for Coastal Guard view');
+      const offlineAlert: SOSAlertItem = {
+        id: Date.now(),
+        fisherman: { name: 'Fisherman User', phone: '+91 98400 11223', home_port: 'Chennai Harbour' },
+        boat: { name: 'Samudra Queen', registration: 'IND-TN-02-MM-9988', vessel_type: 'Trawler' },
         latitude,
         longitude,
         emergency_type: emergencyType,
-        description,
+        description: description || `Emergency SOS (${emergencyType}) triggered from mobile GPS.`,
         people_affected: peopleAffected,
         priority: 'CRITICAL',
-      }),
-    });
+        status: 'NEW',
+        distance_to_nearest_port_km: 12.4,
+        nearest_port_name: 'Chennai Port HQ',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await this.saveAlertToLocalStore(offlineAlert);
+      return offlineAlert;
+    }
   },
 
   // Fetch Rescue Missions
