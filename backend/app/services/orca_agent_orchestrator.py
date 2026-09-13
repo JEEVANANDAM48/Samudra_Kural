@@ -213,14 +213,27 @@ class OrcaAgentOrchestrator:
 
         # Optional Agent 10: Net Drift Prediction Agent
         if 10 in assigned_agents:
-            drift_res = drift_engine.predict_drift(lat, lon, env_state)
-            steps.append(AgentExecutionStep(
-                agent_id=10,
-                name="Net Drift Prediction Agent",
-                icon="🕸️",
-                status="info",
-                details=f"Estimated net drift trajectory calculated around ({lat:.2f}N, {lon:.2f}E)"
-            ))
+            try:
+                now = datetime.now(timezone.utc)
+                end = datetime.fromtimestamp(now.timestamp() + 6 * 3600, tz=timezone.utc)
+                drift_res = await drift_engine.calculate_trajectory(
+                    net_id=1,
+                    net_name="Net Drift Target",
+                    net_type="FLOATING_GILL_NET",
+                    release_lat=lat,
+                    release_lon=lon,
+                    release_time=now,
+                    retrieval_time=end
+                )
+                steps.append(AgentExecutionStep(
+                    agent_id=10,
+                    name="Net Drift Prediction Agent",
+                    icon="🕸️",
+                    status="info",
+                    details=f"Estimated net drift trajectory calculated ({drift_res.total_distance_km:.1f} km vector)"
+                ))
+            except Exception as e:
+                logger.warning(f"Drift engine calculation bypassed: {e}")
 
         # Agent 11: Communication & Mutual-Aid Agent
         steps.append(AgentExecutionStep(
