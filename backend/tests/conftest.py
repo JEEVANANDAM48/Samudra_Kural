@@ -15,13 +15,16 @@ async def client():
 
 @pytest.fixture(autouse=True)
 async def cleanup_database():
-    async with engine.begin() as conn:
-        await conn.execute(text("DELETE FROM fishing_locations;"))
-        await conn.execute(text("DELETE FROM boats;"))
-        await conn.execute(text("DELETE FROM fishermen;"))
-    yield
-    async with engine.begin() as conn:
-        await conn.execute(text("DELETE FROM fishing_locations;"))
-        await conn.execute(text("DELETE FROM boats;"))
-        await conn.execute(text("DELETE FROM fishermen;"))
-
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("DELETE FROM fishing_locations;"))
+            await conn.execute(text("DELETE FROM boats;"))
+            await conn.execute(text("DELETE FROM fishermen;"))
+        yield
+        async with engine.begin() as conn:
+            await conn.execute(text("DELETE FROM fishing_locations;"))
+            await conn.execute(text("DELETE FROM boats;"))
+            await conn.execute(text("DELETE FROM fishermen;"))
+    except Exception:
+        # DB not active, allow non-database tests to run
+        yield
