@@ -19,9 +19,19 @@ import * as Clipboard from 'expo-clipboard';
 import * as Location from 'expo-location';
 import { Colors } from '../theme/colors';
 import { SupportedLanguage } from '../types';
+import { useLanguage } from '../i18n';
 import { BottomNavBar } from '../components/BottomNavBar';
-import { askOrcaBot, OrcaChatResponse, HotspotSummary } from '../services/botService';
-import { speakNativeText, stopNativeSpeech, startSpeechToText } from '../utils/speech';
+import { askOrcaBot, OrcaChatResponse, HotspotSummary, transcribeAudio, synthesizeSpeech } from '../services/botService';
+import {
+  speakNativeText,
+  stopNativeSpeech,
+  requestMicrophonePermission,
+  startRealAudioRecording,
+  stopRealAudioRecording,
+  cancelAudioRecording,
+  cleanSpeechText,
+  cleanAnswerForTTS,
+} from '../utils/speech';
 
 const { width } = Dimensions.get('window');
 
@@ -61,9 +71,34 @@ const QUICK_PROMPTS: Record<string, string[]> = {
     'കാറ്റിന്റെ വേഗതയും തിരമാല ഉയരവും എത്രയാണ്?',
   ],
   hi: [
-    'क्या मैं कल चेन्नई से मछली पकड़ने जा सकता हूँ?',
+    'क्या मैं कल चेन्नई से मछली पकड़ने जा सकता हूँ?',
     'निकटतम सर्वोत्तम मत्स्य क्षेत्र कहाँ है?',
     'हवा की गति और लहरों की ऊँचाई कितनी है?',
+  ],
+  mr: [
+    'मी उद्या मासेमारीसाठी समुद्रात जाऊ शकतो का?',
+    'जवळचे सर्वोत्तम मासेमारी क्षेत्र कुठे आहे?',
+    'वाऱ्याचा वेग आणि लाटांची उंची किती आहे?',
+  ],
+  gu: [
+    'શું હું આવતીકાલે માછીમારી માટે જઈ શકું?',
+    'નજીકનો શ્રેષ્ઠ માછીમારી વિસ્તાર ક્યાં છે?',
+    'પવનની ગતિ અને મોજાની ઊંચાઈ કેટલી છે?',
+  ],
+  or: [
+    'ମୁଁ ଆସନ୍ତାକାଲି ମାଛ ଧରିବାକୁ ଯାଇପାରିବି କି?',
+    'ନିକଟତମ ସର୍ବୋତ୍ତମ ମତ୍ସ୍ୟ କ୍ଷେତ୍ର କେଉଁଠାରେ ଅଛି?',
+    'ପବନର ଗତି ଏବଂ ତରଙ୍ଗର ଉଚ୍ଚତା କେତେ?',
+  ],
+  kn: [
+    'ನಾನು ನಾಳೆ ಮೀನುಗಾರಿಕೆಗೆ ಹೋಗಬಹುದೇ?',
+    'ಹತ್ತಿರದ ಅತ್ಯುತ್ತಮ ಮೀನುಗಾರಿಕಾ ವಲಯ ಎಲ್ಲಿದೆ?',
+    'ಗಾಳಿಯ ವೇಗ ಮತ್ತು ಅಲೆಗಳ ಎತ್ತರ ಎಷ್ಟು?',
+  ],
+  bn: [
+    'আমি কি আগামীকাল মাছ ধরতে যেতে পারি?',
+    'কাছাকাছি সেরা মাছ ধরার অঞ্চল কোথায়?',
+    'বাতাসের গতি এবং ঢেউয়ের উচ্চতা কত?',
   ],
   en: [
     'Can I go fishing tomorrow from Chennai, and where should I go?',
@@ -74,19 +109,22 @@ const QUICK_PROMPTS: Record<string, string[]> = {
 };
 
 export const BotScreen: React.FC<BotScreenProps> = ({
-  currentLanguage = 'ta',
+  currentLanguage,
   onBack,
   onNavigateToHotspot,
   onTabPress,
 }) => {
-  const [lang, setLang] = useState<string>(currentLanguage);
+  const { language: globalLang, setLanguage, t } = useLanguage();
+  const lang = (globalLang || currentLanguage || 'en') as SupportedLanguage;
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [isSpeaking, setIsSpeaking] = useState<string | null>(null);
+  const [ttsLoadingId, setTtsLoadingId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState({ lat: 13.0827, lon: 80.3800 });
-  const [expandedTraceId, setExpandedTraceId] = useState<string | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const micPulseAnim = useRef(new Animated.Value(1)).current;
@@ -104,21 +142,32 @@ export const BotScreen: React.FC<BotScreenProps> = ({
           .catch(() => {});
       }
     });
-
-    // Initial Welcome Message
-    const welcomeText = lang === 'ta'
-      ? 'வணக்கம்! நான் சமுத்திர குரல் ORCA 12-AI ஏஜென்ட் உதவியாளன். நீங்கள் குரல் மூலமாகவோ அல்லது தட்டச்சு மூலமாகவோ என்னிடம் கேள்விகள் கேட்கலாம்.'
-      : 'Hello! I am Samudra Kural ORCA 12-AI Marine Assistant. Ask me any question via Voice or Text in your native language!';
-    
-    setMessages([
-      {
-        id: 'msg-welcome',
-        sender: 'bot',
-        text: welcomeText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
   }, []);
+
+  // Stop audio speech when navigating away from screen
+  useEffect(() => {
+    return () => {
+      stopNativeSpeech();
+    };
+  }, []);
+
+  // Update welcome message whenever active language changes
+  useEffect(() => {
+    const welcomeText = t('botWelcome');
+    setMessages((prev) => {
+      if (prev.length <= 1) {
+        return [
+          {
+            id: 'msg-welcome',
+            sender: 'bot',
+            text: welcomeText,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ];
+      }
+      return prev;
+    });
+  }, [lang]);
 
   useEffect(() => {
     if (isRecording) {
@@ -133,9 +182,11 @@ export const BotScreen: React.FC<BotScreenProps> = ({
     }
   }, [isRecording]);
 
-  const handleSend = async (queryText?: string, isVoiceInput: boolean = false) => {
+  const handleSend = async (queryText?: string, isVoiceInput: boolean = false, detectedLanguage?: string) => {
     const textToSend = (queryText || inputText).trim();
     if (!textToSend || loading) return;
+
+    const activeLanguage = detectedLanguage || lang;
 
     const userMsgId = `user-${Date.now()}`;
     const newMsg: ChatMessage = {
@@ -158,7 +209,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
         userLocation.lat,
         userLocation.lon,
         'Trawler',
-        lang
+        activeLanguage
       );
 
       const botMsgId = `bot-${Date.now()}`;
@@ -171,11 +222,15 @@ export const BotScreen: React.FC<BotScreenProps> = ({
       };
 
       setMessages((prev) => [...prev, botMsg]);
-      setExpandedTraceId(botMsgId);
 
       // Automatically speak native speech if user asked via Voice
-      if (isVoiceInput && response.voice_speech_text) {
-        handlePlaySpeech(botMsgId, response.voice_speech_text, response.voice_audio_base64);
+      if (isVoiceInput && (response.response_text || response.voice_speech_text)) {
+        handlePlaySpeech(
+          botMsgId,
+          response.response_text || response.voice_speech_text,
+          response.voice_audio_base64,
+          activeLanguage
+        );
       }
     } catch (error) {
       console.error('Error fetching ORCA bot response:', error);
@@ -186,62 +241,122 @@ export const BotScreen: React.FC<BotScreenProps> = ({
     }
   };
 
-  const handleSimulatedVoiceRecord = () => {
+  const handleVoiceRecordToggle = async () => {
     if (isRecording) {
+      // User tapped Stop
       setIsRecording(false);
+      setIsTranscribing(true);
+
+      try {
+        const audioData = await stopRealAudioRecording();
+        if (!audioData) {
+          Alert.alert('Voice Input', 'No voice audio was captured. Please try speaking again.');
+          setIsTranscribing(false);
+          return;
+        }
+
+        if (audioData.durationMs && audioData.durationMs < 600) {
+          Alert.alert('Voice Input', 'Recording was too short. Please speak clearly for at least 1–2 seconds.');
+          setIsTranscribing(false);
+          return;
+        }
+
+        // Pass the user's active selected language (e.g. 'ta') so STT recognizes in that language
+        const res = await transcribeAudio(audioData, lang || 'ta');
+        if (res.success && res.transcript && res.transcript.trim()) {
+          const recognizedText = res.transcript.trim();
+          const detectedLang = res.language && res.language !== 'unknown' ? res.language : lang;
+          console.log('[Voice STT] Recognized:', recognizedText, 'Language:', detectedLang);
+          setIsTranscribing(false);
+          // Automatically send the recognized speech with the detected language to ORCA
+          handleSend(recognizedText, true, detectedLang);
+        } else {
+          Alert.alert(
+            'Speech Recognition',
+            res.message || 'Could not understand audio. Please speak clearly and try again.'
+          );
+          setIsTranscribing(false);
+        }
+      } catch (err: any) {
+        console.error('STT error:', err);
+        Alert.alert(
+          'Voice Recognition Error',
+          err.message || 'Failed to transcribe audio. Please check network connection.'
+        );
+        setIsTranscribing(false);
+      }
       return;
     }
 
-    setIsRecording(true);
-    let captured = false;
-
-    // Start live web/native speech recognition in selected language
-    const stopListener = startSpeechToText(
-      lang,
-      (transcript) => {
-        captured = true;
-        setIsRecording(false);
-        if (transcript && transcript.trim()) {
-          handleSend(transcript.trim(), true);
-        }
-      },
-      (err) => {
-        console.log('Speech recognition fallback notice:', err);
-        if (!captured) {
-          // If live STT API is restricted on local environment, fall back gracefully to user prompt query
-          setTimeout(() => {
-            setIsRecording(false);
-            const sampleQueries = QUICK_PROMPTS[lang] || QUICK_PROMPTS['ta'];
-            const recognizedText = sampleQueries[0];
-            handleSend(recognizedText, true);
-          }, 2000);
-        }
+    // User tapped Record
+    try {
+      const hasPermission = await requestMicrophonePermission();
+      if (!hasPermission) {
+        Alert.alert(
+          'Microphone Permission Required',
+          'Microphone permission is required for voice input.'
+        );
+        return;
       }
-    );
 
-    // Timeout safety fallback
-    setTimeout(() => {
-      if (!captured && isRecording) {
-        stopListener();
-        setIsRecording(false);
-      }
-    }, 8000);
+      await startRealAudioRecording();
+      setIsRecording(true);
+    } catch (err: any) {
+      console.error('Failed to start audio recording:', err);
+      Alert.alert('Microphone Error', err.message || 'Could not access microphone.');
+      setIsRecording(false);
+    }
   };
 
-  const handlePlaySpeech = (msgId: string, speechText: string, base64Audio?: string) => {
+  const handlePlaySpeech = async (
+    msgId: string,
+    speechText: string,
+    existingBase64?: string,
+    spokenLang?: string
+  ) => {
     if (isSpeaking === msgId) {
-      stopNativeSpeech();
+      await stopNativeSpeech();
       setIsSpeaking(null);
       return;
     }
 
+    await stopNativeSpeech();
+    setIsSpeaking(null);
+
+    const activeSpeechLang = spokenLang || lang;
+    const cleanSpeech = cleanAnswerForTTS(speechText);
+    let audioToPlay = existingBase64;
+
+    // If audio is not yet synthesized, fetch from Sarvam TTS backend
+    if (!audioToPlay) {
+      setTtsLoadingId(msgId);
+      try {
+        const res = await synthesizeSpeech(cleanSpeech, activeSpeechLang);
+        if (res.status === 'success' && res.audio_base64) {
+          audioToPlay = res.audio_base64;
+          // Cache audio in message state so future taps play instantly
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === msgId && m.botData
+                ? { ...m, botData: { ...m.botData, voice_audio_base64: audioToPlay } }
+                : m
+            )
+          );
+        }
+      } catch (err) {
+        console.warn('Sarvam TTS synthesis error:', err);
+      } finally {
+        setTtsLoadingId(null);
+      }
+    }
+
     setIsSpeaking(msgId);
     speakNativeText(
-      speechText,
-      lang,
+      cleanSpeech,
+      activeSpeechLang,
       () => setIsSpeaking(msgId),
       () => setIsSpeaking(null),
-      base64Audio
+      audioToPlay
     );
   };
 
@@ -291,36 +406,42 @@ export const BotScreen: React.FC<BotScreenProps> = ({
             resizeMode="cover"
           />
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Ask Bot (ORCA 12-AI)</Text>
+            <Text style={styles.headerTitle}>{t('askBot')}</Text>
             <Text style={styles.headerSubtitle}>Real-Time Satellite & Marine Intelligence</Text>
           </View>
-        </View>
-
-        <View style={styles.onlineBadge}>
-          <Text style={styles.onlineDot}>🟢</Text>
-          <Text style={styles.onlineText}>12 AGENTS LIVE</Text>
         </View>
       </View>
 
       {/* Language Selector Chips */}
       <View style={styles.langBar}>
-        {[
-          { code: 'ta', label: 'தமிழ்' },
-          { code: 'en', label: 'English' },
-          { code: 'te', label: 'తెలుగు' },
-          { code: 'ml', label: 'മലയാളം' },
-          { code: 'hi', label: 'हिंदी' },
-        ].map((item) => (
-          <TouchableOpacity
-            key={item.code}
-            style={[styles.langChip, lang === item.code && styles.langChipActive]}
-            onPress={() => setLang(item.code)}
-          >
-            <Text style={[styles.langChipTxt, lang === item.code && styles.langChipTxtActive]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.langBarContent}
+        >
+          {[
+            { code: 'en', label: 'English' },
+            { code: 'ta', label: 'தமிழ்' },
+            { code: 'hi', label: 'हिन्दी' },
+            { code: 'mr', label: 'मराठी' },
+            { code: 'gu', label: 'ગુજરાતી' },
+            { code: 'or', label: 'ଓଡ଼ିଆ' },
+            { code: 'te', label: 'తెలుగు' },
+            { code: 'ml', label: 'മലയാളം' },
+            { code: 'kn', label: 'ಕನ್ನಡ' },
+            { code: 'bn', label: 'বাংলা' },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.code}
+              style={[styles.langChip, lang === item.code && styles.langChipActive]}
+              onPress={() => setLanguage(item.code as SupportedLanguage)}
+            >
+              <Text style={[styles.langChipTxt, lang === item.code && styles.langChipTxtActive]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Scrollable Message List */}
@@ -341,7 +462,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
                 <View style={styles.userBubble}>
                   <View style={styles.userBubbleHeader}>
                     <Text style={styles.userBubbleTxt}>{msg.text}</Text>
-                    {msg.isVoice && <Text style={styles.voiceBadge}>🎤 Spoken Voice</Text>}
+                    {msg.isVoice && <Text style={styles.voiceBadge}>{t('spokenVoiceBadge')}</Text>}
                   </View>
                   <Text style={styles.userTimeTxt}>{msg.timestamp}</Text>
                 </View>
@@ -369,47 +490,65 @@ export const BotScreen: React.FC<BotScreenProps> = ({
                   <Text style={styles.botCardTxt}>{msg.text}</Text>
 
                   {/* Native Language Audio Playback Speaker Button */}
-                  {data && data.voice_speech_text && (
+                  {data && (data.response_text || data.voice_speech_text) && (
                     <TouchableOpacity
                       style={[
                         styles.voicePlayBtn,
                         isSpeaking === msg.id && styles.voicePlayBtnActive,
+                        ttsLoadingId === msg.id && { opacity: 0.8 },
                       ]}
-                      onPress={() => handlePlaySpeech(msg.id, data.voice_speech_text, data.voice_audio_base64)}
+                      disabled={ttsLoadingId === msg.id}
+                      onPress={() =>
+                        handlePlaySpeech(
+                          msg.id,
+                          data.response_text || data.voice_speech_text || msg.text,
+                          data.voice_audio_base64,
+                          data.language || lang
+                        )
+                      }
                     >
-                      <Text style={styles.voicePlayIcon}>
-                        {isSpeaking === msg.id ? '⏹️ Stop Voice' : '🔊 Listen in Native Voice'}
-                      </Text>
-                      <Text style={styles.voicePlaySub}>
-                        {isSpeaking === msg.id ? 'Playing audio...' : 'Text-to-Speech audio recommendation'}
-                      </Text>
+                      {ttsLoadingId === msg.id ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <ActivityIndicator size="small" color={Colors.primaryDark} />
+                          <Text style={styles.voicePlayIcon}>⏳ {t('playingAudio') || 'Generating voice...'}</Text>
+                        </View>
+                      ) : (
+                        <>
+                          <Text style={styles.voicePlayIcon}>
+                            {isSpeaking === msg.id ? t('stopVoice') : t('listenNativeVoice')}
+                          </Text>
+                          <Text style={styles.voicePlaySub}>
+                            {isSpeaking === msg.id ? t('playingAudio') : t('ttsSub')}
+                          </Text>
+                        </>
+                      )}
                     </TouchableOpacity>
                   )}
 
                   {/* Real-Time Ocean Telemetry Grid */}
                   {data && data.telemetry && (
                     <View style={styles.telemetrySection}>
-                      <Text style={styles.secHeading}>📡 LIVE SATELLITE & SEA TELEMETRY</Text>
+                      <Text style={styles.secHeading}>📡 {t('liveTelemetryHeading')}</Text>
                       <View style={styles.telemGrid}>
                         <View style={styles.telemCell}>
                           <Text style={styles.telemIcon}>💨</Text>
                           <Text style={styles.telemVal}>{data.telemetry.wind_kmh} km/h</Text>
-                          <Text style={styles.telemLabel}>Wind ({data.telemetry.wind_direction})</Text>
+                          <Text style={styles.telemLabel}>{t('wind')} ({data.telemetry.wind_direction})</Text>
                         </View>
                         <View style={styles.telemCell}>
                           <Text style={styles.telemIcon}>🌊</Text>
                           <Text style={styles.telemVal}>{data.telemetry.wave_height_m} m</Text>
-                          <Text style={styles.telemLabel}>Wave Height</Text>
+                          <Text style={styles.telemLabel}>{t('waveHeight')}</Text>
                         </View>
                         <View style={styles.telemCell}>
                           <Text style={styles.telemIcon}>🌡️</Text>
                           <Text style={styles.telemVal}>{data.telemetry.sea_surface_temp_c || 28.3}°C</Text>
-                          <Text style={styles.telemLabel}>Sea Surface Temp</Text>
+                          <Text style={styles.telemLabel}>{t('seaSurfaceTempLabel')}</Text>
                         </View>
                         <View style={styles.telemCell}>
                           <Text style={styles.telemIcon}>🚤</Text>
                           <Text style={styles.telemVal}>{data.telemetry.ocean_current_knots || 0.8} kts</Text>
-                          <Text style={styles.telemLabel}>Current ({data.telemetry.ocean_current_direction || 'NE'})</Text>
+                          <Text style={styles.telemLabel}>{t('oceanCurrentLabel')} ({data.telemetry.ocean_current_direction || 'NE'})</Text>
                         </View>
                       </View>
                     </View>
@@ -423,7 +562,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
                         <View style={{ flex: 1 }}>
                           <Text style={styles.hotspotName}>{data.suggested_hotspot.name}</Text>
                           <Text style={styles.hotspotSub}>
-                            📍 {data.suggested_hotspot.distance_km} km {data.suggested_hotspot.cardinal_direction} | Depth: {data.suggested_hotspot.depth_meters}m
+                            📍 {data.suggested_hotspot.distance_km} km {data.suggested_hotspot.cardinal_direction} | {t('depth')}: {data.suggested_hotspot.depth_meters}{t('meters')}
                           </Text>
                         </View>
                       </View>
@@ -441,46 +580,8 @@ export const BotScreen: React.FC<BotScreenProps> = ({
                         activeOpacity={0.8}
                         onPress={() => handleNavigateMap(data.suggested_hotspot!)}
                       >
-                        <Text style={styles.navMapBtnTxt}>🧭 SHOW ROUTE ON OCEAN MAP</Text>
+                        <Text style={styles.navMapBtnTxt}>🧭 {t('showRouteOceanMap')}</Text>
                       </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {/* ORCA 12-Agent Execution Pipeline Trace */}
-                  {data && data.agent_steps && (
-                    <View style={styles.traceContainer}>
-                      <TouchableOpacity
-                        style={styles.traceHeader}
-                        onPress={() =>
-                          setExpandedTraceId(expandedTraceId === msg.id ? null : msg.id)
-                        }
-                      >
-                        <Text style={styles.traceTitle}>
-                          ⚡ ORCA 12-Agent Execution Trace ({data.agent_steps.length} Agents)
-                        </Text>
-                        <Text style={styles.traceChevron}>
-                          {expandedTraceId === msg.id ? '▲ Hide' : '▼ View Trace'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {expandedTraceId === msg.id && (
-                        <View style={styles.traceBody}>
-                          {data.agent_steps.map((step) => (
-                            <View key={step.agent_id} style={styles.traceStepItem}>
-                              <Text style={styles.traceStepIcon}>{step.icon}</Text>
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.traceStepName}>
-                                  Agent {step.agent_id}: {step.name}
-                                </Text>
-                                <Text style={styles.traceStepDetails}>{step.details}</Text>
-                              </View>
-                              <Text style={styles.traceStepStatus}>
-                                {step.status === 'success' ? '✓' : 'ℹ'}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
                     </View>
                   )}
 
@@ -495,7 +596,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
           <View style={styles.loadingBox}>
             <ActivityIndicator size="small" color={Colors.primary} />
             <Text style={styles.loadingTxt}>
-              🤖 ORCA 12 AI Agents analyzing real-time INCOIS satellite & weather data...
+              🌊 Samudra Kural is analyzing real-time ocean & weather conditions...
             </Text>
           </View>
         )}
@@ -506,7 +607,17 @@ export const BotScreen: React.FC<BotScreenProps> = ({
         <View style={styles.recordingBar}>
           <Animated.View style={[styles.recDot, { transform: [{ scale: micPulseAnim }] }]} />
           <Text style={styles.recTxt}>
-            🎙️ Listening to Voice in {lang === 'ta' ? 'Tamil' : 'Native Language'}... Speak now!
+            🔴 Recording voice... Tap mic button to stop
+          </Text>
+        </View>
+      )}
+
+      {/* Voice Transcribing Notice */}
+      {isTranscribing && (
+        <View style={[styles.recordingBar, { backgroundColor: '#2563EB' }]}>
+          <ActivityIndicator size="small" color="#FFFFFF" />
+          <Text style={styles.recTxt}>
+            ⏳ Transcribing voice with Sarvam AI...
           </Text>
         </View>
       )}
@@ -530,21 +641,26 @@ export const BotScreen: React.FC<BotScreenProps> = ({
       <View style={styles.inputContainer}>
         {/* Microphone Button */}
         <TouchableOpacity
-          style={[styles.micBtn, isRecording && styles.micBtnActive]}
+          style={[
+            styles.micBtn,
+            isRecording && styles.micBtnActive,
+            isTranscribing && { backgroundColor: '#64748B', borderColor: '#475569' },
+          ]}
           activeOpacity={0.8}
-          onPress={handleSimulatedVoiceRecord}
+          disabled={isTranscribing}
+          onPress={handleVoiceRecordToggle}
         >
-          <Text style={styles.micIcon}>{isRecording ? '⏹️' : '🎙️'}</Text>
+          {isTranscribing ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.micIcon}>{isRecording ? '⏹️' : '🎙️'}</Text>
+          )}
         </TouchableOpacity>
 
         {/* Text Input */}
         <TextInput
           style={styles.textInput}
-          placeholder={
-            lang === 'ta'
-              ? 'கேள்வி கேட்கவும் (தமிழ் அல்லது குரல்)...'
-              : 'Ask a question in your native language...'
-          }
+          placeholder={t('askMarineQuestionPlaceholder')}
           placeholderTextColor={Colors.textSecondary}
           value={inputText}
           onChangeText={setInputText}
@@ -571,7 +687,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
           } else if (tabId === 'home' || tabId === 'nets') {
             if (onBack) onBack();
           } else if (tabId === 'sos') {
-            Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
+            Alert.alert(t('emergencySosTitle'), t('emergencySosMsg'));
           }
         }}
         currentLanguage={lang as SupportedLanguage}
@@ -648,13 +764,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   langBar: {
-    flexDirection: 'row',
     backgroundColor: Colors.surface,
-    paddingHorizontal: 12,
     paddingVertical: 8,
-    gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  langBarContent: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    gap: 8,
   },
   langChip: {
     paddingHorizontal: 12,
@@ -764,9 +882,10 @@ const styles = StyleSheet.create({
   },
   botCardTxt: {
     color: Colors.text,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 14.5,
+    lineHeight: 23,
     fontWeight: '500',
+    letterSpacing: 0.15,
     marginBottom: 14,
   },
   voicePlayBtn: {
@@ -888,57 +1007,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '900',
-  },
-  traceContainer: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 10,
-    overflow: 'hidden',
-  },
-  traceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#E0F2FE',
-  },
-  traceTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.primaryDark,
-  },
-  traceChevron: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  traceBody: {
-    padding: 10,
-    gap: 8,
-  },
-  traceStepItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  traceStepIcon: {
-    fontSize: 14,
-  },
-  traceStepName: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  traceStepDetails: {
-    fontSize: 10,
-    color: Colors.textSecondary,
-  },
-  traceStepStatus: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#10B981',
   },
   botTimeTxt: {
     fontSize: 10,

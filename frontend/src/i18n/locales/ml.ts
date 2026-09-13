@@ -268,6 +268,25 @@ export const ml: Record<TranslationKeys, string> = {
   compassCourse: "കോമ്പസ് ദിശ",
   sstHeatmap: "താപനില മാപ്പ് (SST)",
   bathymetry: "ആഴ വിവരങ്ങൾ",
-  chlorophyllA: "ക്ലോറോഫിൽ-എ"
+  chlorophyllA: "ക്ലോറോഫിൽ-എ",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 ഏജന്റുകൾ തത്സമയമാണ്",
+  liveTelemetryHeading: "ലൈവ് ഉപഗ്രഹ & സമുദ്ര ടെലിമെട്രി",
+  showRouteOceanMap: "സമുദ്ര മാപ്പിൽ റൂട്ട് കാണിക്കുക",
+  spokenVoiceBadge: "🎤 സംസാരിച്ച ശബ്ദം",
+  listenNativeVoice: "🔊 മാതൃഭാഷയിൽ കേൾക്കുക",
+  stopVoice: "⏹️ ശബ്ദം നിർത്തുക",
+  playingAudio: "ശബ്ദം കേൾക്കുന്നു...",
+  ttsSub: "ശബ്ദത്തിലൂടെയുള്ള നിർദ്ദേശം",
+  aiMarineAssistant: "AI സമുദ്ര സഹായി",
+  botWelcome: "നമസ്കാരം! ഞാൻ സമുദ്ര കുരൽ ORCA 12-AI ഏജന്റ് സഹായിയാണ്. ശബ്ദത്തിലൂടെയോ എഴുതിക്കൊണ്ടോ നിങ്ങൾക്ക് എന്തും ചോദിക്കാം!",
+  askMarineQuestionPlaceholder: "ശബ്ദത്തിലൂടെയോ ടൈപ്പ് ചെയ്തോ ചോദിക്കുക...",
+  typeQuestionPlaceholder: "ചോദ്യം ടൈപ്പ് ചെയ്യുക...",
+  quickPromptsTitle: "പെട്ടെന്നുള്ള ചോദ്യങ്ങൾ",
+  emergencySosTitle: "അടിയന്തിര SOS",
+  emergencySosMsg: "തീരസംരക്ഷണ സേനയ്ക്കും അടുത്തുള്ള ബോട്ടുകൾക്കും അടിയന്തര സന്ദേശം കൈമാറി.",
+  seaSurfaceTempLabel: "സമുദ്ര ഉപരിതല താപനില",
+  oceanCurrentLabel: "നീരൊഴുക്ക്"
 };
 

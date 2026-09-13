@@ -1,10 +1,25 @@
 import { Platform } from 'react-native';
 
+// Safe dynamic imports that will NEVER throw fatal top-level native module crashes
 let ExpoSpeech: any = null;
 try {
   ExpoSpeech = require('expo-speech');
 } catch (e) {
   ExpoSpeech = null;
+}
+
+let ExpoAudio: any = null;
+try {
+  ExpoAudio = require('expo-audio');
+} catch (e) {
+  ExpoAudio = null;
+}
+
+let ExpoAV: any = null;
+try {
+  ExpoAV = require('expo-av');
+} catch (e) {
+  ExpoAV = null;
 }
 
 const LANGUAGE_VOICE_MAP: Record<string, string> = {
@@ -13,35 +28,204 @@ const LANGUAGE_VOICE_MAP: Record<string, string> = {
   ml: 'ml-IN',
   hi: 'hi-IN',
   en: 'en-IN',
+  mr: 'mr-IN',
+  gu: 'gu-IN',
+  or: 'od-IN',
+  kn: 'kn-IN',
+  bn: 'bn-IN',
 };
 
-let activeAudioElement: any = null;
+export type RecordingState = 'IDLE' | 'RECORDING' | 'PROCESSING' | 'TRANSCRIBED' | 'ERROR';
 
-export function playBase64Audio(
+export interface RecordedAudioResult {
+  uri?: string;
+  blob?: Blob;
+  durationMs: number;
+  fileSizeBytes?: number;
+  mimeType: string;
+  filename: string;
+}
+
+let activeAudioElement: any = null;
+let activeRecordingState: RecordingState = 'IDLE';
+let recordingStartTime: number = 0;
+let activeExpoAudioRecorder: any = null;
+let activeExpoAvRecording: any = null;
+let webMediaRecorder: any = null;
+let webAudioChunks: Blob[] = [];
+
+export function getRecordingState(): RecordingState {
+  return activeRecordingState;
+}
+
+let activeNativePlayer: any = null;
+
+export async function playBase64Audio(
   base64Audio: string,
   onStart?: () => void,
   onDone?: () => void
-): boolean {
+): Promise<boolean> {
+  if (!base64Audio || !base64Audio.trim()) return false;
+
   try {
-    if (activeAudioElement) {
-      activeAudioElement.pause();
-      activeAudioElement = null;
+    await stopNativeSpeech();
+
+    const dataUri = `data:audio/wav;base64,${base64Audio}`;
+
+    // Web Playback
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const AudioConstructor = (window as any).Audio;
+      if (AudioConstructor) {
+        const audio = new AudioConstructor(dataUri);
+        activeAudioElement = audio;
+        if (onStart) onStart();
+        audio.onended = () => {
+          activeAudioElement = null;
+          if (onDone) onDone();
+        };
+        audio.onerror = () => {
+          activeAudioElement = null;
+          if (onDone) onDone();
+        };
+        audio.play().catch(() => {
+          activeAudioElement = null;
+          if (onDone) onDone();
+        });
+        return true;
+      }
     }
 
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const audioUrl = `data:audio/wav;base64,${base64Audio}`;
-      const audio = new Audio(audioUrl);
-      activeAudioElement = audio;
-      if (onStart) onStart();
-      audio.onended = () => { if (onDone) onDone(); };
-      audio.onerror = () => { if (onDone) onDone(); };
-      audio.play().catch(() => { if (onDone) onDone(); });
-      return true;
+    // Native Playback via expo-audio (Expo SDK 57 / Expo Go)
+    if (ExpoAudio && (ExpoAudio.createAudioPlayer || ExpoAudio.AudioModule?.AudioPlayer)) {
+      try {
+        if (ExpoAudio.setAudioModeAsync) {
+          await ExpoAudio.setAudioModeAsync({
+            playsInSilentMode: true,
+            allowsRecording: false,
+          });
+        }
+
+        let player: any = null;
+        if (ExpoAudio.createAudioPlayer) {
+          player = ExpoAudio.createAudioPlayer(dataUri);
+        } else if (ExpoAudio.AudioModule?.AudioPlayer) {
+          player = new ExpoAudio.AudioModule.AudioPlayer(dataUri, 500, false, 0);
+        }
+
+        if (player) {
+          activeNativePlayer = player;
+          if (onStart) onStart();
+
+          player.addListener('playbackStatusUpdate', (status: any) => {
+            if (status.isLoaded && !status.playing && status.currentTime > 0 && status.duration > 0 && Math.abs(status.currentTime - status.duration) < 0.6) {
+              if (activeNativePlayer === player) {
+                activeNativePlayer = null;
+              }
+              try { player.remove(); } catch (e) {}
+              if (onDone) onDone();
+            }
+          });
+
+          player.play();
+          return true;
+        }
+      } catch (err) {
+        console.warn('[Voice Playback] expo-audio player failed, trying fallback:', err);
+      }
+    }
+
+    // Native Playback Fallback via expo-av
+    if (ExpoAV && ExpoAV.Audio && ExpoAV.Audio.Sound) {
+      try {
+        const { sound } = await ExpoAV.Audio.Sound.createAsync(
+          { uri: dataUri },
+          { shouldPlay: true }
+        );
+        activeNativePlayer = sound;
+        if (onStart) onStart();
+
+        sound.setOnPlaybackStatusUpdate((status: any) => {
+          if (status.didJustFinish) {
+            if (activeNativePlayer === sound) {
+              activeNativePlayer = null;
+            }
+            sound.unloadAsync().catch(() => {});
+            if (onDone) onDone();
+          }
+        });
+        return true;
+      } catch (err) {
+        console.warn('[Voice Playback] expo-av Sound error:', err);
+      }
     }
   } catch (err) {
     console.warn('Base64 audio playback failed:', err);
   }
   return false;
+}
+
+export function cleanSpeechText(rawText: string): string {
+  if (!rawText) return '';
+  
+  // 1. Remove markdown markers and non-speech symbols
+  let text = rawText
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, '') // Strip emojis for natural voice synthesis
+    .replace(/[•●▪■◆★☆▶►]/g, '');
+
+  // 2. Process line by line to ensure natural speech pauses at bullet points and line breaks
+  const lines = text.split(/\r?\n/);
+  const processedLines: string[] = [];
+
+  for (let line of lines) {
+    line = line.replace(/^[\s\-\*\>]+/, '').trim();
+    if (!line) continue;
+    // If the line doesn't end with terminal punctuation, add a period for natural speech cadence
+    if (!/[.!?:,;।॥]$/.test(line)) {
+      line += '.';
+    }
+    processedLines.push(line);
+  }
+
+  return processedLines.join(' ');
+}
+
+/**
+ * Prepares clean natural text for TTS speech synthesis.
+ * Strips formatting, markdown, debug labels, while keeping numbers and measurements intact.
+ */
+export function cleanAnswerForTTS(text: string): string {
+  if (!text) return '';
+  return cleanSpeechText(text)
+    .replace(/https?:\/\/\S+/g, '')
+    .trim();
+}
+
+/**
+ * Splits long answer text into natural spoken sentence chunks under maxLen characters.
+ */
+export function chunkTextForTTS(text: string, maxLen: number = 1000): string[] {
+  const cleaned = cleanAnswerForTTS(text);
+  if (!cleaned || cleaned.length <= maxLen) return cleaned ? [cleaned] : [];
+
+  const sentences = cleaned.split(/(?<=[.?!।॥\n])\s+/);
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const s of sentences) {
+    if ((current + ' ' + s).trim().length > maxLen) {
+      if (current.trim()) chunks.push(current.trim());
+      current = s;
+    } else {
+      current = current ? `${current} ${s}` : s;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length > 0 ? chunks : [cleaned];
 }
 
 export async function speakNativeText(
@@ -52,24 +236,26 @@ export async function speakNativeText(
   base64Audio?: string
 ): Promise<void> {
   const targetVoice = LANGUAGE_VOICE_MAP[languageCode] || 'en-IN';
+  const speechText = cleanSpeechText(text);
 
   // Stop any current speaking instance
   await stopNativeSpeech();
 
-  // Try playing Sarvam AI synthesized high-fidelity base64 audio if present!
+  // 1. Prioritize playing synthesized high-fidelity base64 audio if present (Sarvam / ElevenLabs)
   if (base64Audio) {
-    const played = playBase64Audio(base64Audio, onStart, onDone);
+    const played = await playBase64Audio(base64Audio, onStart, onDone);
     if (played) return;
   }
 
+  // 2. Fallback to native high-quality device speech synthesizer
   if (onStart) onStart();
 
   if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(speechText);
       utterance.lang = targetVoice;
-      utterance.rate = 0.95;
+      utterance.rate = 0.75;
       utterance.onend = () => { if (onDone) onDone(); };
       utterance.onerror = () => { if (onDone) onDone(); };
       window.speechSynthesis.speak(utterance);
@@ -81,10 +267,10 @@ export async function speakNativeText(
 
   if (ExpoSpeech && ExpoSpeech.speak) {
     try {
-      ExpoSpeech.speak(text, {
+      ExpoSpeech.speak(speechText, {
         language: targetVoice,
         pitch: 1.0,
-        rate: 0.9,
+        rate: 0.72,
         onDone: () => { if (onDone) onDone(); },
         onError: () => { if (onDone) onDone(); },
       });
@@ -94,7 +280,6 @@ export async function speakNativeText(
     }
   }
 
-  // Fallback timeout simulation if speech engine is unavailable on device
   setTimeout(() => {
     if (onDone) onDone();
   }, 4000);
@@ -106,6 +291,19 @@ export async function stopNativeSpeech(): Promise<void> {
       activeAudioElement.pause();
       activeAudioElement = null;
     } catch (err) {}
+  }
+
+  if (activeNativePlayer) {
+    try {
+      if (activeNativePlayer.pause) activeNativePlayer.pause();
+      if (activeNativePlayer.stop) activeNativePlayer.stop();
+      if (activeNativePlayer.stopAsync) await activeNativePlayer.stopAsync();
+      if (activeNativePlayer.unloadAsync) await activeNativePlayer.unloadAsync();
+      if (activeNativePlayer.remove) activeNativePlayer.remove();
+      activeNativePlayer = null;
+    } catch (err) {
+      activeNativePlayer = null;
+    }
   }
 
   if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -121,46 +319,290 @@ export async function stopNativeSpeech(): Promise<void> {
   }
 }
 
-export function startSpeechToText(
-  languageCode: string = 'ta',
-  onResult: (transcript: string) => void,
-  onError: (err: any) => void
-): () => void {
-  const targetVoice = LANGUAGE_VOICE_MAP[languageCode] || 'en-IN';
-
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = targetVoice;
-
-      recognition.onresult = (event: any) => {
-        if (event.results && event.results[0] && event.results[0][0]) {
-          const text = event.results[0][0].transcript;
-          onResult(text);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        onError(event.error);
-      };
-
+/**
+ * Request real device microphone permission.
+ * Supports iOS, Android (Expo Go), and Web.
+ */
+export async function requestMicrophonePermission(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
-        recognition.start();
-      } catch (e) {
-        onError(e);
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+        console.log('[Voice Permission] Web mic permission granted');
+        return true;
+      } catch (err) {
+        console.warn('[Voice Permission] Web microphone permission denied:', err);
+        return false;
       }
+    }
+    return false;
+  }
 
-      return () => {
-        try {
-          recognition.stop();
-        } catch (e) {}
-      };
+  // 1. ExpoAudio permission check (Expo SDK 57 / Expo Go)
+  if (ExpoAudio && ExpoAudio.requestRecordingPermissionsAsync) {
+    try {
+      const res = await ExpoAudio.requestRecordingPermissionsAsync();
+      const granted = !!(res.granted || res.status === 'granted');
+      console.log('[Voice Permission] ExpoAudio permission result:', granted, res.status);
+      return granted;
+    } catch (err) {
+      console.warn('[Voice Permission] ExpoAudio requestRecordingPermissionsAsync failed:', err);
     }
   }
 
-  onError('Speech recognition API not supported on this platform');
-  return () => {};
+  // 2. ExpoAV permission fallback
+  if (ExpoAV && ExpoAV.Audio && ExpoAV.Audio.requestPermissionsAsync) {
+    try {
+      const res = await ExpoAV.Audio.requestPermissionsAsync();
+      const granted = !!(res.granted || res.status === 'granted');
+      console.log('[Voice Permission] ExpoAV permission result:', granted, res.status);
+      return granted;
+    } catch (err) {
+      console.warn('[Voice Permission] ExpoAV requestPermissionsAsync failed:', err);
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Start actual microphone recording.
+ * Uses expo-audio on Android / Expo Go, expo-av fallback, and MediaRecorder on Web.
+ */
+export async function startRealAudioRecording(): Promise<void> {
+  if (activeRecordingState === 'RECORDING') {
+    console.warn('[Voice Recording] Already recording, ignoring duplicate start.');
+    return;
+  }
+
+  await stopNativeSpeech();
+  activeRecordingState = 'RECORDING';
+  recordingStartTime = Date.now();
+
+  if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        webAudioChunks = [];
+        const mediaRecorder = new (window as any).MediaRecorder(stream);
+        webMediaRecorder = mediaRecorder;
+        mediaRecorder.ondataavailable = (event: any) => {
+          if (event.data && event.data.size > 0) {
+            webAudioChunks.push(event.data);
+          }
+        };
+        mediaRecorder.start(100);
+        console.log('[Voice Recording] Web MediaRecorder started at:', new Date().toISOString());
+        return;
+      } catch (err) {
+        activeRecordingState = 'ERROR';
+        console.error('[Voice Recording] Web MediaRecorder start error:', err);
+        throw err;
+      }
+    }
+    activeRecordingState = 'ERROR';
+    throw new Error('Microphone recording not supported in this browser environment.');
+  }
+
+  // Native recording via expo-audio (Modern Expo SDK 57 / Expo Go)
+  if (ExpoAudio) {
+    try {
+      if (ExpoAudio.setAudioModeAsync) {
+        await ExpoAudio.setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+      }
+
+      const presetOptions = ExpoAudio.RecordingPresets?.HIGH_QUALITY || {
+        extension: '.m4a',
+        sampleRate: 44100,
+        numberOfChannels: 2,
+        bitRate: 128000,
+        android: {
+          outputFormat: 'mpeg4',
+          audioEncoder: 'aac',
+        },
+        ios: {
+          outputFormat: 'aac ',
+          audioQuality: 96,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+      };
+
+      const RecorderConstructor = ExpoAudio.AudioModule?.AudioRecorder || ExpoAudio.AudioRecorder;
+      if (RecorderConstructor) {
+        const recorder = new RecorderConstructor(presetOptions);
+        await recorder.prepareToRecordAsync(presetOptions);
+        recorder.record();
+        activeExpoAudioRecorder = recorder;
+        console.log('[Voice Recording] Native expo-audio recording started at:', new Date().toISOString());
+        return;
+      }
+    } catch (err) {
+      console.warn('[Voice Recording] expo-audio start error, attempting expo-av fallback:', err);
+    }
+  }
+
+  // Fallback: expo-av
+  if (ExpoAV && ExpoAV.Audio) {
+    try {
+      await ExpoAV.Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentLockedModeIOS: true,
+        playThroughEarpieceAndroid: false,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+
+      const recording = new ExpoAV.Audio.Recording();
+      const options = ExpoAV.Audio.RecordingOptionsPresets?.HIGH_QUALITY || ExpoAV.Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY;
+      await recording.prepareToRecordAsync(options);
+      await recording.startAsync();
+      activeExpoAvRecording = recording;
+      console.log('[Voice Recording] Native expo-av recording started at:', new Date().toISOString());
+      return;
+    } catch (err) {
+      console.error('[Voice Recording] expo-av start error:', err);
+    }
+  }
+
+  activeRecordingState = 'ERROR';
+  throw new Error('No supported native audio recorder found on this device.');
+}
+
+/**
+ * Stop microphone recording and return the recorded metadata, URI (Native), or Blob (Web).
+ */
+export async function stopRealAudioRecording(): Promise<RecordedAudioResult | null> {
+  const durationMs = Date.now() - recordingStartTime;
+  console.log('[Voice Recording] Stop triggered. Duration elapsed:', durationMs, 'ms');
+
+  if (activeRecordingState !== 'RECORDING') {
+    console.warn('[Voice Recording] stopRealAudioRecording called but state is:', activeRecordingState);
+    return null;
+  }
+
+  activeRecordingState = 'PROCESSING';
+
+  if (Platform.OS === 'web') {
+    if (webMediaRecorder && webMediaRecorder.state !== 'inactive') {
+      return new Promise((resolve) => {
+        webMediaRecorder.onstop = () => {
+          const audioBlob = new Blob(webAudioChunks, { type: 'audio/webm' });
+          if (webMediaRecorder.stream) {
+            webMediaRecorder.stream.getTracks().forEach((track: any) => track.stop());
+          }
+          webMediaRecorder = null;
+          webAudioChunks = [];
+          activeRecordingState = 'TRANSCRIBED';
+          console.log('[Voice Recording] Web audio stopped. Blob size:', audioBlob.size, 'bytes, duration:', durationMs, 'ms');
+          resolve({
+            blob: audioBlob,
+            durationMs,
+            fileSizeBytes: audioBlob.size,
+            mimeType: 'audio/webm',
+            filename: 'recording.webm',
+          });
+        };
+        webMediaRecorder.stop();
+      });
+    }
+    activeRecordingState = 'IDLE';
+    return null;
+  }
+
+  // Native: expo-audio
+  if (activeExpoAudioRecorder) {
+    try {
+      const recorder = activeExpoAudioRecorder;
+      await recorder.stop();
+      const uri = recorder.uri || recorder.getURI?.();
+      activeExpoAudioRecorder = null;
+
+      console.log('[Voice Recording] Native expo-audio recording stopped. Output URI:', uri);
+
+      if (!uri) {
+        console.warn('[Voice Recording] Native recorder returned empty/null URI.');
+        activeRecordingState = 'ERROR';
+        return null;
+      }
+
+      activeRecordingState = 'TRANSCRIBED';
+      return {
+        uri,
+        durationMs,
+        mimeType: 'audio/x-m4a',
+        filename: 'recording.m4a',
+      };
+    } catch (err) {
+      console.error('[Voice Recording] Error stopping expo-audio recorder:', err);
+      activeExpoAudioRecorder = null;
+      activeRecordingState = 'ERROR';
+      return null;
+    }
+  }
+
+  // Native fallback: expo-av
+  if (activeExpoAvRecording) {
+    try {
+      const recording = activeExpoAvRecording;
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      activeExpoAvRecording = null;
+
+      console.log('[Voice Recording] Native expo-av recording stopped. Output URI:', uri);
+
+      if (!uri) {
+        console.warn('[Voice Recording] Expo-av returned empty URI.');
+        activeRecordingState = 'ERROR';
+        return null;
+      }
+
+      activeRecordingState = 'TRANSCRIBED';
+      return {
+        uri,
+        durationMs,
+        mimeType: 'audio/x-m4a',
+        filename: 'recording.m4a',
+      };
+    } catch (err) {
+      console.error('[Voice Recording] Error stopping expo-av recording:', err);
+      activeExpoAvRecording = null;
+      activeRecordingState = 'ERROR';
+      return null;
+    }
+  }
+
+  activeRecordingState = 'IDLE';
+  return null;
+}
+
+/**
+ * Cancel active recording without saving.
+ */
+export async function cancelAudioRecording(): Promise<void> {
+  activeRecordingState = 'IDLE';
+  try {
+    if (Platform.OS === 'web') {
+      if (webMediaRecorder && webMediaRecorder.state !== 'inactive') {
+        if (webMediaRecorder.stream) {
+          webMediaRecorder.stream.getTracks().forEach((track: any) => track.stop());
+        }
+        webMediaRecorder = null;
+        webAudioChunks = [];
+      }
+    } else if (activeExpoAudioRecorder) {
+      await activeExpoAudioRecorder.stop();
+      activeExpoAudioRecorder = null;
+    } else if (activeExpoAvRecording) {
+      await activeExpoAvRecording.stopAndUnloadAsync();
+      activeExpoAvRecording = null;
+    }
+  } catch (err) {
+    console.warn('[Voice Recording] Error cancelling recording:', err);
+  }
 }

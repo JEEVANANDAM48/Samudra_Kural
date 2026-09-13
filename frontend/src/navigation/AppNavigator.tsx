@@ -175,8 +175,8 @@ export const AppNavigator: React.FC = () => {
               setCurrentScreen('bot');
             } else if (tabId === 'sos') {
               Alert.alert(
-                'Emergency SOS',
-                'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
+                t('emergencySosTitle'),
+                t('emergencySosMsg')
               );
             }
           }}
@@ -201,8 +201,8 @@ export const AppNavigator: React.FC = () => {
               setCurrentScreen('bot');
             } else if (tabId === 'sos') {
               Alert.alert(
-                'Emergency SOS',
-                'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
+                t('emergencySosTitle'),
+                t('emergencySosMsg')
               );
             }
           }}
@@ -234,8 +234,8 @@ export const AppNavigator: React.FC = () => {
               setCurrentScreen('navigation');
             } else if (tabId === 'sos') {
               Alert.alert(
-                'Emergency SOS',
-                'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
+                t('emergencySosTitle'),
+                t('emergencySosMsg')
               );
             }
           }}

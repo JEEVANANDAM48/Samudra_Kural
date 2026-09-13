@@ -268,6 +268,25 @@ export const mr: Record<TranslationKeys, string> = {
   compassCourse: "कंपास दिशा",
   sstHeatmap: "तापमान नकाशा (SST)",
   bathymetry: "खोली माहिती",
-  chlorophyllA: "क्लोरोफिल-ए"
+  chlorophyllA: "क्लोरोफिल-ए",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 एजंट थेट कार्यरत आहेत",
+  liveTelemetryHeading: "थेट उपग्रह आणि सागरी टेलिमेट्री",
+  showRouteOceanMap: "सागरी नकाशावर मार्ग दाखवा",
+  spokenVoiceBadge: "🎤 बोललेला आवाज",
+  listenNativeVoice: "🔊 मातृभाषेत ऐका",
+  stopVoice: "⏹️ आवाज थांबवा",
+  playingAudio: "ऑडिओ चालू आहे...",
+  ttsSub: "व्हॉइस सल्ला",
+  aiMarineAssistant: "AI सागरी सहाय्यक",
+  botWelcome: "नमस्कार! मी समुद्र कुरल ORCA 12-AI एजंट सहाय्यक आहे. व्हॉइस किंवा टेक्स्टद्वारे प्रश्न विचारा!",
+  askMarineQuestionPlaceholder: "आवाज किंवा टाइप करून विचारा...",
+  typeQuestionPlaceholder: "प्रश्न टाइप करा...",
+  quickPromptsTitle: "जलद प्रश्न",
+  emergencySosTitle: "आपत्कालीन SOS",
+  emergencySosMsg: "तटरक्षक दल आणि जवळच्या बोटींना आणीबाणीचा संदेश पाठवला गेला आहे.",
+  seaSurfaceTempLabel: "समुद्राच्या पृष्ठभागाचे तापमान",
+  oceanCurrentLabel: "प्रवाह"
 };
 

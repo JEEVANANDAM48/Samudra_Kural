@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from app.services.orca_agent_orchestrator import orca_orchestrator, OrcaChatResponse
 from app.services.sarvam_service import sarvam_service
+from app.services.elevenlabs_service import elevenlabs_service
 
 logger = logging.getLogger(__name__)
 
@@ -43,44 +44,159 @@ async def ask_bot_chat(payload: BotQueryRequest):
         logger.error(f"Error processing ORCA bot query: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to process AI marine request: {str(e)}")
 
+import base64
+
+class VoiceSTTBase64Request(BaseModel):
+    audio_base64: str
+    format: Optional[str] = "m4a"
+    language: Optional[str] = "unknown"
+
+@router.post("/voice-stt-base64")
+@router.post("/transcribe-base64")
+async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
+    """
+    Multilingual Voice Speech-to-Text via JSON Base64 payload (Sarvam / ElevenLabs / Whisper).
+    Avoids native Android/iOS multipart FormData bugs completely.
+    """
+    try:
+        raw_b64 = payload.audio_base64
+        if not raw_b64:
+            return {"success": False, "status": "error", "message": "Audio base64 is empty", "transcript": ""}
+        
+        # Strip data URL prefix if present
+        if "," in raw_b64:
+            raw_b64 = raw_b64.split(",", 1)[1]
+        
+        audio_bytes = base64.b64decode(raw_b64)
+        if len(audio_bytes) == 0:
+            return {"success": False, "status": "error", "message": "Decoded audio is empty", "transcript": ""}
+        
+        filename = f"audio.{payload.format or 'm4a'}"
+
+        # 1. Try Sarvam AI
+        res = await sarvam_service.speech_to_text(
+            audio_bytes,
+            filename=filename,
+            language_code=payload.language or "unknown"
+        )
+        if res.get("status") == "success" and res.get("transcript"):
+            return {
+                "success": True,
+                "status": "success",
+                "transcript": res.get("transcript", ""),
+                "language": res.get("language", "ta"),
+                "language_code": res.get("language_code", "ta-IN")
+            }
+        
+        # 2. Try ElevenLabs / Whisper STT Fallback
+        el_res = await elevenlabs_service.speech_to_text(
+            audio_bytes,
+            filename=filename,
+            language_code=payload.language or "unknown"
+        )
+        if el_res.get("status") == "success" and el_res.get("transcript"):
+            return {
+                "success": True,
+                "status": "success",
+                "transcript": el_res.get("transcript", ""),
+                "language": el_res.get("language", "ta"),
+                "language_code": f"{payload.language or 'en'}-IN"
+            }
+
+        # Clear human message if quota ran out
+        err_msg = res.get("message") or el_res.get("message") or "Speech recognition quota exceeded or unavailable."
+        if "402" in err_msg or "credits" in err_msg.lower():
+            err_msg = "Voice cloud quota exhausted. Please configure ElevenLabs API Key in .env or speak into text."
+
+        return {
+            "success": False,
+            "status": "error",
+            "message": err_msg,
+            "transcript": ""
+        }
+    except Exception as e:
+        logger.error(f"Error in STT Base64 route: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/voice-stt")
+@router.post("/transcribe")
 async def voice_speech_to_text(
     file: UploadFile = File(...),
-    language: str = Form("ta")
+    language: str = Form("unknown")
 ):
     """
-    Sarvam AI Voice Speech-to-Text Endpoint (saarika:v2).
-    Converts audio voice recordings into transcribed text for Indian regional languages.
+    Multilingual Voice Speech-to-Text Endpoint.
     """
     try:
         content = await file.read()
-        res = await sarvam_service.speech_to_text(content, filename=file.filename or "audio.wav", language_code=language)
-        if res.get("status") == "success":
-            return {"status": "success", "transcript": res.get("transcript", "")}
-        else:
-            return {"status": "error", "message": res.get("message", "Speech recognition failed"), "transcript": ""}
+        if not content or len(content) == 0:
+            return {"success": False, "status": "error", "message": "Uploaded audio file is empty", "transcript": ""}
+
+        res = await sarvam_service.speech_to_text(
+            content,
+            filename=file.filename or "audio.m4a",
+            language_code=language
+        )
+        if res.get("status") == "success" and res.get("transcript"):
+            return {
+                "success": True,
+                "status": "success",
+                "transcript": res.get("transcript", ""),
+                "language": res.get("language", "ta"),
+                "language_code": res.get("language_code", "ta-IN")
+            }
+
+        el_res = await elevenlabs_service.speech_to_text(
+            content,
+            filename=file.filename or "audio.m4a",
+            language_code=language
+        )
+        if el_res.get("status") == "success" and el_res.get("transcript"):
+            return {
+                "success": True,
+                "status": "success",
+                "transcript": el_res.get("transcript", ""),
+                "language": el_res.get("language", "ta"),
+                "language_code": f"{language}-IN"
+            }
+
+        return {
+            "success": False,
+            "status": "error",
+            "message": res.get("message") or el_res.get("message") or "Speech recognition failed",
+            "transcript": ""
+        }
     except Exception as e:
-        logger.error(f"Error in Sarvam STT route: {e}")
+        logger.error(f"Error in STT route: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/voice-tts")
 async def voice_text_to_speech(payload: VoiceTTSRequest):
     """
-    Sarvam AI Text-to-Speech Endpoint (bulbul:v1).
-    Converts marine advisory text into natural regional audio base64.
+    Text-to-Speech Endpoint (Sarvam AI / ElevenLabs Multilingual v2).
     """
     if not payload.text or not payload.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     try:
+        # 1. Try Sarvam
         res = await sarvam_service.text_to_speech(payload.text.strip(), language_code=payload.language or "ta")
+        if res.get("status") == "success":
+            return res
+        
+        # 2. Try ElevenLabs
+        if elevenlabs_service.is_available():
+            el_res = await elevenlabs_service.text_to_speech(payload.text.strip(), language_code=payload.language or "ta")
+            if el_res.get("status") == "success":
+                return el_res
+
         return res
     except Exception as e:
-        logger.error(f"Error in Sarvam TTS route: {e}")
+        logger.error(f"Error in TTS route: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/quick-prompts")
 def get_quick_prompts(language: str = Query("ta")):
-    """Get localized quick action questions for fishermen"""
+    """Get localized quick action questions for fishermen across 10 Indian coastal languages"""
     prompts = {
         "ta": [
             "சென்னை கடலில் நாளை நான் மீன்பிடிக்க போகலாமா?",
@@ -109,6 +225,41 @@ def get_quick_prompts(language: str = Query("ta")):
             "हवा की गति और लहरों की ऊँचाई कितनी है?",
             "मेरा खोया हुआ जाल कहाँ बह रहा है?",
             "क्या कोई तूफान या सुरक्षा चेतावनी है?"
+        ],
+        "mr": [
+            "मी उद्या मासेमारीसाठी समुद्रात जाऊ शकतो का?",
+            "जवळचे सर्वोत्तम मासेमारी क्षेत्र कुठे आहे?",
+            "वाऱ्याचा वेग आणि लाटांची उंची किती आहे?",
+            "माझे हरवलेले जाळे कुठे वाहत आहे?",
+            "काही वादळ किंवा धोक्याचा इशारा आहे का?"
+        ],
+        "gu": [
+            "શું હું આવતીકાલે માછીમારી માટે જઈ શકું?",
+            "નજીકનો શ્રેષ્ઠ માછીમારી વિસ્તાર ક્યાં છે?",
+            "પવનની ગતિ અને મોજાની ઊંચાઈ કેટલી છે?",
+            "મારી ખોવાયેલી જાળ ક્યાં તણાઈ રહી છે?",
+            "કોઈ વાવાઝોડું કે ચેતવણી છે?"
+        ],
+        "or": [
+            "ମୁଁ ଆସନ୍ତାକାଲି ମାଛ ଧରିବାକୁ ଯାଇପାରିବି କି?",
+            "ନିକଟତମ ସର୍ବୋତ୍ତମ ମତ୍ସ୍ୟ କ୍ଷେତ୍ର କେଉଁଠାରେ ଅଛି?",
+            "ପବନର ଗତି ଏବଂ ତରଙ୍ଗର ଉଚ୍ଚତା କେତେ?",
+            "ମୋର ହଜିଯାଇଥିବା ଜାଲ କେଉଁଠାରେ ଭାସୁଛି?",
+            "କୌଣସି ଝଡ଼ କିମ୍ବା ବିପଦ ଚେତାବନୀ ଅଛି କି?"
+        ],
+        "kn": [
+            "ನಾನು ನಾಳೆ ಮೀನುಗಾರಿಕೆಗೆ ಹೋಗಬಹುದೇ?",
+            "ಹತ್ತಿರದ ಅತ್ಯುತ್ತಮ ಮೀನುಗಾರಿಕಾ ವಲಯ ಎಲ್ಲಿದೆ?",
+            "ಗಾಳಿಯ ವೇಗ ಮತ್ತು ಅಲೆಗಳ ಎತ್ತರ ಎಷ್ಟು?",
+            "ನನ್ನ ಕಳೆದುಹೋದ ಬಲೆ ಎಲ್ಲಿ ತೇಲುತ್ತಿದೆ?",
+            "ಯಾವುದಾದರೂ ಚಂಡಮಾರುತ ಅಥವಾ ಅಪಾಯದ ಎಚ್ಚರಿಕೆ ಇದೆಯೇ?"
+        ],
+        "bn": [
+            "আমি কি আগামীকাল মাছ ধরতে যেতে পারি?",
+            "কাছাকাছি সেরা মাছ ধরার অঞ্চল কোথায়?",
+            "বাতাসের গতি এবং ঢেউয়ের উচ্চতা কত?",
+            "আমার হারিয়ে যাওয়া জাল কোথায় ভাসছে?",
+            "কোনো ঝড় বা বিপদের সতর্কতা আছে কি?"
         ],
         "en": [
             "Can I go fishing tomorrow from Chennai, and where should I go?",

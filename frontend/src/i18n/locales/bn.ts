@@ -268,6 +268,25 @@ export const bn: Record<TranslationKeys, string> = {
   compassCourse: "কম্পাস দিক",
   sstHeatmap: "তাপমাত্রার মানচিত্র (SST)",
   bathymetry: "গভীরতার তথ্য",
-  chlorophyllA: "ক্লোরোফিল-এ"
+  chlorophyllA: "ক্লোরোফিল-এ",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 এজেন্ট লাইভ রয়েছে",
+  liveTelemetryHeading: "লাইভ স্যাটেলাইট এবং সামুদ্রিক টেলিমেট্রি",
+  showRouteOceanMap: "সামুদ্রিক মানচিত্রে পথ দেখুন",
+  spokenVoiceBadge: "🎤 কথিত কণ্ঠ",
+  listenNativeVoice: "🔊 নিজের ভাষায় শুনুন",
+  stopVoice: "⏹️ অডিও বন্ধ করুন",
+  playingAudio: "অডিও চলছে...",
+  ttsSub: "ভয়েস পরামর্শ",
+  aiMarineAssistant: "AI সামুদ্রিক সহায়ক",
+  botWelcome: "নমস্কার! আমি সমুদ্র কুরল ORCA 12-AI এজেন্ট সহায়ক। ভয়েস বা টেক্সটের মাধ্যমে প্রশ্ন জিজ্ঞাসা করুন!",
+  askMarineQuestionPlaceholder: "ভয়েস বা টাইপ করে প্রশ্ন করুন...",
+  typeQuestionPlaceholder: "প্রশ্ন টাইপ করুন...",
+  quickPromptsTitle: "দ্রুত প্রশ্ন",
+  emergencySosTitle: "জরুরী SOS",
+  emergencySosMsg: "কোস্ট গার্ড এবং নিকটবর্তী নৌকাগুলিতে জরুরি বার্তা পাঠানো হয়েছে।",
+  seaSurfaceTempLabel: "সমুদ্রের পৃষ্ঠের তাপমাত্রা",
+  oceanCurrentLabel: "জলধারা"
 };
 
