@@ -8,13 +8,16 @@ from app.db.session import get_db
 from app.api.deps import get_current_fisherman, reusable_oauth2
 from app.models.fisherman import Fisherman
 from app.models.net import Net, NetPrediction, PredictionRun
-from app.schemas.net import NetCreate, NetUpdate, NetSummaryResponse, NetDetailResponse
+from app.schemas.net import (
+    NetCreate, NetUpdate, NetSummaryResponse, NetDetailResponse, NetSimulationRequest
+)
 from app.schemas.prediction import TrajectoryResponse
 from app.schemas.environment import EnvironmentalState
 from app.services.drift_engine import drift_engine
 from app.services.environment_service import environment_service
 from app.utils.time import ensure_utc, to_ist, calculate_age_minutes
 from app.utils.geo import haversine_distance_km
+from datetime import timedelta
 
 router = APIRouter(tags=["Nets"])
 
@@ -95,6 +98,27 @@ async def resolve_user_id(db: AsyncSession, token: Optional[str]) -> int:
     result = await db.execute(select(Fisherman).limit(1))
     f = result.scalar_one_or_none()
     return f.id if f else 1
+
+@router.post("/nets/simulate", response_model=TrajectoryResponse)
+async def simulate_net_drift(
+    sim_in: NetSimulationRequest
+):
+    """
+    On-demand net drift trajectory calculation using real oceanographic data.
+    """
+    release_utc = ensure_utc(sim_in.release_time)
+    retrieval_utc = release_utc + timedelta(hours=sim_in.duration_hours)
+    
+    return await drift_engine.calculate_trajectory(
+        net_id=0,
+        net_name=sim_in.net_name or "Simulation Net",
+        net_type=sim_in.net_type,
+        release_lat=sim_in.release_latitude,
+        release_lon=sim_in.release_longitude,
+        release_time=release_utc,
+        retrieval_time=retrieval_utc,
+        timestep_minutes=sim_in.timestep_minutes
+    )
 
 @router.post("/nets", response_model=NetSummaryResponse)
 async def create_net(
