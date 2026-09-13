@@ -140,6 +140,23 @@ export const AppNavigator: React.FC = () => {
           initialTarget={selectedHotspot}
           onBack={() => setCurrentScreen('home')}
           onNavigateToHotspot={handleStartNavigationToHotspot}
+          onTabPress={(tabId) => {
+            if (tabId === 'nets' || tabId === 'home') {
+              setCurrentScreen('home');
+            } else if (tabId === 'nav') {
+              setCurrentScreen('navigation');
+            } else if (tabId === 'bot') {
+              Alert.alert(
+                'Ask Bot (AI Chatbot)',
+                'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
+              );
+            } else if (tabId === 'sos') {
+              Alert.alert(
+                'Emergency SOS',
+                'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
+              );
+            }
+          }}
         />
       )}
 
@@ -152,6 +169,23 @@ export const AppNavigator: React.FC = () => {
           onOpenMap={() => setCurrentScreen('fishing_zones')}
           onLogout={handleLogout}
           onOpenProfile={() => setCurrentScreen('profile')}
+          onTabPress={(tabId) => {
+            if (tabId === 'nets' || tabId === 'home') {
+              setCurrentScreen('home');
+            } else if (tabId === 'fishing') {
+              setCurrentScreen('fishing_zones');
+            } else if (tabId === 'bot') {
+              Alert.alert(
+                'Ask Bot (AI Chatbot)',
+                'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
+              );
+            } else if (tabId === 'sos') {
+              Alert.alert(
+                'Emergency SOS',
+                'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
+              );
+            }
+          }}
         />
       )}
 

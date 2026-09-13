@@ -128,7 +128,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <View style={{ flex: 1 }}>
         <FishingZonesScreen
           currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('nav')}
+          onBack={() => setActiveTab('nets')}
           onNavigateToHotspot={() => setActiveTab('nav')}
           onTabPress={handleTabPress}
         />

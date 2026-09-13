@@ -545,7 +545,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         onTabPress={(tabId) => {
           if (onTabPress) {
             onTabPress(tabId);
-          } else if (tabId === 'nav' && onBack) {
+          } else if ((tabId === 'nav' || tabId === 'nets' || tabId === 'home') && onBack) {
             onBack();
           } else if (tabId === 'bot') {
             Alert.alert('Ask Bot (AI Chatbot)', 'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.');
