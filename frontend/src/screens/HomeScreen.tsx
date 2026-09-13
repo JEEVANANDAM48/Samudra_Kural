@@ -173,6 +173,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* Main Content Area */}
       {activeTab === 'sos' ? (
         <SOSScreen currentLanguage={currentLanguage} />
+      ) : activeTab === 'bot' ? (
+        <BotScreen
+          currentLanguage={currentLanguage}
+          onBack={() => setActiveTab('nav')}
+          onNavigateToHotspot={(spot) => {
+            setSelectedHotspot(spot);
+            setActiveTab('nav');
+          }}
+          onTabPress={handleTabPress}
+          hideTopHeader={true}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -180,30 +191,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         >
           <View style={styles.featureCard}>
             <View style={styles.cardTop}>
-              {activeTab === 'bot' ? (
-                <Image
-                  source={require('../../assets/chatbot-logo.png')}
-                  style={styles.botFeatureLogo}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text style={styles.featureIcon}>
-                  {activeTab === 'nav'
-                    ? '🧭'
-                    : activeTab === 'fishing'
-                    ? '🎣'
-                    : activeTab === 'nets'
-                    ? '🕸️'
-                    : '🆘'}
-                </Text>
-              )}
+              <Text style={styles.featureIcon}>
+                {activeTab === 'nav'
+                  ? '🧭'
+                  : activeTab === 'fishing'
+                  ? '🎣'
+                  : activeTab === 'nets'
+                  ? '🕸️'
+                  : '🆘'}
+              </Text>
               <Text style={styles.featureTitle}>
                 {activeTab === 'nav'
                   ? t('placeholderNav', currentLanguage)
                   : activeTab === 'fishing'
                   ? t('placeholderFishing', currentLanguage)
-                  : activeTab === 'bot'
-                  ? 'Ask Bot (AI Chatbot)'
                   : activeTab === 'nets'
                   ? t('placeholderNets', currentLanguage)
                   : 'Emergency SOS'}
@@ -211,97 +212,52 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
 
             <View style={styles.noticeBox}>
-              <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
+              <Text style={styles.noticeTitle}>{t('appSubtitle', currentLanguage)}</Text>
               <Text style={styles.noticeText}>
-                {t('comingSoon', currentLanguage)}. This section will integrate real-time spatial navigation, PFZ fishing zones, AI Chatbot assistance, and safety alerts in the next update.
+                {t('comingSoon', currentLanguage)}. {t('pfzSubtitle', currentLanguage)}.
               </Text>
+
+              {onOpenNavigation && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: Colors.primary,
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
+                    borderRadius: 12,
+                    marginTop: 14,
+                    alignItems: 'center',
+                    width: '100%',
+                  }}
+                  onPress={onOpenNavigation}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
+                    🧭 {t('navigationTitle', currentLanguage)}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {onOpenFishingZones && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: Colors.secondary,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 10,
+                    marginTop: 10,
+                    alignItems: 'center',
+                    width: '100%',
+                  }}
+                  onPress={onOpenFishingZones}
+                >
+                  <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
+                    {t('openIncoisMap', currentLanguage)}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </ScrollView>
       )}
-
-        {activeTab === 'bot' && (
-          <BotScreen
-            currentLanguage={currentLanguage}
-            onBack={() => setActiveTab('nav')}
-            onNavigateToHotspot={(spot) => {
-              setSelectedHotspot(spot);
-              setActiveTab('nav');
-            }}
-            onTabPress={handleTabPress}
-            hideTopHeader={true}
-          />
-        )}
-
-        {activeTab !== 'nets' && activeTab !== 'nav' && activeTab !== 'fishing' && activeTab !== 'profile' && activeTab !== 'bot' && (
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.featureCard}>
-              <View style={styles.cardTop}>
-                {activeTab === 'bot' ? (
-                  <Image
-                    source={require('../../assets/chatbot-logo.png')}
-                    style={styles.botFeatureLogo}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Text style={styles.featureIcon}>🆘</Text>
-                )}
-                <Text style={styles.featureTitle}>
-                  {activeTab === 'bot' ? 'Ask Bot (AI Chatbot)' : 'Emergency SOS'}
-                </Text>
-              </View>
-
-              <View style={styles.noticeBox}>
-                <Text style={styles.noticeTitle}>{t('appSubtitle', currentLanguage)}</Text>
-                <Text style={styles.noticeText}>
-                  {t('comingSoon', currentLanguage)}. {t('pfzSubtitle', currentLanguage)}.
-                </Text>
-
-                {onOpenNavigation && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: Colors.primary,
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                      borderRadius: 12,
-                      marginTop: 14,
-                      alignItems: 'center',
-                      width: '100%',
-                    }}
-                    onPress={onOpenNavigation}
-                  >
-                    <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
-                      🧭 {t('navigationTitle', currentLanguage)}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {onOpenFishingZones && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: Colors.secondary,
-                      paddingVertical: 12,
-                      paddingHorizontal: 16,
-                      borderRadius: 10,
-                      marginTop: 10,
-                      alignItems: 'center',
-                      width: '100%',
-                    }}
-                    onPress={onOpenFishingZones}
-                  >
-                    <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
-                      {t('openIncoisMap', currentLanguage)}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </ScrollView>
-        )}
-      </View>
 
       {/* Floating Bottom Navigation Bar */}
       <BottomNavBar
