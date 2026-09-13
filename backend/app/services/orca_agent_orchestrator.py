@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.services.environment_service import UnifiedEnvironmentService
 from app.services.incois_service import incois_service, fetch_incois_sector_advisory, find_nearest_sector
 from app.services.drift_engine import drift_engine
+from app.services.sarvam_service import sarvam_service
 from app.schemas.environment import EnvironmentalState
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class OrcaChatResponse(BaseModel):
     intent: str
     response_text: str
     voice_speech_text: str  # Clean plain text optimized for Text-to-Speech audio reading
+    voice_audio_base64: Optional[str] = None  # Synthesized Sarvam AI voice audio (.wav)
     risk_assessment: RiskAssessment
     agent_steps: List[AgentExecutionStep]
     suggested_hotspot: Optional[HotspotSummary] = None
@@ -266,6 +268,15 @@ class OrcaAgentOrchestrator:
             community_reports=community_reports
         )
 
+        # Synthesize Sarvam AI regional audio (.wav base64) for instant voice playback
+        voice_audio_b64 = None
+        try:
+            tts_res = await sarvam_service.text_to_speech(text=voice_text, language_code=language)
+            if tts_res.get("status") == "success":
+                voice_audio_b64 = tts_res.get("audio_base64")
+        except Exception as e:
+            logger.warning(f"Sarvam AI TTS audio generation skipped: {e}")
+
         quick_actions = [
             {"id": "map", "label": "🧭 Show Route on Ocean Map", "action": "NAVIGATE_MAP"},
             {"id": "copy", "label": "📋 Copy Hotspot GPS", "action": "COPY_COORDS"},
@@ -278,6 +289,7 @@ class OrcaAgentOrchestrator:
             intent=intent,
             response_text=resp_text,
             voice_speech_text=voice_text,
+            voice_audio_base64=voice_audio_b64,
             risk_assessment=risk,
             agent_steps=steps,
             suggested_hotspot=suggested_spot_summary,

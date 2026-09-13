@@ -34,6 +34,7 @@ export interface OrcaChatResponse {
   intent: string;
   response_text: string;
   voice_speech_text: string;
+  voice_audio_base64?: string;
   risk_assessment: RiskAssessment;
   agent_steps: AgentExecutionStep[];
   suggested_hotspot?: HotspotSummary | null;

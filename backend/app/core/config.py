@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
+    # Sarvam AI Voice API Credentials
+    SARVAM_API_KEY: Optional[str] = os.getenv("SARVAM_API_KEY", "sk_bdef6i5n_IMCodc8v3cOjtIod6qhvNM1b")
+
     # Copernicus Marine Toolbox Authentication & Datasets
     COPERNICUSMARINE_SERVICE_USERNAME: Optional[str] = os.getenv("COPERNICUSMARINE_SERVICE_USERNAME", "Madhumitha")
     COPERNICUSMARINE_SERVICE_PASSWORD: Optional[str] = os.getenv("COPERNICUSMARINE_SERVICE_PASSWORD", "Vmadhu@1712")
@@ -31,7 +34,7 @@ class Settings(BaseSettings):
     COPERNICUS_WAV_PRODUCT_ID: str = "GLOBAL_ANALYSISFORECAST_WAV_001_027"
 
     # Copernicus Datasets (Dataset IDs)
-    COPERNICUS_PHY_DATASET_ID: str = "cmems_mod_glo_phy-cur_anfc_0.083deg_PT6H-i"
+    COPERNICUS_PHY_DATASET_ID: str = os.getenv("COPERNICUS_PHY_DATASET_ID", "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i")
     COPERNICUS_WAV_DATASET_ID: str = "cmems_mod_glo_wav_anfc_0.083deg_PT3H-i"
 
     # INCOIS Operational Ocean State Forecast Services

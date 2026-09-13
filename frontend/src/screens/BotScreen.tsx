@@ -175,7 +175,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
 
       // Automatically speak native speech if user asked via Voice
       if (isVoiceInput && response.voice_speech_text) {
-        handlePlaySpeech(botMsgId, response.voice_speech_text);
+        handlePlaySpeech(botMsgId, response.voice_speech_text, response.voice_audio_base64);
       }
     } catch (error) {
       console.error('Error fetching ORCA bot response:', error);
@@ -228,7 +228,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
     }, 8000);
   };
 
-  const handlePlaySpeech = (msgId: string, speechText: string) => {
+  const handlePlaySpeech = (msgId: string, speechText: string, base64Audio?: string) => {
     if (isSpeaking === msgId) {
       stopNativeSpeech();
       setIsSpeaking(null);
@@ -240,7 +240,8 @@ export const BotScreen: React.FC<BotScreenProps> = ({
       speechText,
       lang,
       () => setIsSpeaking(msgId),
-      () => setIsSpeaking(null)
+      () => setIsSpeaking(null),
+      base64Audio
     );
   };
 
@@ -374,7 +375,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
                         styles.voicePlayBtn,
                         isSpeaking === msg.id && styles.voicePlayBtnActive,
                       ]}
-                      onPress={() => handlePlaySpeech(msg.id, data.voice_speech_text)}
+                      onPress={() => handlePlaySpeech(msg.id, data.voice_speech_text, data.voice_audio_base64)}
                     >
                       <Text style={styles.voicePlayIcon}>
                         {isSpeaking === msg.id ? '⏹️ Stop Voice' : '🔊 Listen in Native Voice'}

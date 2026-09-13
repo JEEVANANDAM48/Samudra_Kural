@@ -1,9 +1,10 @@
 import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
 from pydantic import BaseModel
 
 from app.services.orca_agent_orchestrator import orca_orchestrator, OrcaChatResponse
+from app.services.sarvam_service import sarvam_service
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,10 @@ class BotQueryRequest(BaseModel):
     latitude: Optional[float] = 13.0827
     longitude: Optional[float] = 80.3800
     vessel_type: Optional[str] = "Trawler"
+    language: Optional[str] = "ta"
+
+class VoiceTTSRequest(BaseModel):
+    text: str
     language: Optional[str] = "ta"
 
 @router.post("/chat", response_model=OrcaChatResponse)
@@ -37,6 +42,41 @@ async def ask_bot_chat(payload: BotQueryRequest):
     except Exception as e:
         logger.error(f"Error processing ORCA bot query: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to process AI marine request: {str(e)}")
+
+@router.post("/voice-stt")
+async def voice_speech_to_text(
+    file: UploadFile = File(...),
+    language: str = Form("ta")
+):
+    """
+    Sarvam AI Voice Speech-to-Text Endpoint (saarika:v2).
+    Converts audio voice recordings into transcribed text for Indian regional languages.
+    """
+    try:
+        content = await file.read()
+        res = await sarvam_service.speech_to_text(content, filename=file.filename or "audio.wav", language_code=language)
+        if res.get("status") == "success":
+            return {"status": "success", "transcript": res.get("transcript", "")}
+        else:
+            return {"status": "error", "message": res.get("message", "Speech recognition failed"), "transcript": ""}
+    except Exception as e:
+        logger.error(f"Error in Sarvam STT route: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/voice-tts")
+async def voice_text_to_speech(payload: VoiceTTSRequest):
+    """
+    Sarvam AI Text-to-Speech Endpoint (bulbul:v1).
+    Converts marine advisory text into natural regional audio base64.
+    """
+    if not payload.text or not payload.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    try:
+        res = await sarvam_service.text_to_speech(payload.text.strip(), language_code=payload.language or "ta")
+        return res
+    except Exception as e:
+        logger.error(f"Error in Sarvam TTS route: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/quick-prompts")
 def get_quick_prompts(language: str = Query("ta")):

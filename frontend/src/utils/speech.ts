@@ -15,16 +15,52 @@ const LANGUAGE_VOICE_MAP: Record<string, string> = {
   en: 'en-IN',
 };
 
+let activeAudioElement: any = null;
+
+export function playBase64Audio(
+  base64Audio: string,
+  onStart?: () => void,
+  onDone?: () => void
+): boolean {
+  try {
+    if (activeAudioElement) {
+      activeAudioElement.pause();
+      activeAudioElement = null;
+    }
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const audioUrl = `data:audio/wav;base64,${base64Audio}`;
+      const audio = new Audio(audioUrl);
+      activeAudioElement = audio;
+      if (onStart) onStart();
+      audio.onended = () => { if (onDone) onDone(); };
+      audio.onerror = () => { if (onDone) onDone(); };
+      audio.play().catch(() => { if (onDone) onDone(); });
+      return true;
+    }
+  } catch (err) {
+    console.warn('Base64 audio playback failed:', err);
+  }
+  return false;
+}
+
 export async function speakNativeText(
   text: string,
   languageCode: string = 'ta',
   onStart?: () => void,
-  onDone?: () => void
+  onDone?: () => void,
+  base64Audio?: string
 ): Promise<void> {
   const targetVoice = LANGUAGE_VOICE_MAP[languageCode] || 'en-IN';
 
   // Stop any current speaking instance
   await stopNativeSpeech();
+
+  // Try playing Sarvam AI synthesized high-fidelity base64 audio if present!
+  if (base64Audio) {
+    const played = playBase64Audio(base64Audio, onStart, onDone);
+    if (played) return;
+  }
 
   if (onStart) onStart();
 
@@ -65,6 +101,13 @@ export async function speakNativeText(
 }
 
 export async function stopNativeSpeech(): Promise<void> {
+  if (activeAudioElement) {
+    try {
+      activeAudioElement.pause();
+      activeAudioElement = null;
+    } catch (err) {}
+  }
+
   if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
