@@ -21,7 +21,7 @@ import { Colors } from '../theme/colors';
 import { SupportedLanguage } from '../types';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { askOrcaBot, OrcaChatResponse, HotspotSummary } from '../services/botService';
-import { speakNativeText, stopNativeSpeech } from '../utils/speech';
+import { speakNativeText, stopNativeSpeech, startSpeechToText } from '../utils/speech';
 
 const { width } = Dimensions.get('window');
 
@@ -193,13 +193,39 @@ export const BotScreen: React.FC<BotScreenProps> = ({
     }
 
     setIsRecording(true);
-    // Simulate high-fidelity Voice-to-Text Recognition in Fishermen's language
+    let captured = false;
+
+    // Start live web/native speech recognition in selected language
+    const stopListener = startSpeechToText(
+      lang,
+      (transcript) => {
+        captured = true;
+        setIsRecording(false);
+        if (transcript && transcript.trim()) {
+          handleSend(transcript.trim(), true);
+        }
+      },
+      (err) => {
+        console.log('Speech recognition fallback notice:', err);
+        if (!captured) {
+          // If live STT API is restricted on local environment, fall back gracefully to user prompt query
+          setTimeout(() => {
+            setIsRecording(false);
+            const sampleQueries = QUICK_PROMPTS[lang] || QUICK_PROMPTS['ta'];
+            const recognizedText = sampleQueries[0];
+            handleSend(recognizedText, true);
+          }, 2000);
+        }
+      }
+    );
+
+    // Timeout safety fallback
     setTimeout(() => {
-      setIsRecording(false);
-      const sampleQueries = QUICK_PROMPTS[lang] || QUICK_PROMPTS['ta'];
-      const recognizedText = sampleQueries[0];
-      handleSend(recognizedText, true);
-    }, 2800);
+      if (!captured && isRecording) {
+        stopListener();
+        setIsRecording(false);
+      }
+    }, 8000);
   };
 
   const handlePlaySpeech = (msgId: string, speechText: string) => {

@@ -77,3 +77,47 @@ export async function stopNativeSpeech(): Promise<void> {
     } catch (err) {}
   }
 }
+
+export function startSpeechToText(
+  languageCode: string = 'ta',
+  onResult: (transcript: string) => void,
+  onError: (err: any) => void
+): () => void {
+  const targetVoice = LANGUAGE_VOICE_MAP[languageCode] || 'en-IN';
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = targetVoice;
+
+      recognition.onresult = (event: any) => {
+        if (event.results && event.results[0] && event.results[0][0]) {
+          const text = event.results[0][0].transcript;
+          onResult(text);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        onError(event.error);
+      };
+
+      try {
+        recognition.start();
+      } catch (e) {
+        onError(e);
+      }
+
+      return () => {
+        try {
+          recognition.stop();
+        } catch (e) {}
+      };
+    }
+  }
+
+  onError('Speech recognition API not supported on this platform');
+  return () => {};
+}
