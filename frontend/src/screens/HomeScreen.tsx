@@ -20,6 +20,7 @@ import { SupportedLanguage, FishermanUser } from '../types';
 import { getUserSession, clearSession, saveLanguagePreference } from '../storage/storage';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { BottomNavBar } from '../components/BottomNavBar';
+import { SOSScreen } from '../sos/SOSScreen';
 
 import { NavigationScreen } from './NavigationScreen';
 import { FishingZonesScreen } from './FishingZonesScreen';
@@ -99,6 +100,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleTabPress = (tabId: string) => {
     setActiveTab(tabId);
+    const tabNames: Record<string, string> = {
+      nav: t('placeholderNav', currentLanguage),
+      fishing: t('placeholderFishing', currentLanguage),
+      bot: 'Ask Bot (AI Marine Chatbot)',
+      nets: t('placeholderNets', currentLanguage),
+      sos: 'Emergency SOS',
+    };
+
+    if (tabId === 'sos') {
+      // SOS tab presents dedicated Emergency SOS Screen
+      return;
+    }
+
     if (tabId === 'bot') {
       Alert.alert(
         'Ask Bot (AI Chatbot)',
@@ -157,43 +171,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </View>
 
       {/* Main Content Area */}
-      <View style={styles.mainContainer}>
-        {activeTab === 'nets' && <MyNetsScreen />}
-        
-        {activeTab === 'nav' && (
-          <NavigationScreen
-            currentLanguage={currentLanguage}
-            initialTarget={selectedHotspot}
-            onBack={() => setActiveTab('nets')}
-            onOpenMap={() => setActiveTab('fishing')}
-            onOpenProfile={openMenuDrawer}
-            onTabPress={handleTabPress}
-            hideTopHeader={true}
-          />
-        )}
-        
-        {activeTab === 'fishing' && (
-          <FishingZonesScreen
-            currentLanguage={currentLanguage}
-            initialTarget={selectedHotspot}
-            onBack={() => setActiveTab('nav')}
-            onNavigateToHotspot={(spot) => {
-              setSelectedHotspot(spot);
-              setActiveTab('nav');
-            }}
-            onTabPress={handleTabPress}
-            hideTopHeader={true}
-          />
-        )}
+      {activeTab === 'sos' ? (
+        <SOSScreen currentLanguage={currentLanguage} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.featureCard}>
+            <View style={styles.cardTop}>
+              {activeTab === 'bot' ? (
+                <Image
+                  source={require('../../assets/chatbot-logo.png')}
+                  style={styles.botFeatureLogo}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.featureIcon}>
+                  {activeTab === 'nav'
+                    ? '🧭'
+                    : activeTab === 'fishing'
+                    ? '🎣'
+                    : activeTab === 'nets'
+                    ? '🕸️'
+                    : '🆘'}
+                </Text>
+              )}
+              <Text style={styles.featureTitle}>
+                {activeTab === 'nav'
+                  ? t('placeholderNav', currentLanguage)
+                  : activeTab === 'fishing'
+                  ? t('placeholderFishing', currentLanguage)
+                  : activeTab === 'bot'
+                  ? 'Ask Bot (AI Chatbot)'
+                  : activeTab === 'nets'
+                  ? t('placeholderNets', currentLanguage)
+                  : 'Emergency SOS'}
+              </Text>
+            </View>
 
-        {activeTab === 'profile' && (
-          <ProfileScreen
-            currentLanguage={currentLanguage}
-            onBack={() => setActiveTab('nets')}
-            onLogout={handleLogout}
-            hideTopHeader={true}
-          />
-        )}
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
+              <Text style={styles.noticeText}>
+                {t('comingSoon', currentLanguage)}. This section will integrate real-time spatial navigation, PFZ fishing zones, AI Chatbot assistance, and safety alerts in the next update.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      )}
 
         {activeTab === 'bot' && (
           <BotScreen
