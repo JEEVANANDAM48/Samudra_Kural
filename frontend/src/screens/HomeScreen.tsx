@@ -232,7 +232,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <Text style={styles.verifiedBadgeDrawerTxt}>✓ {t('verifiedFisherman', currentLanguage)}</Text>
                   </View>
 
-                  <Text style={styles.profileName}>{user?.name || 'K. Veeraraghavan'}</Text>
+                  <Text style={styles.profileName}>{user?.name || 'Fisherman User'}</Text>
                   <Text style={styles.profilePhone}>{user?.phone || '+91 98401 23456'}</Text>
 
                   <TouchableOpacity

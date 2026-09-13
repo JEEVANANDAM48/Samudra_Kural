@@ -1,6 +1,7 @@
 import { apiFetch } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FishermanUser } from '../types';
+import { getUserSession } from '../storage/storage';
 
 export interface FishermanInfo {
   id?: number;
@@ -319,11 +320,16 @@ export const coastalGuardService = {
     peopleAffected: number = 1,
     userInfo?: FishermanUser | null
   ): Promise<SOSAlertItem> {
-    const fishermanName = userInfo?.name || 'K. Veeraraghavan';
-    const fishermanPhone = userInfo?.phone || '+91 98401 23456';
-    const boatName = userInfo?.vesselName || 'Sea King IX';
-    const boatReg = userInfo?.vesselRegistration || 'TN-01-MM-8492';
-    const homePort = userInfo?.homePort || 'Kasimedu Harbour, Chennai';
+    let activeUser = userInfo;
+    if (!activeUser) {
+      activeUser = await getUserSession();
+    }
+
+    const fishermanName = activeUser?.name || 'Fisherman User';
+    const fishermanPhone = activeUser?.phone || '+91 98401 23456';
+    const boatName = activeUser?.vesselName || 'Sea King IX';
+    const boatReg = activeUser?.vesselRegistration || 'TN-01-MM-8492';
+    const homePort = activeUser?.homePort || 'Kasimedu Harbour, Chennai';
 
     try {
       const newAlert = await apiFetch<SOSAlertItem>('/sos', {

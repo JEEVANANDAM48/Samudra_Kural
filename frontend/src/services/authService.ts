@@ -31,7 +31,7 @@ export const authService = {
         console.log('[Auth] Creating local user session preserving registered details.');
         const existingSession = await getUserSession();
         const fallbackUser: FishermanUser = {
-          name: existingSession?.name && existingSession.name !== 'Fisherman User' ? existingSession.name : 'K. Veeraraghavan',
+          name: existingSession?.name || 'Fisherman User',
           phone: payload.phone || existingSession?.phone || '+91 98401 23456',
           emergencyPhone: existingSession?.emergencyPhone || '+91 94440 99999',
           vesselName: existingSession?.vesselName || 'Sea King IX',

@@ -69,9 +69,15 @@ export const deleteAuthToken = async (): Promise<void> => {
   }
 };
 
+const ASYNC_USER_KEY = '@samudra_kural_user_session';
+
 export const saveUserSession = async (user: FishermanUser): Promise<void> => {
   try {
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+    const json = JSON.stringify(user);
+    await AsyncStorage.setItem(ASYNC_USER_KEY, json);
+    try {
+      await SecureStore.setItemAsync(USER_KEY, json);
+    } catch (e) {}
   } catch (error) {
     console.error('Error saving user session:', error);
   }
@@ -79,16 +85,23 @@ export const saveUserSession = async (user: FishermanUser): Promise<void> => {
 
 export const getUserSession = async (): Promise<FishermanUser | null> => {
   try {
-    const json = await SecureStore.getItemAsync(USER_KEY);
-    return json ? JSON.parse(json) : null;
+    const asyncJson = await AsyncStorage.getItem(ASYNC_USER_KEY);
+    if (asyncJson) {
+      return JSON.parse(asyncJson);
+    }
+    const secureJson = await SecureStore.getItemAsync(USER_KEY);
+    if (secureJson) {
+      return JSON.parse(secureJson);
+    }
   } catch (error) {
     console.error('Error reading user session:', error);
-    return null;
   }
+  return null;
 };
 
 export const clearSession = async (): Promise<void> => {
   try {
+    await AsyncStorage.removeItem(ASYNC_USER_KEY);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(USER_KEY);
   } catch (error) {

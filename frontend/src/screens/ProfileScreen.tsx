@@ -35,7 +35,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const [user, setUser] = useState<FishermanUser>({
-    name: 'K. Veeraraghavan',
+    name: 'Fisherman User',
     phone: '+91 98401 23456',
     emergencyPhone: '+91 94440 99999',
     vesselName: 'Sea King IX',
