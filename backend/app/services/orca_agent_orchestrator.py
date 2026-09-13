@@ -256,8 +256,9 @@ class OrcaAgentOrchestrator:
             details=f"{len(community_reports)} recent verified catch reports from local fishermen"
         ))
 
-        # Generate Response Text & Native Voice Speech String
-        resp_text, voice_text = self._synthesize_response(
+        # Generate Response Text & Native Voice Speech String with dynamic Generative AI query understanding
+        resp_text, voice_text = await self._synthesize_response(
+            query=query,
             language=language,
             intent=intent,
             risk=risk,
@@ -379,8 +380,9 @@ class OrcaAgentOrchestrator:
                 advice="Excellent ocean conditions for all vessel types."
             )
 
-    def _synthesize_response(
+    async def _synthesize_response(
         self,
+        query: str,
         language: str,
         intent: str,
         risk: RiskAssessment,
@@ -394,9 +396,18 @@ class OrcaAgentOrchestrator:
         spot_dist = f"{spot.distance_km:.1f} km {spot.cardinal_direction}" if spot else "12 km NE"
         species = ", ".join(spot.target_species) if spot else "Mackerel, Sardine"
 
+        # Attempt Generative AI LLM synthesis for open-ended custom questions
+        llm_custom_answer = None
+        try:
+            llm_prompt = f"User Question: '{query}'. Live Telemetry: Wind {wind_kmh} km/h {wind_dir}, Wave {wave_height:.1f}m, Target Hotspot: {spot_name} ({spot_dist}, Species: {species}), Safety: {risk.title}. Answer the user's question directly."
+            llm_custom_answer = await sarvam_service.generate_regional_marine_summary(llm_prompt, language)
+        except Exception as e:
+            logger.warning(f"Generative LLM query synthesis skipped: {e}")
+
         if language == "ta":
             resp = (
                 f"🌊 **மீன்பிடி வழிகாட்டுதல் ({risk.title})**\n\n"
+                f"{f'💡 **சிறப்பு விளக்கம்:** {llm_custom_answer}\n\n' if llm_custom_answer else ''}"
                 f"**பாதுகாப்பு நிலை:** {risk.advice}\n"
                 f"• **காற்று வேகம்:** {wind_kmh} கி.மீ/மணி ({wind_dir})\n"
                 f"• **அலை உயரம்:** {wave_height:.1f} மீட்டர்\n\n"
@@ -406,14 +417,12 @@ class OrcaAgentOrchestrator:
                 f"👥 **மீனவர் சமூக அறிக்கை:** {community_reports[0]['catch']} (உறுதிப்படுத்தப்பட்டது)."
             )
             voice = (
-                f"வணக்கம்! இன்றைய கடல் நிலை: {risk.title}. "
-                f"பாதுகாப்பு அறிவுரை: {risk.advice}. "
-                f"பரிந்துரைக்கப்பட்ட மீன்பிடி மண்டலம்: {spot_name}, {spot_dist} தொலைவில் உள்ளது. "
-                f"இலக்கு மீன்கள்: {species}. நல்வாழ்த்துக்கள்!"
+                f"{llm_custom_answer if llm_custom_answer else 'வணக்கம்! இன்றைய கடல் நிலை: ' + risk.title + '. ' + risk.advice + '. பரிந்துரைக்கப்பட்ட மீன்பிடி மண்டலம்: ' + spot_name + ', ' + spot_dist + ' தொலைவில் உள்ளது. நல்வாழ்த்துக்கள்!'}"
             )
         elif language == "te":
             resp = (
                 f"🌊 **వేట మార్గదర్శకం ({risk.title})**\n\n"
+                f"{f'💡 **సలహా:** {llm_custom_answer}\n\n' if llm_custom_answer else ''}"
                 f"**రక్షణ సలహా:** {risk.advice}\n"
                 f"• **గాలి వేగం:** {wind_kmh} km/h ({wind_dir})\n"
                 f"• **అలల ఎత్తు:** {wave_height:.1f} మీటర్లు\n\n"
@@ -422,13 +431,12 @@ class OrcaAgentOrchestrator:
                 f"• **చేప రకాలు:** {species}"
             )
             voice = (
-                f"నమస్కారం! సముద్ర పరిస్థితి: {risk.title}. "
-                f"సలహా: {risk.advice}. "
-                f"ఉత్తమ చేపల వేట ప్రాంతం: {spot_name}, {spot_dist} దూరంలో ఉంది."
+                f"{llm_custom_answer if llm_custom_answer else 'నమస్కారం! సముద్ర పరిస్థితి: ' + risk.title + '. సలహా: ' + risk.advice + '. ఉత్తమ చేపల వేట ప్రాంతం: ' + spot_name + ', ' + spot_dist + ' దూరంలో ఉంది.'}"
             )
         elif language == "ml":
             resp = (
                 f"🌊 **മത്സ്യബന്ധന മാർഗ്ഗനിർദ്ദേശം ({risk.title})**\n\n"
+                f"{f'💡 **വിശദീകരണം:** {llm_custom_answer}\n\n' if llm_custom_answer else ''}"
                 f"**സുരക്ഷാ ഉപദേശം:** {risk.advice}\n"
                 f"• **കാറ്റിന്റെ വേഗത:** {wind_kmh} km/h ({wind_dir})\n"
                 f"• **തിരമാല ഉയരം:** {wave_height:.1f} മീറ്റർ\n\n"
@@ -437,13 +445,12 @@ class OrcaAgentOrchestrator:
                 f"• **ലക്ഷ്യമിടുന്ന മീനുകൾ:** {species}"
             )
             voice = (
-                f"നമസ്കാരം! കടൽ നില: {risk.title}. "
-                f"സുരക്ഷാ ഉപദേശം: {risk.advice}. "
-                f"മികച്ച മത്സ്യബന്ധന മേഖല: {spot_name}, {spot_dist} ദൂരത്തിൽ."
+                f"{llm_custom_answer if llm_custom_answer else 'നമസ്കാരം! കടൽ നില: ' + risk.title + '. സുരക്ഷാ ഉപദേശം: ' + risk.advice + '. മികച്ച മത്സ്യബന്ധന മേഖല: ' + spot_name + ', ' + spot_dist + ' ദൂരത്തിൽ.'}"
             )
         elif language == "hi":
             resp = (
                 f"🌊 **मत्स्य पालन सलाह ({risk.title})**\n\n"
+                f"{f'💡 **विशेष जानकारी:** {llm_custom_answer}\n\n' if llm_custom_answer else ''}"
                 f"**सुरक्षा सलाह:** {risk.advice}\n"
                 f"• **हवा की गति:** {wind_kmh} km/h ({wind_dir})\n"
                 f"• **समुद्री लहरें:** {wave_height:.1f} मीटर\n\n"
@@ -452,13 +459,12 @@ class OrcaAgentOrchestrator:
                 f"• **मछली की प्रजाति:** {species}"
             )
             voice = (
-                f"नमस्कार! समुद्र की स्थिति: {risk.title}. "
-                f"सुरक्षा सलाह: {risk.advice}. "
-                f"सर्वश्रेष्ठ मत्स्य क्षेत्र: {spot_name}, दूरी: {spot_dist}."
+                f"{llm_custom_answer if llm_custom_answer else 'नमस्कार! समुद्र की स्थिति: ' + risk.title + '. सुरक्षा सलाह: ' + risk.advice + '. सर्वश्रेष्ठ मत्स्य क्षेत्र: ' + spot_name + ', दूरी: ' + spot_dist + '.'}"
             )
         else:
             resp = (
                 f"🌊 **Marine Advisory ({risk.title})**\n\n"
+                f"{f'💡 **AI Insight:** {llm_custom_answer}\n\n' if llm_custom_answer else ''}"
                 f"**Safety Recommendation:** {risk.advice}\n"
                 f"• **Wind Speed:** {wind_kmh} km/h ({wind_dir})\n"
                 f"• **Wave Height:** {wave_height:.1f} meters\n\n"
@@ -468,10 +474,7 @@ class OrcaAgentOrchestrator:
                 f"👥 **Community Intelligence:** {community_reports[0]['catch']} reported recently nearby."
             )
             voice = (
-                f"Hello! Current sea condition is {risk.title}. "
-                f"Safety advice: {risk.advice}. "
-                f"Recommended fishing zone is {spot_name}, located {spot_dist}. "
-                f"Target species include {species}. Stay safe!"
+                f"{llm_custom_answer if llm_custom_answer else 'Hello! Current sea condition is ' + risk.title + '. Safety advice: ' + risk.advice + '. Recommended fishing zone is ' + spot_name + ', located ' + spot_dist + '. Target species include ' + species + '. Stay safe!'}"
             )
 
         return resp, voice

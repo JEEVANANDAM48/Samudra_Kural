@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # Sarvam AI Voice API Credentials
     SARVAM_API_KEY: Optional[str] = os.getenv("SARVAM_API_KEY", "sk_bdef6i5n_IMCodc8v3cOjtIod6qhvNM1b")
 
+    # Generative AI LLM API Credentials (Google Gemini & OpenAI)
+    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY", "")
+    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY", "")
+
     # Copernicus Marine Toolbox Authentication & Datasets
     COPERNICUSMARINE_SERVICE_USERNAME: Optional[str] = os.getenv("COPERNICUSMARINE_SERVICE_USERNAME", "Madhumitha")
     COPERNICUSMARINE_SERVICE_PASSWORD: Optional[str] = os.getenv("COPERNICUSMARINE_SERVICE_PASSWORD", "Vmadhu@1712")

@@ -1,3 +1,4 @@
+import os
 import logging
 import httpx
 import base64
@@ -132,8 +133,35 @@ class SarvamAIService:
         language_code: str = "ta"
     ) -> Optional[str]:
         """
-        Use Sarvam-2B LLM model to generate authentic regional marine advisory.
+        Use Google Gemini API or Sarvam-105B LLM model to generate dynamic custom marine answers.
         """
+        # 1. Try Google Gemini API if GEMINI_API_KEY is present
+        gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
+        if gemini_key:
+            try:
+                gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+                payload = {
+                    "contents": [{
+                        "parts": [{
+                            "text": f"You are Samudra Kural ORCA AI, an expert marine assistant for Indian fishermen. Answer the user's specific question concisely, accurately, and politely in language '{language_code}'. Question: {prompt}"
+                        }]
+                    }]
+                }
+                async with httpx.AsyncClient(timeout=12.0) as client:
+                    res = await client.post(gemini_url, json=payload)
+                    if res.status_code == 200:
+                        data = res.json()
+                        candidates = data.get("candidates", [])
+                        if candidates and "content" in candidates[0]:
+                            parts = candidates[0]["content"].get("parts", [])
+                            if parts and "text" in parts[0]:
+                                text = parts[0]["text"].strip()
+                                logger.info(f"Google Gemini 2.0 Flash LLM success: '{text[:80]}...'")
+                                return text
+            except Exception as e:
+                logger.warning(f"Google Gemini LLM call bypassed: {e}")
+
+        # 2. Try Sarvam LLM (sarvam-105b-conversations) if SARVAM_API_KEY is present
         if not self.api_key:
             return None
 
@@ -143,11 +171,11 @@ class SarvamAIService:
         }
 
         payload = {
-            "model": "sarvam-2b",
+            "model": "sarvam-105b-conversations",
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are Samudra Kural ORCA AI, an expert marine advisory system for Indian fishermen. Respond concisely and clearly in the target language with practical safety and fishing advice."
+                    "content": f"You are Samudra Kural ORCA AI, an expert marine advisory system for Indian fishermen. Answer the user's question concisely in language '{language_code}'."
                 },
                 {"role": "user", "content": prompt}
             ],
@@ -156,16 +184,18 @@ class SarvamAIService:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=12.0) as client:
                 res = await client.post(SARVAM_LLM_URL, headers=headers, json=payload)
                 if res.status_code == 200:
                     data = res.json()
                     choices = data.get("choices", [])
                     if choices and "message" in choices[0]:
                         content = choices[0]["message"].get("content", "")
+                        logger.info(f"Sarvam LLM success: '{content[:80]}...'")
                         return content.strip()
         except Exception as e:
-            logger.warning(f"Sarvam-2B LLM call bypassed: {e}")
+            logger.warning(f"Sarvam LLM call bypassed: {e}")
+
         return None
 
 sarvam_service = SarvamAIService()
