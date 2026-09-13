@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { FishermanUser, SupportedLanguage } from '../types';
 import { getUserSession, saveUserSession, clearSession } from '../storage/storage';
-import { supportedLanguages, t } from '../i18n';
+import { supportedLanguages, useLanguage } from '../i18n';
 import { PrimaryButton } from '../components/PrimaryButton';
 
 interface ProfileScreenProps {
@@ -33,11 +33,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onLanguageChange,
   hideTopHeader = false,
 }) => {
+  const { t, language } = useLanguage();
   const [user, setUser] = useState<FishermanUser>({
     name: 'K. Veeraraghavan',
     phone: '+91 98401 23456',
     emergencyPhone: '+91 94440 99999',
-    vesselName: 'Sea King IX (கடல் அரசன் 9)',
+    vesselName: 'Sea King IX',
     vesselRegistration: 'TN-01-MM-8492',
     vesselType: 'Mechanized Motorized Trawler',
     homePort: 'Kasimedu Fishing Harbour, Chennai',
@@ -105,7 +106,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) {
-      Alert.alert('Required Field', 'Please enter your Full Name.');
+      Alert.alert(t('genericError'), t('missingName'));
       return;
     }
 
@@ -125,17 +126,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setUser(updatedUser);
     await saveUserSession(updatedUser);
     setIsEditModalOpen(false);
-    Alert.alert('Profile Saved', 'Your fisherman profile and vessel details have been updated successfully.');
+    Alert.alert(t('profileTitle'), t('profileUpdated'));
   };
 
   const handleLogoutPress = async () => {
     Alert.alert(
-      'Logout Confirmation',
-      'Are you sure you want to log out of SamudraKural?',
+      t('logout'),
+      t('logoutConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Logout',
+          text: t('logout'),
           style: 'destructive',
           onPress: async () => {
             await clearSession();
@@ -146,7 +147,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     );
   };
 
-  const currentLangObj = supportedLanguages.find((l) => l.code === currentLanguage);
+  const activeLang = language || currentLanguage;
+  const currentLangObj = supportedLanguages.find((l) => l.code === activeLang);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -158,11 +160,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Fisherman Profile & Vessel Specs</Text>
-          <Text style={styles.headerSubtitle}>Official Identity, Fleet & Marine Safety</Text>
+          <Text style={styles.headerTitle}>{t('profileTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('appSubtitle')}</Text>
         </View>
         <TouchableOpacity style={styles.editHeaderBtn} onPress={openEditModal}>
-          <Text style={styles.editHeaderBtnText}>✏️ Edit</Text>
+          <Text style={styles.editHeaderBtnText}>✏️</Text>
         </TouchableOpacity>
       </View>
 
@@ -174,7 +176,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Text style={styles.avatarIcon}>👤</Text>
             </View>
             <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedBadgeText}>✓ VERIFIED FISHERMAN</Text>
+              <Text style={styles.verifiedBadgeText}>✓ {t('profileTitle')}</Text>
             </View>
           </View>
 
@@ -183,13 +185,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
           <View style={styles.quickGrid}>
             <View style={styles.quickGridBox}>
-              <Text style={styles.quickGridLabel}>EMERGENCY SOS</Text>
+              <Text style={styles.quickGridLabel}>{t('emergencyContact')}</Text>
               <Text style={styles.quickGridValue}>{user.emergencyPhone || '+91 94440 99999'}</Text>
             </View>
 
             <View style={styles.quickGridBox}>
-              <Text style={styles.quickGridLabel}>FISHERMAN ID / AADHAAR</Text>
-              <Text style={styles.quickGridValue}>{user.aadhaarNumber || 'XXXX-8492'}</Text>
+              <Text style={styles.quickGridLabel}>{t('boatRegistration')}</Text>
+              <Text style={styles.quickGridValue}>{user.vesselRegistration || 'TN-01-MM-8492'}</Text>
             </View>
           </View>
         </View>
@@ -199,7 +201,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>VESSEL & LICENSE DETAILS</Text>
             <TouchableOpacity onPress={openEditModal}>
-              <Text style={styles.sectionEditLink}>Edit Vessel</Text>
+              <Text style={styles.sectionEditLink}>✏️</Text>
             </TouchableOpacity>
           </View>
 
@@ -214,12 +216,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Boat / Craft Type:</Text>
+            <Text style={styles.detailLabel}>{t('boatType')}:</Text>
             <Text style={styles.detailValue}>{user.vesselType || 'Mechanized Trawler'}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Home Harbour / Landing:</Text>
+            <Text style={styles.detailLabel}>{t('homeHarbor')}:</Text>
             <Text style={styles.detailValue}>{user.homePort || 'Kasimedu Harbour, Chennai'}</Text>
           </View>
 
@@ -234,22 +236,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <Text style={styles.sectionTitle}>RESIDENTIAL & PORT ADDRESS</Text>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Street Address:</Text>
+            <Text style={styles.detailLabel}>{t('address')}:</Text>
             <Text style={styles.detailValue}>{user.address || 'Kasimedu Harbour Road'}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Pincode & District:</Text>
-            <Text style={styles.detailValue}>{user.pincode || '600013'}, Chennai District</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Maritime State:</Text>
-            <Text style={styles.detailValue}>Tamil Nadu, India</Text>
+            <Text style={styles.detailLabel}>{t('pincode')}:</Text>
+            <Text style={styles.detailValue}>{user.pincode || '600013'}</Text>
           </View>
         </View>
 
-        {/* 5. APP SETTINGS & LANGUAGE */}
+        {/* 4. APP SETTINGS & LANGUAGE */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>APP PREFERENCES & LANGUAGE</Text>
 
@@ -275,7 +272,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
 
-        {/* 6. LOGOUT BUTTON */}
+        {/* 5. LOGOUT BUTTON */}
         <View style={styles.logoutSection}>
           <PrimaryButton
             title="Logout Account"
@@ -376,8 +373,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Edit Fisherman Profile</Text>
-                <Text style={styles.modalSubtitle}>Update personal, vessel & contact details</Text>
+                <Text style={styles.modalTitle}>{t('profileTitle')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
@@ -388,21 +384,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </View>
 
             <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.formSectionTitle}>PERSONAL & CONTACT INFO</Text>
+              <Text style={styles.formSectionTitle}>{t('personalDetails')}</Text>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Full Name*</Text>
+                <Text style={styles.inputLabel}>{t('fullName')}*</Text>
                 <TextInput
                   style={styles.textInput}
                   value={editName}
                   onChangeText={setEditName}
-                  placeholder="e.g. K. Veeraraghavan"
+                  placeholder={t('namePlaceholder')}
                 />
               </View>
 
               <View style={styles.inputRow}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
-                  <Text style={styles.inputLabel}>Primary Phone*</Text>
+                  <Text style={styles.inputLabel}>{t('mobileNumber')}*</Text>
                   <TextInput
                     style={styles.textInput}
                     value={editPhone}
@@ -412,26 +408,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </View>
 
                 <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
-                  <Text style={styles.inputLabel}>Emergency Phone*</Text>
+                  <Text style={styles.inputLabel}>{t('contactPhone')}*</Text>
                   <TextInput
                     style={styles.textInput}
                     value={editEmergencyPhone}
                     onChangeText={setEditEmergencyPhone}
                     keyboardType="phone-pad"
-                    placeholder="e.g. +91 94440 99999"
                   />
                 </View>
               </View>
 
-              <Text style={[styles.formSectionTitle, { marginTop: 14 }]}>VESSEL & HARBOUR SPECS</Text>
+              <Text style={[styles.formSectionTitle, { marginTop: 14 }]}>{t('vesselDetails')}</Text>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Boat / Vessel Name</Text>
+                <Text style={styles.inputLabel}>{t('boatRegistration')}</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={editVesselName}
-                  onChangeText={setEditVesselName}
-                  placeholder="e.g. Sea King IX"
+                  value={editVesselRegistration}
+                  onChangeText={setEditVesselRegistration}
                 />
               </View>
 
@@ -458,40 +452,39 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Home Harbour / Landing Centre</Text>
+                <Text style={styles.inputLabel}>{t('homeHarbor')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={editHomePort}
                   onChangeText={setEditHomePort}
-                  placeholder="e.g. Kasimedu Harbour, Chennai"
                 />
               </View>
 
-              <Text style={[styles.formSectionTitle, { marginTop: 14 }]}>ADDRESS & RESIDENCE</Text>
+              <Text style={[styles.formSectionTitle, { marginTop: 14 }]}>{t('address')}</Text>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Residential Street Address</Text>
+                <Text style={styles.inputLabel}>{t('address')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={editAddress}
                   onChangeText={setEditAddress}
-                  placeholder="e.g. Harbour Main Road"
+                  placeholder={t('addressPlaceholder')}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Pincode</Text>
+                <Text style={styles.inputLabel}>{t('pincode')}</Text>
                 <TextInput
                   style={styles.textInput}
                   value={editPincode}
                   onChangeText={setEditPincode}
                   keyboardType="numeric"
-                  placeholder="e.g. 600013"
+                  placeholder={t('pincodePlaceholder')}
                 />
               </View>
 
               <TouchableOpacity style={styles.saveProfileBtn} onPress={handleSaveProfile}>
-                <Text style={styles.saveProfileBtnText}>💾 Save Profile Changes</Text>
+                <Text style={styles.saveProfileBtnText}>💾 {t('saveProfile')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -709,39 +702,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
-  detailValueActive: {
-    color: Colors.success,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  safetyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  safetyIcon: {
-    fontSize: 22,
-    marginRight: 10,
-  },
-  safetyTextGroup: {
-    flex: 1,
-  },
-  safetyTitle: {
-    color: Colors.text,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  safetyStatusActive: {
-    color: Colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
-  },
   logoutSection: {
     marginTop: 8,
     marginBottom: 20,
@@ -753,8 +713,6 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 40,
   },
-
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 30, 40, 0.65)',
@@ -782,12 +740,6 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     fontSize: 20,
     fontWeight: '900',
-  },
-  modalSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
   },
   modalCloseBtn: {
     width: 36,
@@ -844,11 +796,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 14,
-    marginBottom: 20,
+    marginBottom: 30,
   },
   saveProfileBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
   },
 });

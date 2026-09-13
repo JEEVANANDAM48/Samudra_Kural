@@ -70,6 +70,7 @@ class DeterministicDriftEngine:
         end_sub = retrieval_utc + timedelta(hours=6)
 
         phy_ds, wav_ds = None, None
+        surface_phy = None
         try:
             phy_ds, wav_ds = copernicus_service.fetch_spatial_subset(
                 min_lat=bbox["min_lat"],
@@ -79,8 +80,39 @@ class DeterministicDriftEngine:
                 start_time=start_sub,
                 end_time=end_sub
             )
+            if phy_ds is not None:
+                phy_vars = [v for v in ["uo", "vo"] if v in phy_ds.data_vars]
+                if 'depth' in phy_ds.dims or 'depth' in phy_ds.coords:
+                    surface_phy = phy_ds.isel(depth=0)[phy_vars].compute()
+                else:
+                    surface_phy = phy_ds[phy_vars].compute()
+            if wav_ds is not None:
+                wav_vars = [v for v in ["VHM0", "VMDR", "VTPK", "VSDX", "VSDY"] if v in wav_ds.data_vars]
+                wav_ds = wav_ds[wav_vars].compute()
         except Exception as e:
             logger.warning("Subset query non-fatal fallback: %s", e)
+
+        def _interp_scalar(ds, var_name: str, lat: float, lon: float, t_val: datetime, default: float = 0.0) -> float:
+            if ds is None or var_name not in ds.data_vars:
+                return default
+            t_np = np.datetime64(t_val.replace(tzinfo=None)) if isinstance(t_val, datetime) else np.datetime64(t_val)
+            lat_name = "latitude" if "latitude" in ds.coords or "latitude" in ds.dims else "lat"
+            lon_name = "longitude" if "longitude" in ds.coords or "longitude" in ds.dims else "lon"
+            time_name = "time" if ("time" in ds.coords or "time" in ds.dims) else [c for c in ds.coords if "time" in str(c).lower()][0]
+            kw = {lat_name: lat, lon_name: lon, time_name: t_np}
+            try:
+                val = float(np.asarray(ds[var_name].interp(**kw, method="linear").values).squeeze())
+                if not np.isnan(val):
+                    return val
+            except Exception:
+                pass
+            try:
+                val = float(np.asarray(ds[var_name].sel(**kw, method="nearest").values).squeeze())
+                if not np.isnan(val):
+                    return val
+            except Exception:
+                pass
+            return default
 
         current_lat = release_lat
         current_lon = release_lon
@@ -95,20 +127,11 @@ class DeterministicDriftEngine:
         init_stokes_u, init_stokes_v = 0.0, 0.0
         init_wave_h = 1.0
 
-        if phy_ds is not None:
-            try:
-                uo_var = "uo" if "uo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "uo" in str(v).lower()][0]
-                vo_var = "vo" if "vo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "vo" in str(v).lower()][0]
-                pt_phy_0 = phy_ds.interp(
-                    latitude=current_lat,
-                    longitude=current_lon,
-                    time=np.datetime64(current_time.replace(tzinfo=None)),
-                    method="linear"
-                )
-                init_uo = float(pt_phy_0[uo_var].values)
-                init_vo = float(pt_phy_0[vo_var].values)
-            except Exception as e:
-                logger.warning("Error interpolating initial physics point: %s", e)
+        if surface_phy is not None:
+            uo_var = "uo" if "uo" in surface_phy.data_vars else [v for v in surface_phy.data_vars if "uo" in str(v).lower()][0]
+            vo_var = "vo" if "vo" in surface_phy.data_vars else [v for v in surface_phy.data_vars if "vo" in str(v).lower()][0]
+            init_uo = _interp_scalar(surface_phy, uo_var, current_lat, current_lon, current_time, default=0.0)
+            init_vo = _interp_scalar(surface_phy, vo_var, current_lat, current_lon, current_time, default=0.0)
         elif not settings.DEMO_MODE:
             raise RuntimeError("Live Copernicus Ocean Current dataset unavailable. Real data is required when DEMO_MODE=false.")
         else:
@@ -117,21 +140,9 @@ class DeterministicDriftEngine:
             init_vo = demo_0["current"]["vo"]
 
         if wav_ds is not None:
-            try:
-                pt_wav_0 = wav_ds.interp(
-                    latitude=current_lat,
-                    longitude=current_lon,
-                    time=np.datetime64(current_time.replace(tzinfo=None)),
-                    method="linear"
-                )
-                if "VSDX" in wav_ds.data_vars:
-                    init_stokes_u = float(pt_wav_0["VSDX"].values)
-                if "VSDY" in wav_ds.data_vars:
-                    init_stokes_v = float(pt_wav_0["VSDY"].values)
-                if "VHM0" in wav_ds.data_vars:
-                    init_wave_h = float(pt_wav_0["VHM0"].values)
-            except Exception as e:
-                logger.warning("Error interpolating initial wave point: %s", e)
+            init_stokes_u = _interp_scalar(wav_ds, "VSDX", current_lat, current_lon, current_time, default=0.0)
+            init_stokes_v = _interp_scalar(wav_ds, "VSDY", current_lat, current_lon, current_time, default=0.0)
+            init_wave_h = _interp_scalar(wav_ds, "VHM0", current_lat, current_lon, current_time, default=1.0)
 
         env_inc = incois_service.fetch_point_environment(current_lat, current_lon, current_time)
         inc_wind = env_inc.get("wind", {})
@@ -183,22 +194,11 @@ class DeterministicDriftEngine:
             stokes_u, stokes_v = 0.0, 0.0
             wave_h = 1.0
 
-            if phy_ds is not None:
-                try:
-                    uo_var = "uo" if "uo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "uo" in str(v).lower()][0]
-                    vo_var = "vo" if "vo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "vo" in str(v).lower()][0]
-                    pt_phy = phy_ds.interp(
-                        latitude=current_lat,
-                        longitude=current_lon,
-                        time=np.datetime64(step_time.replace(tzinfo=None)),
-                        method="linear"
-                    )
-                    uo = float(pt_phy[uo_var].values)
-                    vo = float(pt_phy[vo_var].values)
-                except Exception as e:
-                    logger.warning("Physics interpolation error at step %s: %s", step, e)
-                    if not settings.DEMO_MODE:
-                        raise
+            if surface_phy is not None:
+                uo_var = "uo" if "uo" in surface_phy.data_vars else [v for v in surface_phy.data_vars if "uo" in str(v).lower()][0]
+                vo_var = "vo" if "vo" in surface_phy.data_vars else [v for v in surface_phy.data_vars if "vo" in str(v).lower()][0]
+                uo = _interp_scalar(surface_phy, uo_var, current_lat, current_lon, step_time, default=init_uo)
+                vo = _interp_scalar(surface_phy, vo_var, current_lat, current_lon, step_time, default=init_vo)
             elif not settings.DEMO_MODE:
                 raise RuntimeError("Live Copernicus Ocean Current dataset unavailable for step simulation.")
             else:
@@ -207,21 +207,9 @@ class DeterministicDriftEngine:
                 vo = demo_step["current"]["vo"]
 
             if wav_ds is not None:
-                try:
-                    pt_wav = wav_ds.interp(
-                        latitude=current_lat,
-                        longitude=current_lon,
-                        time=np.datetime64(step_time.replace(tzinfo=None)),
-                        method="linear"
-                    )
-                    if "VSDX" in wav_ds.data_vars:
-                        stokes_u = float(pt_wav["VSDX"].values)
-                    if "VSDY" in wav_ds.data_vars:
-                        stokes_v = float(pt_wav["VSDY"].values)
-                    if "VHM0" in wav_ds.data_vars:
-                        wave_h = float(pt_wav["VHM0"].values)
-                except Exception as e:
-                    logger.warning("Wave interpolation error at step %s: %s", step, e)
+                stokes_u = _interp_scalar(wav_ds, "VSDX", current_lat, current_lon, step_time, default=0.0)
+                stokes_v = _interp_scalar(wav_ds, "VSDY", current_lat, current_lon, step_time, default=0.0)
+                wave_h = _interp_scalar(wav_ds, "VHM0", current_lat, current_lon, step_time, default=1.0)
             elif settings.DEMO_MODE:
                 demo_step_wav = copernicus_service._generate_deterministic_demo_data(current_lat, current_lon, step_time)
                 stokes_u = demo_step_wav["stokes_drift"]["vsdx"]

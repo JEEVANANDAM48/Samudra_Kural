@@ -104,6 +104,7 @@ class CopernicusMarineService:
         try:
             phy_ds = copernicusmarine.open_dataset(
                 dataset_id=self.phy_dataset_id,
+                variables=["uo", "vo"],
                 minimum_latitude=min_lat,
                 maximum_latitude=max_lat,
                 minimum_longitude=min_lon,
@@ -119,6 +120,7 @@ class CopernicusMarineService:
         try:
             wav_ds = copernicusmarine.open_dataset(
                 dataset_id=self.wav_dataset_id,
+                variables=["VHM0", "VMDR", "VTPK", "VSDX", "VSDY"],
                 minimum_latitude=min_lat,
                 maximum_latitude=max_lat,
                 minimum_longitude=min_lon,
@@ -168,20 +170,26 @@ class CopernicusMarineService:
             if phy_ds is None:
                 raise RuntimeError("Physics dataset returned None")
 
-            # Validate exact live variable names
-            uo_var = "uo" if "uo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "uo" in str(v).lower()][0]
-            vo_var = "vo" if "vo" in phy_ds.data_vars else [v for v in phy_ds.data_vars if "vo" in str(v).lower()][0]
+            # Surface selection: Select top depth level if vertical dimension exists
+            if 'depth' in phy_ds.dims or 'depth' in phy_ds.coords:
+                surface_phy = phy_ds.isel(depth=0)
+            else:
+                surface_phy = phy_ds
 
             # Interpolate spatially and temporally
-            point_phy = phy_ds.interp(
+            point_phy = surface_phy.interp(
                 latitude=latitude,
                 longitude=longitude,
                 time=np.datetime64(target_time_utc.replace(tzinfo=None)),
                 method="linear"
             )
 
-            uo = float(point_phy[uo_var].values)
-            vo = float(point_phy[vo_var].values)
+            # Validate variable names
+            uo_var = "uo" if "uo" in surface_phy.data_vars else [v for v in surface_phy.data_vars if "uo" in str(v).lower()][0]
+            vo_var = "vo" if "vo" in surface_phy.data_vars else [v for v in surface_phy.data_vars if "vo" in str(v).lower()][0]
+
+            uo = float(np.asarray(point_phy[uo_var].values).squeeze())
+            vo = float(np.asarray(point_phy[vo_var].values).squeeze())
 
             # Extract Wave & Stokes drift
             stokes_u = 0.0
@@ -198,15 +206,15 @@ class CopernicusMarineService:
                     method="linear"
                 )
                 if "VSDX" in wav_ds.data_vars:
-                    stokes_u = float(point_wav["VSDX"].values)
+                    stokes_u = float(np.asarray(point_wav["VSDX"].values).squeeze())
                 if "VSDY" in wav_ds.data_vars:
-                    stokes_v = float(point_wav["VSDY"].values)
+                    stokes_v = float(np.asarray(point_wav["VSDY"].values).squeeze())
                 if "VHM0" in wav_ds.data_vars:
-                    wave_height = float(point_wav["VHM0"].values)
+                    wave_height = float(np.asarray(point_wav["VHM0"].values).squeeze())
                 if "VTPK" in wav_ds.data_vars:
-                    wave_period = float(point_wav["VTPK"].values)
+                    wave_period = float(np.asarray(point_wav["VTPK"].values).squeeze())
                 if "VMDR" in wav_ds.data_vars:
-                    wave_direction = float(point_wav["VMDR"].values)
+                    wave_direction = float(np.asarray(point_wav["VMDR"].values).squeeze())
 
             current_speed, current_dir, current_cardinal = uv_to_speed_and_direction(uo, vo, is_oceanographic=True)
             stokes_speed, stokes_dir, _ = uv_to_speed_and_direction(stokes_u, stokes_v, is_oceanographic=True)

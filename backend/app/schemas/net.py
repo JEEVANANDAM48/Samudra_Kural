@@ -16,6 +16,15 @@ class NetBase(BaseModel):
 class NetCreate(NetBase):
     pass
 
+class NetSimulationRequest(BaseModel):
+    net_name: Optional[str] = "Simulation Net"
+    net_type: str = Field(default="FLOATING_GILL_NET", json_schema_extra={"example": "FLOATING_GILL_NET"})
+    release_latitude: float = Field(default=13.05, ge=-90.0, le=90.0, json_schema_extra={"example": 13.05})
+    release_longitude: float = Field(default=80.35, ge=-180.0, le=180.0, json_schema_extra={"example": 80.35})
+    release_time: datetime = Field(..., description="Release time (UTC or ISO string)")
+    duration_hours: float = Field(default=2.0, ge=0.25, le=48.0, description="Prediction horizon in hours")
+    timestep_minutes: int = Field(default=15, ge=5, le=60, description="Numerical integration step in minutes")
+
 class NetUpdate(BaseModel):
     name: Optional[str] = None
     net_type: Optional[str] = None

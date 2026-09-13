@@ -205,9 +205,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </View>
 
               <View style={styles.noticeBox}>
-                <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
+                <Text style={styles.noticeTitle}>{t('appSubtitle', currentLanguage)}</Text>
                 <Text style={styles.noticeText}>
-                  {t('comingSoon', currentLanguage)}. Access official INCOIS ocean forecasts, Sea Surface Temperature (SST), Chlorophyll-a layers, and Potential Fishing Zones.
+                  {t('comingSoon', currentLanguage)}. {t('pfzSubtitle', currentLanguage)}.
                 </Text>
 
                 {onOpenNavigation && (
@@ -224,7 +224,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     onPress={onOpenNavigation}
                   >
                     <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
-                      🧭 Open Marine Navigation & Destination Target
+                      🧭 {t('navigationTitle', currentLanguage)}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -243,7 +243,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     onPress={onOpenFishingZones}
                   >
                     <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
-                      🐟 Open INCOIS Fishing Zones Map
+                      {t('openIncoisMap', currentLanguage)}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -280,7 +280,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <SafeAreaView style={{ flex: 1 }}>
               {/* Drawer Header */}
               <View style={styles.drawerHeader}>
-                <Text style={styles.drawerHeaderTitle}>Menu & Profile</Text>
+                <Text style={styles.drawerHeaderTitle}>{t('menuAndProfile', currentLanguage)}</Text>
                 <TouchableOpacity
                   onPress={closeMenuDrawer}
                   style={styles.closeButton}
@@ -361,7 +361,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
                 {/* Settings / Language Info */}
                 <View style={styles.menuSection}>
-                  <Text style={styles.menuSectionTitle}>App Settings</Text>
+                  <Text style={styles.menuSectionTitle}>{t('appSettings', currentLanguage)}</Text>
                   
                   <TouchableOpacity
                     style={styles.menuItem}
@@ -532,70 +532,66 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   scrollContent: {
-    paddingHorizontal: 4,
-    paddingTop: 8,
-    paddingBottom: 110,
+    paddingBottom: 24,
   },
   featureCard: {
     backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderWidth: 2,
     borderRadius: 22,
-    padding: 24,
-    alignItems: 'center',
+    padding: 22,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  cardTop: {
-    alignItems: 'center',
+    shadowRadius: 10,
+    elevation: 4,
     marginBottom: 20,
   },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingBottom: 14,
+  },
   featureIcon: {
-    fontSize: 58,
-    marginBottom: 12,
+    fontSize: 32,
+    marginRight: 12,
   },
   botFeatureLogo: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    marginBottom: 12,
-    borderWidth: 2.5,
-    borderColor: Colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
   },
   featureTitle: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '900',
     color: Colors.text,
-    textAlign: 'center',
   },
   noticeBox: {
     backgroundColor: Colors.secondary,
-    padding: 18,
-    borderRadius: 18,
-    width: '100%',
-    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.secondaryDark,
   },
   noticeTitle: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '800',
     color: Colors.primaryDark,
     marginBottom: 6,
   },
   noticeText: {
-    fontSize: 16,
+    fontSize: 13,
     color: Colors.text,
-    textAlign: 'center',
-    lineHeight: 22,
-    fontWeight: '600',
+    lineHeight: 19,
+    fontWeight: '500',
   },
-
-  /* Side Menu Drawer Styles */
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(13, 37, 38, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   drawerContainer: {
     position: 'absolute',
@@ -604,82 +600,81 @@ const styles = StyleSheet.create({
     right: 0,
     width: DRAWER_WIDTH,
     backgroundColor: Colors.surface,
+    borderTopLeftRadius: 28,
+    borderBottomLeftRadius: 28,
     shadowColor: '#000',
     shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 20,
-    borderTopLeftRadius: 24,
-    borderBottomLeftRadius: 24,
+    shadowRadius: 12,
+    elevation: 16,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 16,
   },
   drawerHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 16,
+    alignItems: 'center',
     paddingBottom: 16,
     borderBottomWidth: 1.5,
-    borderBottomColor: Colors.secondaryDark,
-    backgroundColor: Colors.primary,
-    borderTopLeftRadius: 24,
+    borderBottomColor: Colors.border,
   },
   drawerHeaderTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    color: Colors.textLight,
+    color: Colors.text,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   closeIcon: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: Colors.textLight,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.textSecondary,
   },
   drawerBody: {
-    padding: 20,
+    paddingVertical: 18,
   },
   profileSection: {
     alignItems: 'center',
-    marginBottom: 24,
     backgroundColor: Colors.background,
+    padding: 18,
     borderRadius: 18,
-    padding: 20,
     borderWidth: 1.5,
     borderColor: Colors.border,
+    marginBottom: 20,
   },
   profileAvatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: Colors.secondary,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: Colors.primary,
+    marginBottom: 10,
   },
   avatarText: {
-    fontSize: 38,
+    fontSize: 32,
   },
   profileName: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '800',
     color: Colors.text,
-    marginBottom: 4,
-    textAlign: 'center',
+    marginBottom: 2,
   },
   profilePhone: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 13,
     color: Colors.textSecondary,
-    marginBottom: 12,
+    fontWeight: '600',
+    marginBottom: 10,
   },
   infoBox: {
     width: '100%',
@@ -688,7 +683,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E0ECEC',
+    borderTopColor: Colors.border,
   },
   infoBoxLabel: {
     fontSize: 13,
@@ -755,35 +750,35 @@ const styles = StyleSheet.create({
     color: Colors.success,
   },
   menuSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   menuSectionTitle: {
-    fontSize: 17,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
     color: Colors.textSecondary,
     marginBottom: 10,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    padding: 16,
+    backgroundColor: Colors.background,
+    padding: 14,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: Colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   menuItemLabel: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.text,
   },
   menuItemValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primaryDark,
   },
   logoutWrapper: {
     marginTop: 10,

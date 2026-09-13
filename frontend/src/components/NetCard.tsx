@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Colors } from '../theme/colors';
 import { FishingNet } from '../types/net';
+import { useLanguage } from '../i18n';
 
 interface NetCardProps {
   net: FishingNet;
@@ -9,6 +10,8 @@ interface NetCardProps {
 }
 
 export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
+  const { t, tNetType } = useLanguage();
+
   const confidenceColor =
     net.confidence === 'HIGH'
       ? Colors.success
@@ -19,9 +22,25 @@ export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
   const movementText =
     net.estimated_movement_km !== undefined && net.estimated_movement_km !== null
       ? `~${net.estimated_movement_km} km`
-      : 'Calculating...';
+      : t('loading');
 
-  const searchAreaText = net.search_area_description || 'Estimating search area...';
+  const searchAreaText = net.search_area_description || t('loading');
+
+  const statusKey =
+    net.status === 'ACTIVE'
+      ? 'active'
+      : net.status === 'RETRIEVED'
+      ? 'retrieved'
+      : net.status === 'LOST'
+      ? 'lost'
+      : 'archived';
+
+  const confidenceKey =
+    net.confidence === 'HIGH'
+      ? 'confidenceHigh'
+      : net.confidence === 'LOW'
+      ? 'confidenceLow'
+      : 'confidenceMedium';
 
   return (
     <View style={styles.card}>
@@ -31,13 +50,13 @@ export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
           <Text style={styles.netIcon}>🕸️</Text>
           <View>
             <Text style={styles.netName}>{net.name}</Text>
-            <Text style={styles.netType}>{net.net_type_display}</Text>
+            <Text style={styles.netType}>{tNetType(net.net_type_display || net.net_type)}</Text>
           </View>
         </View>
 
         <View style={[styles.statusBadge, net.status === 'ACTIVE' ? styles.activeBadge : styles.inactiveBadge]}>
           <Text style={[styles.statusText, net.status === 'ACTIVE' ? styles.activeStatusText : styles.inactiveStatusText]}>
-            {net.status}
+            {t(statusKey)}
           </Text>
         </View>
       </View>
@@ -45,29 +64,29 @@ export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
       {/* Info Grid */}
       <View style={styles.bodyGrid}>
         <View style={styles.infoCol}>
-          <Text style={styles.label}>Released</Text>
+          <Text style={styles.label}>{t('deployment')}</Text>
           <Text style={styles.valueHighlight}>{net.elapsed_time_formatted}</Text>
         </View>
 
         <View style={styles.infoCol}>
-          <Text style={styles.label}>Estimated movement</Text>
+          <Text style={styles.label}>{t('estimatedMovement')}</Text>
           <Text style={styles.valueHighlight}>{movementText}</Text>
         </View>
       </View>
 
       {/* Search Area Banner */}
       <View style={styles.searchAreaBox}>
-        <Text style={styles.searchAreaLabel}>Probable search area</Text>
+        <Text style={styles.searchAreaLabel}>{t('probableSearchArea')}</Text>
         <Text style={styles.searchAreaValue}>{searchAreaText}</Text>
       </View>
 
       {/* Confidence & Action Row */}
       <View style={styles.footerRow}>
         <View style={styles.confidenceWrapper}>
-          <Text style={styles.confidenceLabel}>Confidence:</Text>
+          <Text style={styles.confidenceLabel}>{t('confidence')}:</Text>
           <View style={[styles.confidencePill, { backgroundColor: confidenceColor + '20', borderColor: confidenceColor }]}>
             <Text style={[styles.confidenceText, { color: confidenceColor }]}>
-              {net.confidence || 'MEDIUM'}
+              {t(confidenceKey)}
             </Text>
           </View>
         </View>
@@ -77,7 +96,7 @@ export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
           style={styles.viewDriftButton}
           onPress={() => onViewDrift(net)}
         >
-          <Text style={styles.viewDriftText}>VIEW DRIFT ➔</Text>
+          <Text style={styles.viewDriftText}>🌊 {t('likelyDirection')} ➔</Text>
         </TouchableOpacity>
       </View>
     </View>

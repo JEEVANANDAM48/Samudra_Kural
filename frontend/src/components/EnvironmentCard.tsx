@@ -2,28 +2,31 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../theme/colors';
 import { EnvironmentalState } from '../types/net';
+import { useLanguage } from '../i18n';
 
 interface EnvironmentCardProps {
   environment?: EnvironmentalState | null;
 }
 
 export const EnvironmentCard: React.FC<EnvironmentCardProps> = ({ environment }) => {
+  const { t, tDirection, tSeaState } = useLanguage();
+
   if (!environment) {
     return null;
   }
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardHeaderTitle}>🌊 Sea & Weather Conditions</Text>
-      <Text style={styles.cardSubtitle}>Based on latest coastal ocean forecast</Text>
+      <Text style={styles.cardHeaderTitle}>🌊 {t('seaWeatherConditions')}</Text>
+      <Text style={styles.cardSubtitle}>{t('basedOnForecast')}</Text>
 
       <View style={styles.metricsGrid}>
         {/* Ocean Current */}
         <View style={styles.metricItem}>
           <Text style={styles.metricIcon}>🌊</Text>
-          <Text style={styles.metricTitle}>Ocean Current</Text>
+          <Text style={styles.metricTitle}>{t('oceanCurrent')}</Text>
           <Text style={styles.metricValue}>
-            {environment.current_direction_cardinal || 'Northeast'}
+            {tDirection(environment.current_direction_cardinal || 'Northeast')}
           </Text>
           <Text style={styles.metricSubvalue}>
             {environment.current_speed_mps.toFixed(2)} m/s (~{(environment.current_speed_mps * 1.94).toFixed(1)} kts)
@@ -33,9 +36,9 @@ export const EnvironmentCard: React.FC<EnvironmentCardProps> = ({ environment })
         {/* Wind */}
         <View style={styles.metricItem}>
           <Text style={styles.metricIcon}>💨</Text>
-          <Text style={styles.metricTitle}>Wind</Text>
+          <Text style={styles.metricTitle}>{t('wind')}</Text>
           <Text style={styles.metricValue}>
-            {environment.wind_direction_cardinal || 'Northeast'}
+            {tDirection(environment.wind_direction_cardinal || 'Northeast')}
           </Text>
           <Text style={styles.metricSubvalue}>
             {environment.wind_speed_kmh.toFixed(0)} km/h
@@ -45,12 +48,12 @@ export const EnvironmentCard: React.FC<EnvironmentCardProps> = ({ environment })
         {/* Sea Condition */}
         <View style={styles.metricItem}>
           <Text style={styles.metricIcon}>⛵</Text>
-          <Text style={styles.metricTitle}>Sea State</Text>
+          <Text style={styles.metricTitle}>{t('seaState')}</Text>
           <Text style={styles.metricValue}>
-            {environment.sea_state || 'Moderate'}
+            {tSeaState(environment.sea_state || 'Moderate')}
           </Text>
           <Text style={styles.metricSubvalue}>
-            Wave height: {environment.wave_height.toFixed(1)} m
+            {t('wave')}: {environment.wave_height.toFixed(1)} m
           </Text>
         </View>
       </View>
@@ -107,7 +110,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   metricValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
     color: Colors.primaryDark,
     textAlign: 'center',
