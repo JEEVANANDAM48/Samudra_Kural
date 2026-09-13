@@ -196,6 +196,11 @@ export const en = {
   contactPhone: "Contact Mobile",
   saveProfile: "SAVE PROFILE",
   profileUpdated: "Profile updated successfully",
+  verifiedFisherman: "VERIFIED FISHERMAN",
+  vesselBoat: "Vessel / Boat",
+  registrationNumber: "Registration Number",
+  licenseNumber: "License Number",
+  aadhaarId: "Aadhaar / ID",
 
   // Directions (16 Points)
   north: "North",

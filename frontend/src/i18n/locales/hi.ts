@@ -189,7 +189,7 @@ export const hi: Record<TranslationKeys, string> = {
   // Profile Screen
   profileTitle: "मछुआरा प्रोफ़ाइल",
   personalDetails: "व्यक्तिगत विवरण",
-  vesselDetails: "नाव और पोत विवरण",
+  vesselDetails: "नाव और नाव विवरण",
   boatRegistration: "नाव पंजीकरण संख्या",
   boatType: "नाव का प्रकार",
   homeHarbor: "गृह बंदरगाह / हार्बर",
@@ -198,6 +198,11 @@ export const hi: Record<TranslationKeys, string> = {
   contactPhone: "मोबाइल नंबर",
   saveProfile: "प्रोफ़ाइल सहेजें",
   profileUpdated: "प्रोफ़ाइल सफलतापूर्वक अपडेट हो गई",
+  verifiedFisherman: "सत्यापित मछुआरा",
+  vesselBoat: "नाव / बोट",
+  registrationNumber: "पंजीकरण संख्या",
+  licenseNumber: "लाइसेंस संख्या",
+  aadhaarId: "आधार / पहचान पत्र",
 
   // Directions (16 Points)
   north: "उत्तर",

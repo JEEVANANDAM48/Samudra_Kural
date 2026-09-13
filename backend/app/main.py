@@ -11,6 +11,8 @@ from app.api.v1.pfz import router as pfz_router
 from app.api.v1.environment import router as environment_router
 from app.api.v1.nets import router as nets_router
 from app.api.v1.bot import router as bot_router
+from app.api.v1.sos import router as sos_router
+from app.api.v1.coastal_guard import router as coastal_guard_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -39,11 +41,15 @@ app.include_router(pfz_router, prefix=settings.API_V1_STR)
 app.include_router(environment_router, prefix=settings.API_V1_STR)
 app.include_router(nets_router, prefix=settings.API_V1_STR)
 app.include_router(bot_router, prefix=settings.API_V1_STR)
+app.include_router(sos_router, prefix=settings.API_V1_STR)
+app.include_router(coastal_guard_router, prefix=settings.API_V1_STR)
 
 # Also mount under /api for direct access as requested in specification
 app.include_router(environment_router, prefix="/api")
 app.include_router(nets_router, prefix="/api")
 app.include_router(bot_router, prefix="/api")
+app.include_router(sos_router, prefix="/api")
+app.include_router(coastal_guard_router, prefix="/api")
 
 @app.get("/")
 def root():

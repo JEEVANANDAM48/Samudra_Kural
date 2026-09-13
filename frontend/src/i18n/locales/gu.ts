@@ -188,16 +188,21 @@ export const gu: Record<TranslationKeys, string> = {
 
   // Profile Screen
   profileTitle: "માછીમાર પ્રોફાઇલ",
-  personalDetails: "વ્યક્તિગત વિગતો",
-  vesselDetails: "બોટ અને વહાણ વિગતો",
-  boatRegistration: "બોટ નોંધણી નંબર",
+  personalDetails: "અંગત વિગતો",
+  vesselDetails: "બોટ અને વાહનની વિગતો",
+  boatRegistration: "બોટ રજીસ્ટ્રેશન નંબર",
   boatType: "બોટનો પ્રકાર",
-  homeHarbor: "ગૃહ બંદર / હાર્બર",
+  homeHarbor: "મુખ્ય બંદર / હાર્બર",
   emergencyContact: "ઇમરજન્સી સંપર્ક",
   contactName: "સંપર્ક વ્યક્તિનું નામ",
-  contactPhone: "મોબાઇલ નંબર",
+  contactPhone: "મોબાઈલ નંબર",
   saveProfile: "પ્રોફાઇલ સાચવો",
   profileUpdated: "પ્રોફાઇલ સફળતાપૂર્વક અપડેટ થઈ",
+  verifiedFisherman: "ખરાઈ કરેલ માછીમાર",
+  vesselBoat: "બોટ / વહાણ",
+  registrationNumber: "રજીસ્ટ્રેશન નંબર",
+  licenseNumber: "લાઈસન્સ નંબર",
+  aadhaarId: "આધાર / આઈડી",
 
   // Directions (16 Points)
   north: "ઉત્તર",

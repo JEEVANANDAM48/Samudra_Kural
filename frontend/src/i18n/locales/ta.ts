@@ -198,6 +198,11 @@ export const ta: Record<TranslationKeys, string> = {
   contactPhone: "தொடர்பு கைப்பேசி எண்",
   saveProfile: "சுயவிவரத்தை சேமி",
   profileUpdated: "சுயவிவரம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது",
+  verifiedFisherman: "சரிபார்க்கப்பட்ட மீனவர்",
+  vesselBoat: "படகு / கலம்",
+  registrationNumber: "பதிவு எண்",
+  licenseNumber: "மீன்பிடி உரிம எண்",
+  aadhaarId: "ஆதார் / அடையாள எண்",
 
   // Directions (16 Points)
   north: "வடக்கு",

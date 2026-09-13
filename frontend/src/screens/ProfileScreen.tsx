@@ -33,7 +33,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onLanguageChange,
   hideTopHeader = false,
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const [user, setUser] = useState<FishermanUser>({
     name: 'K. Veeraraghavan',
     phone: '+91 98401 23456',
@@ -176,7 +176,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Text style={styles.avatarIcon}>👤</Text>
             </View>
             <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedBadgeText}>✓ {t('profileTitle')}</Text>
+              <Text style={styles.verifiedBadgeText}>✓ {t('verifiedFisherman')}</Text>
             </View>
           </View>
 
@@ -199,19 +199,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* 2. VESSEL & FLEET SPECIFICATIONS CARD */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>VESSEL & LICENSE DETAILS</Text>
+            <Text style={styles.sectionTitle}>{t('vesselDetails')}</Text>
             <TouchableOpacity onPress={openEditModal}>
               <Text style={styles.sectionEditLink}>✏️</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Boat / Vessel Name:</Text>
+            <Text style={styles.detailLabel}>{t('vesselBoat')}:</Text>
             <Text style={styles.detailValue}>{user.vesselName || 'Sea King IX'}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Vessel Registration:</Text>
+            <Text style={styles.detailLabel}>{t('registrationNumber')}:</Text>
             <Text style={styles.detailValueBadge}>{user.vesselRegistration || 'TN-01-MM-8492'}</Text>
           </View>
 
@@ -226,14 +226,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Fishing License Number:</Text>
+            <Text style={styles.detailLabel}>{t('licenseNumber')}:</Text>
             <Text style={styles.detailValue}>{user.licenseNumber || 'IND-TN-2024-94021'}</Text>
           </View>
         </View>
 
         {/* 4. RESIDENTIAL ADDRESS & PORT LOCATION CARD */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>RESIDENTIAL & PORT ADDRESS</Text>
+          <Text style={styles.sectionTitle}>{t('address')}</Text>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>{t('address')}:</Text>
@@ -248,14 +248,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {/* 4. APP SETTINGS & LANGUAGE */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>APP PREFERENCES & LANGUAGE</Text>
+          <Text style={styles.sectionTitle}>{t('appSettings')}</Text>
 
           <TouchableOpacity
             style={styles.detailRow}
             activeOpacity={0.7}
             onPress={() => setIsLangModalOpen(true)}
           >
-            <Text style={styles.detailLabel}>Current App Language:</Text>
+            <Text style={styles.detailLabel}>{t('language')}:</Text>
             <Text style={styles.detailValueHighlight}>
               {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'Tamil'} ›
             </Text>
@@ -275,7 +275,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* 5. LOGOUT BUTTON */}
         <View style={styles.logoutSection}>
           <PrimaryButton
-            title="Logout Account"
+            title={t('logout')}
             variant="outline"
             onPress={handleLogoutPress}
             style={styles.logoutButtonOverride}
@@ -329,10 +329,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     activeOpacity={0.8}
                     onPress={async () => {
                       setIsLangModalOpen(false);
+                      await setLanguage(langOption.code);
                       if (onLanguageChange) {
                         onLanguageChange(langOption.code);
-                      } else {
-                        await saveUserSession({ ...user });
                       }
                       Alert.alert(
                         'Language Updated',
@@ -702,6 +701,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
+  detailValueActive: {
+    color: Colors.success,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   logoutSection: {
     marginTop: 8,
     marginBottom: 20,
@@ -740,6 +744,12 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     fontSize: 20,
     fontWeight: '900',
+  },
+  modalSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
   },
   modalCloseBtn: {
     width: 36,

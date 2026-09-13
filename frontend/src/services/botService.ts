@@ -79,7 +79,7 @@ export async function askOrcaBot(
     });
     return data;
   } catch (err) {
-    console.warn('Network call to /bot/chat failed. Serving offline fallback ORCA 12-Agent response:', err);
+    console.log('[BotService] Network call to /bot/chat failed. Serving offline fallback ORCA 12-Agent response:', err);
     return getOfflineOrcaResponse(query, latitude, longitude, language);
   }
 }

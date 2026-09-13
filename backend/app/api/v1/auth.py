@@ -61,31 +61,34 @@ async def login_fisherman(
     login_in: FishermanLogin,
     db: AsyncSession = Depends(get_db)
 ) -> TokenResponse:
-    email_str = str(login_in.email).strip().lower()
-    result = await db.execute(select(Fisherman).where(func.lower(Fisherman.email) == email_str))
-    fisherman = result.scalar_one_or_none()
+    pwd_or_pin = login_in.pin or login_in.password
+    fisherman = None
 
-    if fisherman:
-        verified = verify_password(login_in.password, fisherman.password_hash)
-        print(f"DEBUG LOGIN: email={email_str}, pass={login_in.password!r}, hash={fisherman.password_hash!r}, verified={verified}")
-    else:
-        print(f"DEBUG LOGIN: fisherman NOT FOUND for email={email_str}")
+    if login_in.phone:
+        phone_str = login_in.phone.strip()
+        result = await db.execute(select(Fisherman).where(Fisherman.phone == phone_str))
+        fisherman = result.scalar_one_or_none()
+    elif login_in.email:
+        email_str = str(login_in.email).strip().lower()
+        result = await db.execute(select(Fisherman).where(func.lower(Fisherman.email) == email_str))
+        fisherman = result.scalar_one_or_none()
 
-    if not fisherman or not verify_password(login_in.password, fisherman.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+    if fisherman and pwd_or_pin:
+        verified = verify_password(pwd_or_pin, fisherman.password_hash)
+        if verified:
+            if not fisherman.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Inactive user account"
+                )
+            access_token = create_access_token(subject=fisherman.id)
+            return TokenResponse(access_token=access_token, token_type="bearer")
 
-    if not fisherman.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Inactive user account"
-        )
-
-    access_token = create_access_token(subject=fisherman.id)
-    return TokenResponse(access_token=access_token, token_type="bearer")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
 
 @router.get("/me", response_model=FishermanResponse)
 async def get_current_fisherman_profile(

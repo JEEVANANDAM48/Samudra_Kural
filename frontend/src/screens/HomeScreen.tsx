@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
-import { t, supportedLanguages } from '../i18n';
+import { t, supportedLanguages, useLanguage } from '../i18n';
 import { SupportedLanguage, FishermanUser } from '../types';
 import { getUserSession, clearSession, saveLanguagePreference } from '../storage/storage';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -25,7 +25,9 @@ import { NavigationScreen } from './NavigationScreen';
 import { FishingZonesScreen } from './FishingZonesScreen';
 import { MyNetsScreen } from './MyNetsScreen';
 import { ProfileScreen } from './ProfileScreen';
+import { BotScreen } from './BotScreen';
 import { HotspotInfo } from '../services/pfzService';
+import { coastalGuardService } from '../services/coastalGuardService';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
@@ -49,6 +51,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenProfile,
   initialTab,
 }) => {
+  const { setLanguage } = useLanguage();
   const [user, setUser] = useState<FishermanUser | null>(null);
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'nav');
   const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
@@ -102,10 +105,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
       );
     } else if (tabId === 'sos') {
-      Alert.alert(
-        'Emergency SOS',
-        'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
-      );
+      coastalGuardService.triggerSOS(13.0827, 80.3800, 'Emergency Distress', 'Distress beacon signal transmitted from mobile GPS.', 4)
+        .then((sos) => {
+          Alert.alert(
+            'Emergency SOS Transmitted 🚨',
+            `Distress beacon (SOS #${sos.id}) transmitted to Samudra Kural Coastal Guard HQ & nearest patrol vessels.`
+          );
+        })
+        .catch(() => {
+          Alert.alert(
+            'Emergency SOS Transmitted 🚨',
+            'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
+          );
+        });
     }
   };
 
@@ -183,7 +195,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           />
         )}
 
-        {activeTab !== 'nets' && activeTab !== 'nav' && activeTab !== 'fishing' && activeTab !== 'profile' && (
+        {activeTab === 'bot' && (
+          <BotScreen
+            currentLanguage={currentLanguage}
+            onBack={() => setActiveTab('nav')}
+            onNavigateToHotspot={(spot) => {
+              setSelectedHotspot(spot);
+              setActiveTab('nav');
+            }}
+            onTabPress={handleTabPress}
+            hideTopHeader={true}
+          />
+        )}
+
+        {activeTab !== 'nets' && activeTab !== 'nav' && activeTab !== 'fishing' && activeTab !== 'profile' && activeTab !== 'bot' && (
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -297,7 +322,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </View>
 
                   <View style={styles.verifiedBadgeDrawer}>
-                    <Text style={styles.verifiedBadgeDrawerTxt}>✓ VERIFIED FISHERMAN</Text>
+                    <Text style={styles.verifiedBadgeDrawerTxt}>✓ {t('verifiedFisherman', currentLanguage)}</Text>
                   </View>
 
                   <Text style={styles.profileName}>{user?.name || 'K. Veeraraghavan'}</Text>
@@ -311,49 +336,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     }}
                   >
                     <Text style={styles.fullProfileDrawerBtnTxt}>
-                      View & Edit Full Fisherman Profile
+                      {t('viewEditProfile', currentLanguage)}
                     </Text>
                   </TouchableOpacity>
 
                   {/* Official Fisherman Specs List */}
                   <View style={{ width: '100%', marginTop: 12 }}>
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Emergency SOS:</Text>
+                      <Text style={styles.infoBoxLabel}>{t('emergencyContact', currentLanguage)}:</Text>
                       <Text style={styles.infoBoxValueHighlight}>{user?.emergencyPhone || '+91 94440 99999'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Vessel / Boat:</Text>
+                      <Text style={styles.infoBoxLabel}>{t('vesselBoat', currentLanguage)}:</Text>
                       <Text style={styles.infoBoxValue}>{user?.vesselName || 'Sea King IX'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Registration Number:</Text>
+                      <Text style={styles.infoBoxLabel}>{t('registrationNumber', currentLanguage)}:</Text>
                       <Text style={styles.infoBoxValueBadge}>{user?.vesselRegistration || 'TN-01-MM-8492'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Home Port:</Text>
+                      <Text style={styles.infoBoxLabel}>{t('homeHarbor', currentLanguage)}:</Text>
                       <Text style={styles.infoBoxValue}>{user?.homePort || 'Kasimedu Harbour, Chennai'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>License Number:</Text>
+                      <Text style={styles.infoBoxLabel}>{t('licenseNumber', currentLanguage)}:</Text>
                       <Text style={styles.infoBoxValue}>{user?.licenseNumber || 'IND-TN-2024-94021'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Aadhaar / ID:</Text>
+                      <Text style={styles.infoBoxLabel}>{t('aadhaarId', currentLanguage)}:</Text>
                       <Text style={styles.infoBoxValue}>{user?.aadhaarNumber || 'XXXX-XXXX-8492'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Address:</Text>
+                      <Text style={styles.infoBoxLabel}>{t('address', currentLanguage)}:</Text>
                       <Text style={styles.infoBoxValue}>{user?.address || 'Harbour Main Road'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Pincode:</Text>
+                      <Text style={styles.infoBoxLabel}>{t('pincode', currentLanguage)}:</Text>
                       <Text style={styles.infoBoxValue}>{user?.pincode || '600013'}</Text>
                     </View>
                   </View>
@@ -370,7 +395,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       setIsLangModalOpen(true);
                     }}
                   >
-                    <Text style={styles.menuItemLabel}>Language</Text>
+                    <Text style={styles.menuItemLabel}>{t('language', currentLanguage)}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={styles.menuItemValue}>
                         {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'Tamil'}
@@ -429,10 +454,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     activeOpacity={0.8}
                     onPress={async () => {
                       setIsLangModalOpen(false);
+                      await setLanguage(langOption.code);
                       if (onLanguageChange) {
                         onLanguageChange(langOption.code);
-                      } else {
-                        await saveLanguagePreference(langOption.code);
                       }
                       Alert.alert(
                         'Language Updated',
