@@ -91,16 +91,16 @@ def trigger_sos_alert(payload: SOSCreate):
         "boat_id": 1,
         "fisherman": {
             "id": 1,
-            "name": "Fisherman User",
-            "phone": "+91 98400 11223",
-            "emergency_phone": "+91 98400 99999",
-            "home_port": "Chennai Fishing Harbour"
+            "name": payload.fisherman_name or "Fisherman User",
+            "phone": payload.fisherman_phone or "+91 98400 11223",
+            "emergency_phone": "+91 94440 99999",
+            "home_port": payload.home_port or "Kasimedu Harbour, Chennai"
         },
         "boat": {
             "id": 1,
-            "name": "Samudra Queen",
-            "registration": "IND-TN-02-MM-9988",
-            "vessel_type": "Trawler"
+            "name": payload.boat_name or "Sea King IX",
+            "registration": payload.boat_registration or "IND-TN-02-MM-8492",
+            "vessel_type": "Mechanized Trawler"
         },
         "latitude": payload.latitude,
         "longitude": payload.longitude,

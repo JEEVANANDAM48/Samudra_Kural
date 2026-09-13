@@ -37,6 +37,7 @@ import {
   updateSOSLocation,
   cancelSOS,
 } from '../services/sosService';
+import { getUserSession } from '../storage/storage';
 import { getNearestRescueStation } from '../data/mockRescueStations';
 import { findNearbyRegisteredBoats } from '../data/mockBoats';
 import { coastalGuardService } from '../services/coastalGuardService';
@@ -160,13 +161,14 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
       setLocation(loc);
       setBatteryLevel(freshBatt);
 
-      // 2. Check Connection
+      // 2. Fetch User Session & Check Connection
       setSosStatus('checking_connection');
       setStatusMessage('Checking communication link...');
       const commStatus = communicationManager.getStatus();
+      const userSession = await getUserSession();
 
-      // 3. Build Packet
-      const packet = buildEmergencyPacket(loc, emergencyType, null, freshBatt);
+      // 3. Build Packet with exact registered user profile
+      const packet = buildEmergencyPacket(loc, emergencyType, userSession, freshBatt);
 
       // 4. Send or Store Packet
       setSosStatus('sending');
@@ -183,13 +185,14 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         setSosStatus('active');
         setStatusMessage('SOS sent successfully.');
 
-        // Dispatch alert to Coastal Guard Command Center
+        // Dispatch alert to Coastal Guard Command Center with exact fisherman & boat details
         await coastalGuardService.triggerSOS(
           loc.latitude || 13.0827,
           loc.longitude || 80.3800,
           emergencyType,
-          `Fisherman SOS (${emergencyType}) triggered. Battery: ${freshBatt}%.`,
-          1
+          `Fisherman SOS (${emergencyType}) triggered by ${userSession?.name || 'Fisherman'}. Battery: ${freshBatt}%.`,
+          1,
+          userSession
         ).catch((e) => console.log('[SOSScreen] Coastal Guard sync notice:', e));
       } else {
         await savePendingSOS(packet);
@@ -197,13 +200,14 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         setSosStatus('pending');
         setStatusMessage('No connection. SOS saved and waiting for communication link.');
 
-        // Store in Coastal Guard shared registry
+        // Store in Coastal Guard shared registry with exact fisherman & boat details
         await coastalGuardService.triggerSOS(
           loc.latitude || 13.0827,
           loc.longitude || 80.3800,
           emergencyType,
-          `Offline SOS (${emergencyType}) saved locally. Battery: ${freshBatt}%.`,
-          1
+          `Offline SOS (${emergencyType}) saved locally by ${userSession?.name || 'Fisherman'}. Battery: ${freshBatt}%.`,
+          1,
+          userSession
         ).catch((e) => console.log('[SOSScreen] Offline Coastal Guard sync notice:', e));
       }
     } catch (err: any) {

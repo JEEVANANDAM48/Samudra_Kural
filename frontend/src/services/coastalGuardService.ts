@@ -1,5 +1,6 @@
 import { apiFetch } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FishermanUser } from '../types';
 
 export interface FishermanInfo {
   id?: number;
@@ -310,7 +311,20 @@ export const coastalGuardService = {
   },
 
   // Trigger SOS from Fisherman App
-  async triggerSOS(latitude: number, longitude: number, emergencyType: string, description: string, peopleAffected: number = 1): Promise<SOSAlertItem> {
+  async triggerSOS(
+    latitude: number,
+    longitude: number,
+    emergencyType: string,
+    description: string,
+    peopleAffected: number = 1,
+    userInfo?: FishermanUser | null
+  ): Promise<SOSAlertItem> {
+    const fishermanName = userInfo?.name || 'K. Veeraraghavan';
+    const fishermanPhone = userInfo?.phone || '+91 98401 23456';
+    const boatName = userInfo?.vesselName || 'Sea King IX';
+    const boatReg = userInfo?.vesselRegistration || 'TN-01-MM-8492';
+    const homePort = userInfo?.homePort || 'Kasimedu Harbour, Chennai';
+
     try {
       const newAlert = await apiFetch<SOSAlertItem>('/sos', {
         method: 'POST',
@@ -321,6 +335,11 @@ export const coastalGuardService = {
           description,
           people_affected: peopleAffected,
           priority: 'CRITICAL',
+          fisherman_name: fishermanName,
+          fisherman_phone: fishermanPhone,
+          boat_name: boatName,
+          boat_registration: boatReg,
+          home_port: homePort,
         }),
       });
       await this.saveAlertToLocalStore(newAlert);
@@ -329,8 +348,17 @@ export const coastalGuardService = {
       console.log('[CG Service] Saved offline SOS alert for Coastal Guard view');
       const offlineAlert: SOSAlertItem = {
         id: Date.now(),
-        fisherman: { name: 'Fisherman User', phone: '+91 98400 11223', home_port: 'Chennai Harbour' },
-        boat: { name: 'Samudra Queen', registration: 'IND-TN-02-MM-9988', vessel_type: 'Trawler' },
+        fisherman: {
+          name: fishermanName,
+          phone: fishermanPhone,
+          emergency_phone: userInfo?.emergencyPhone || '+91 94440 99999',
+          home_port: homePort,
+        },
+        boat: {
+          name: boatName,
+          registration: boatReg,
+          vessel_type: userInfo?.vesselType || 'Mechanized Motorized Trawler',
+        },
         latitude,
         longitude,
         emergency_type: emergencyType,
@@ -339,7 +367,7 @@ export const coastalGuardService = {
         priority: 'CRITICAL',
         status: 'NEW',
         distance_to_nearest_port_km: 12.4,
-        nearest_port_name: 'Chennai Port HQ',
+        nearest_port_name: homePort,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
