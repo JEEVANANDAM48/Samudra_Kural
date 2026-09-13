@@ -25,9 +25,9 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   const tabs = [
     { id: 'nav', icon: '🧭', label: t('placeholderNav', currentLanguage) },
     { id: 'fishing', icon: '🎣', label: t('placeholderFishing', currentLanguage) },
-    { id: 'bot', label: 'Ask Bot', isCenter: true },
+    { id: 'bot', label: t('askBot', currentLanguage), isCenter: true },
     { id: 'nets', icon: '🕸️', label: t('placeholderNets', currentLanguage) },
-    { id: 'sos', icon: '🆘', label: 'SOS' },
+    { id: 'sos', icon: '🆘', label: t('placeholderEmergency', currentLanguage) },
   ];
 
   return (
@@ -51,8 +51,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                     resizeMode="cover"
                   />
                 </View>
-                <Text style={[styles.centerLabel, isActive && styles.activeCenterLabel]}>
-                  Ask Bot
+                <Text style={[styles.centerLabel, isActive && styles.activeCenterLabel]} numberOfLines={1}>
+                  {t('askBot', currentLanguage)}
                 </Text>
               </TouchableOpacity>
             );
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.18 }],
   },
   tabLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: Colors.textSecondary,
   },
@@ -146,6 +146,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -28,
+    maxWidth: 80,
   },
   centerButton: {
     width: 66,
@@ -174,10 +175,11 @@ const styles = StyleSheet.create({
     borderRadius: 30,
   },
   centerLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
     color: Colors.primaryDark,
     marginTop: 2,
+    textAlign: 'center',
   },
   activeCenterLabel: {
     color: Colors.primary,

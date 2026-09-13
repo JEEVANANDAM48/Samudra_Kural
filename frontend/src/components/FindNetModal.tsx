@@ -13,6 +13,7 @@ import { Colors } from '../theme/colors';
 import { FishingNet } from '../types/net';
 import { FishermanGPS, getCurrentFishermanGPS } from '../utils/location';
 import { NavigationToReleaseMap } from './NavigationToReleaseMap';
+import { useLanguage } from '../i18n';
 
 interface FindNetModalProps {
   net: FishingNet | null;
@@ -21,10 +22,10 @@ interface FindNetModalProps {
   onProceedToDrift: (net: FishingNet, fishermanGPS: FishermanGPS) => void;
 }
 
-const GPS_ARRIVAL_RADIUS_METERS = 200.0; // Configurable threshold
+const GPS_ARRIVAL_RADIUS_METERS = 200.0;
 
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -53,6 +54,7 @@ export const FindNetModal: React.FC<FindNetModalProps> = ({
   onClose,
   onProceedToDrift,
 }) => {
+  const { t, tNetType } = useLanguage();
   const [gps, setGps] = useState<FishermanGPS | null>(null);
   const [loadingGps, setLoadingGps] = useState<boolean>(true);
 
@@ -87,9 +89,9 @@ export const FindNetModal: React.FC<FindNetModalProps> = ({
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>FIND YOUR NET</Text>
+            <Text style={styles.headerTitle}>{t('findYourNet')}</Text>
             <Text style={styles.headerSubtitle}>
-              {net.name} • {net.net_type_display}
+              {net.name} • {tNetType(net.net_type_display || net.net_type)}
             </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -100,7 +102,7 @@ export const FindNetModal: React.FC<FindNetModalProps> = ({
         {loadingGps ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingTxt}>Obtaining current fisherman GPS location...</Text>
+            <Text style={styles.loadingTxt}>{t('loading')}</Text>
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -109,9 +111,9 @@ export const FindNetModal: React.FC<FindNetModalProps> = ({
               <View style={styles.arrivedBanner}>
                 <Text style={styles.arrivedIcon}>✓</Text>
                 <View style={styles.arrivedTextCol}>
-                  <Text style={styles.arrivedTitle}>You have reached the net release area!</Text>
+                  <Text style={styles.arrivedTitle}>{t('navigateToRelease')}</Text>
                   <Text style={styles.arrivedSub}>
-                    Within {GPS_ARRIVAL_RADIUS_METERS}m of original deployment coordinate.
+                    ≤ {GPS_ARRIVAL_RADIUS_METERS}m
                   </Text>
                 </View>
               </View>
@@ -119,9 +121,9 @@ export const FindNetModal: React.FC<FindNetModalProps> = ({
               <View style={styles.navBanner}>
                 <Text style={styles.navIcon}>🧭</Text>
                 <View style={styles.navTextCol}>
-                  <Text style={styles.navTitle}>Navigate to Original Release Point</Text>
+                  <Text style={styles.navTitle}>{t('navigateToRelease')}</Text>
                   <Text style={styles.navSub}>
-                    Distance: {distanceKm.toFixed(2)} km ({bearingDeg.toFixed(0)}° bearing)
+                    {t('distance')}: {distanceKm.toFixed(2)} km ({bearingDeg.toFixed(0)}°)
                   </Text>
                 </View>
               </View>
@@ -132,23 +134,23 @@ export const FindNetModal: React.FC<FindNetModalProps> = ({
               {/* Current Fisherman Location */}
               <View style={[styles.locCard, { borderColor: '#2ECC71' }]}>
                 <View style={styles.locBadgeGreen}>
-                  <Text style={styles.locBadgeTxt}>YOUR CURRENT GPS</Text>
+                  <Text style={styles.locBadgeTxt}>{t('yourCurrentGps')}</Text>
                 </View>
                 <Text style={styles.locCoords}>
                   {gps?.latitude.toFixed(4)}° N, {gps?.longitude.toFixed(4)}° E
                 </Text>
-                <Text style={styles.locMeta}>Accuracy: ±{gps?.accuracy.toFixed(0)}m</Text>
+                <Text style={styles.locMeta}>{t('accuracy')}: ±{gps?.accuracy.toFixed(0)}m</Text>
               </View>
 
               {/* Original Net Release Point */}
               <View style={[styles.locCard, { borderColor: '#3498DB' }]}>
                 <View style={styles.locBadgeBlue}>
-                  <Text style={styles.locBadgeTxt}>NET RELEASE POINT</Text>
+                  <Text style={styles.locBadgeTxt}>{t('netReleasePoint')}</Text>
                 </View>
                 <Text style={styles.locCoords}>
                   {net.release_latitude.toFixed(4)}° N, {net.release_longitude.toFixed(4)}° E
                 </Text>
-                <Text style={styles.locMeta}>Deployed: {net.elapsed_time_formatted}</Text>
+                <Text style={styles.locMeta}>{t('deployedTime')}: {net.elapsed_time_formatted}</Text>
               </View>
             </View>
 
@@ -166,33 +168,21 @@ export const FindNetModal: React.FC<FindNetModalProps> = ({
 
             {/* Action Buttons */}
             <View style={styles.actionsContainer}>
-              {hasArrived ? (
-                <TouchableOpacity
-                  style={styles.predictBtn}
-                  activeOpacity={0.8}
-                  onPress={() => onProceedToDrift(net, gps!)}
-                >
-                  <Text style={styles.predictBtnText}>🌊 PREDICT NET DRIFT</Text>
-                </TouchableOpacity>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={styles.predictBtn}
-                    activeOpacity={0.8}
-                    onPress={() => onProceedToDrift(net, gps!)}
-                  >
-                    <Text style={styles.predictBtnText}>🌊 PREDICT NET DRIFT (ANYWAY)</Text>
-                  </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.predictBtn}
+                activeOpacity={0.8}
+                onPress={() => onProceedToDrift(net, gps!)}
+              >
+                <Text style={styles.predictBtnText}>{t('predictNetDriftAnyway')}</Text>
+              </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.refreshLocBtn}
-                    activeOpacity={0.8}
-                    onPress={loadGps}
-                  >
-                    <Text style={styles.refreshLocTxt}>🔄 Update GPS Location</Text>
-                  </TouchableOpacity>
-                </>
-              )}
+              <TouchableOpacity
+                style={styles.refreshLocBtn}
+                activeOpacity={0.8}
+                onPress={loadGps}
+              >
+                <Text style={styles.refreshLocTxt}>{t('updateGpsLocation')}</Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         )}
@@ -215,7 +205,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#FFFFFF',
   },

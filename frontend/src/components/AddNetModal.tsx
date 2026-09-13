@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { Colors } from '../theme/colors';
 import { NetType, CreateNetPayload } from '../types/net';
-
 import { getCurrentFishermanGPS } from '../utils/location';
+import { useLanguage } from '../i18n';
 
 interface AddNetModalProps {
   visible: boolean;
@@ -22,28 +22,29 @@ interface AddNetModalProps {
   onSubmit: (payload: CreateNetPayload) => Promise<void>;
 }
 
-const NET_TYPE_OPTIONS: { type: NetType; label: string; desc: string }[] = [
-  { type: 'FLOATING_GILL_NET', label: 'Floating Gill Net', desc: 'Standard floating gill net with surface line' },
-  { type: 'DRIFTING_NET', label: 'Drifting Net', desc: 'Deep drifting net curtain' },
-  { type: 'SURFACE_NET', label: 'Surface Net', desc: 'High-buoyancy floating surface mesh' },
-  { type: 'OTHER_FLOATING_NET', label: 'Other Floating Net', desc: 'General passive floating gear' },
-];
-
-const DURATION_OPTIONS = [
-  { label: '2 Hours', hours: 2 },
-  { label: '4 Hours', hours: 4 },
-  { label: '6 Hours', hours: 6 },
-  { label: '12 Hours', hours: 12 },
-  { label: '24 Hours', hours: 24 },
-];
-
 export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSubmit }) => {
+  const { t } = useLanguage();
   const [netName, setNetName] = useState<string>('Net 01');
   const [selectedType, setSelectedType] = useState<NetType>('FLOATING_GILL_NET');
   const [latitude, setLatitude] = useState<string>('13.0500');
   const [longitude, setLongitude] = useState<string>('80.3500');
   const [durationHours, setDurationHours] = useState<number>(4);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const NET_TYPE_OPTIONS: { type: NetType; label: string; desc: string }[] = [
+    { type: 'FLOATING_GILL_NET', label: t('floatingGillNet'), desc: 'Standard floating gill net' },
+    { type: 'DRIFTING_NET', label: t('driftingNet'), desc: 'Deep drifting net curtain' },
+    { type: 'SURFACE_NET', label: t('surfaceNet'), desc: 'Floating surface mesh' },
+    { type: 'OTHER_FLOATING_NET', label: t('otherFloatingNet'), desc: 'General floating gear' },
+  ];
+
+  const DURATION_OPTIONS = [
+    { label: `2 Hours`, hours: 2 },
+    { label: `4 Hours`, hours: 4 },
+    { label: `6 Hours`, hours: 6 },
+    { label: `12 Hours`, hours: 12 },
+    { label: `24 Hours`, hours: 24 },
+  ];
 
   React.useEffect(() => {
     if (visible) {
@@ -64,7 +65,7 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
 
   const handleStartPrediction = async () => {
     if (!netName.trim()) {
-      Alert.alert('Required', 'Please provide a name for this net.');
+      Alert.alert(t('genericError'), t('netName'));
       return;
     }
 
@@ -72,12 +73,12 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
     const lon = parseFloat(longitude);
 
     if (isNaN(lat) || lat < -90 || lat > 90) {
-      Alert.alert('Invalid Coordinate', 'Please enter a valid Latitude (-90 to 90).');
+      Alert.alert(t('genericError'), 'Please enter a valid Latitude (-90 to 90).');
       return;
     }
 
     if (isNaN(lon) || lon < -180 || lon > 180) {
-      Alert.alert('Invalid Coordinate', 'Please enter a valid Longitude (-180 to 180).');
+      Alert.alert(t('genericError'), 'Please enter a valid Longitude (-180 to 180).');
       return;
     }
 
@@ -98,7 +99,7 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
       await onSubmit(payload);
       onClose();
     } catch (err: any) {
-      Alert.alert('Deployment Failed', err.message || 'Unable to deploy net.');
+      Alert.alert(t('genericError'), err.message || t('genericError'));
     } finally {
       setIsSubmitting(false);
     }
@@ -109,7 +110,7 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>+ Add New Fishing Net</Text>
+          <Text style={styles.headerTitle}>{t('deployNewNet')}</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
@@ -117,17 +118,17 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
 
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           {/* Net Name */}
-          <Text style={styles.sectionLabel}>Net Identifier</Text>
+          <Text style={styles.sectionLabel}>{t('netName')}</Text>
           <TextInput
             style={styles.input}
             value={netName}
             onChangeText={setNetName}
-            placeholder="e.g. Net 01 - Deep Gill"
+            placeholder={t('netNamePlaceholder')}
             placeholderTextColor="#8AC4C1"
           />
 
           {/* Net Type Selection */}
-          <Text style={styles.sectionLabel}>Net Type</Text>
+          <Text style={styles.sectionLabel}>{t('netType')}</Text>
           <View style={styles.typeList}>
             {NET_TYPE_OPTIONS.map((item) => {
               const isSelected = selectedType === item.type;
@@ -154,15 +155,15 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
 
           {/* Release Location */}
           <View style={styles.locHeaderRow}>
-            <Text style={styles.sectionLabel}>Release Location (Sea Coordinates)</Text>
+            <Text style={styles.sectionLabel}>{t('releaseLocation')}</Text>
             <TouchableOpacity onPress={handleUseCurrentLocation}>
-              <Text style={styles.gpsLink}>📍 Set Coastal GPS</Text>
+              <Text style={styles.gpsLink}>{t('useCurrentGps')}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.coordRow}>
             <View style={styles.coordCol}>
-              <Text style={styles.inputSubLabel}>Latitude (°N)</Text>
+              <Text style={styles.inputSubLabel}>{t('latitude')} (°N)</Text>
               <TextInput
                 style={styles.input}
                 value={latitude}
@@ -174,7 +175,7 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
             </View>
 
             <View style={styles.coordCol}>
-              <Text style={styles.inputSubLabel}>Longitude (°E)</Text>
+              <Text style={styles.inputSubLabel}>{t('longitude')} (°E)</Text>
               <TextInput
                 style={styles.input}
                 value={longitude}
@@ -187,7 +188,7 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
           </View>
 
           {/* Retrieval Horizon */}
-          <Text style={styles.sectionLabel}>Expected Retrieval Time (Duration)</Text>
+          <Text style={styles.sectionLabel}>{t('retrievalTime')}</Text>
           <View style={styles.durationRow}>
             {DURATION_OPTIONS.map((opt) => {
               const isSelected = durationHours === opt.hours;
@@ -215,7 +216,7 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitButtonText}>🚀 START DRIFT PREDICTION</Text>
+              <Text style={styles.submitButtonText}>🌊 {t('saveDeployNet')}</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#FFFFFF',
   },

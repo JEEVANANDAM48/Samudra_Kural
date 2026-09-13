@@ -11,14 +11,16 @@ import {
 } from 'react-native';
 import { Colors } from '../theme/colors';
 import { FishingNet, CreateNetPayload } from '../types/net';
-import { FishermanGPS, getCurrentFishermanGPS } from '../utils/location';
+import { FishermanGPS } from '../utils/location';
 import { NetCard } from '../components/NetCard';
 import { AddNetModal } from '../components/AddNetModal';
 import { FindNetModal } from '../components/FindNetModal';
 import { NetDriftDetailModal } from '../components/NetDriftDetailModal';
 import { fetchActiveNets, createFishingNet } from '../services/netService';
+import { useLanguage } from '../i18n';
 
 export const MyNetsScreen: React.FC = () => {
+  const { t } = useLanguage();
   const [nets, setNets] = useState<FishingNet[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -53,7 +55,10 @@ export const MyNetsScreen: React.FC = () => {
   const handleCreateNet = async (payload: CreateNetPayload) => {
     const created = await createFishingNet(payload);
     setNets((prev) => [created, ...prev]);
-    Alert.alert('Net Deployed', `"${created.name}" is now being monitored with drift prediction.`);
+    Alert.alert(
+      t('netDeployedSuccess'),
+      `"${created.name}" ${t('netDeployedMsg')}`
+    );
   };
 
   const handleOpenFindNet = (net: FishingNet) => {
@@ -73,8 +78,8 @@ export const MyNetsScreen: React.FC = () => {
       {/* Top Action Bar */}
       <View style={styles.actionBar}>
         <View>
-          <Text style={styles.pageTitle}>MY NETS</Text>
-          <Text style={styles.pageSubtitle}>Your active fishing nets & estimated drift</Text>
+          <Text style={styles.pageTitle}>{t('myNetsTitle')}</Text>
+          <Text style={styles.pageSubtitle}>{t('myNetsSubtitle')}</Text>
         </View>
 
         <TouchableOpacity
@@ -82,7 +87,7 @@ export const MyNetsScreen: React.FC = () => {
           activeOpacity={0.8}
           onPress={() => setAddModalVisible(true)}
         >
-          <Text style={styles.addNetBtnText}>+ ADD NEW NET</Text>
+          <Text style={styles.addNetBtnText}>{t('addNewNet')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -90,7 +95,7 @@ export const MyNetsScreen: React.FC = () => {
       {loading ? (
         <View style={styles.loadingArea}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingLabel}>Loading deployed nets...</Text>
+          <Text style={styles.loadingLabel}>{t('loadingNets')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -101,15 +106,13 @@ export const MyNetsScreen: React.FC = () => {
           {nets.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>🕸️</Text>
-              <Text style={styles.emptyTitle}>No Active Nets Deployed</Text>
-              <Text style={styles.emptyDesc}>
-                Deploy a floating gill or drifting net to start real-time drift estimation based on Copernicus Marine and INCOIS ocean currents.
-              </Text>
+              <Text style={styles.emptyTitle}>{t('noNetsTitle')}</Text>
+              <Text style={styles.emptyDesc}>{t('noNetsDesc')}</Text>
               <TouchableOpacity
                 style={styles.emptyActionBtn}
                 onPress={() => setAddModalVisible(true)}
               >
-                <Text style={styles.emptyActionBtnText}>+ ADD YOUR FIRST NET</Text>
+                <Text style={styles.emptyActionBtnText}>{t('addNewNet')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
