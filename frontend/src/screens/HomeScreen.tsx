@@ -19,6 +19,7 @@ import { SupportedLanguage, FishermanUser } from '../types';
 import { getUserSession, clearSession } from '../storage/storage';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { BottomNavBar } from '../components/BottomNavBar';
+import { SOSScreen } from '../sos/SOSScreen';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
@@ -79,6 +80,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       sos: 'Emergency SOS',
     };
 
+    if (tabId === 'sos') {
+      // SOS tab presents dedicated Emergency SOS Screen
+      return;
+    }
+
     if (tabId === 'bot') {
       Alert.alert(
         'Ask Bot (AI Chatbot)',
@@ -128,50 +134,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </View>
 
       {/* Main Content Area */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.featureCard}>
-          <View style={styles.cardTop}>
-            {activeTab === 'bot' ? (
-              <Image
-                source={require('../../assets/chatbot-logo.png')}
-                style={styles.botFeatureLogo}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text style={styles.featureIcon}>
+      {activeTab === 'sos' ? (
+        <SOSScreen currentLanguage={currentLanguage} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.featureCard}>
+            <View style={styles.cardTop}>
+              {activeTab === 'bot' ? (
+                <Image
+                  source={require('../../assets/chatbot-logo.png')}
+                  style={styles.botFeatureLogo}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.featureIcon}>
+                  {activeTab === 'nav'
+                    ? '🧭'
+                    : activeTab === 'fishing'
+                    ? '🎣'
+                    : activeTab === 'nets'
+                    ? '🕸️'
+                    : '🆘'}
+                </Text>
+              )}
+              <Text style={styles.featureTitle}>
                 {activeTab === 'nav'
-                  ? '🧭'
+                  ? t('placeholderNav', currentLanguage)
                   : activeTab === 'fishing'
-                  ? '🎣'
+                  ? t('placeholderFishing', currentLanguage)
+                  : activeTab === 'bot'
+                  ? 'Ask Bot (AI Chatbot)'
                   : activeTab === 'nets'
-                  ? '🕸️'
-                  : '🆘'}
+                  ? t('placeholderNets', currentLanguage)
+                  : 'Emergency SOS'}
               </Text>
-            )}
-            <Text style={styles.featureTitle}>
-              {activeTab === 'nav'
-                ? t('placeholderNav', currentLanguage)
-                : activeTab === 'fishing'
-                ? t('placeholderFishing', currentLanguage)
-                : activeTab === 'bot'
-                ? 'Ask Bot (AI Chatbot)'
-                : activeTab === 'nets'
-                ? t('placeholderNets', currentLanguage)
-                : 'Emergency SOS'}
-            </Text>
-          </View>
+            </View>
 
-          <View style={styles.noticeBox}>
-            <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
-            <Text style={styles.noticeText}>
-              {t('comingSoon', currentLanguage)}. This section will integrate real-time spatial navigation, PFZ fishing zones, AI Chatbot assistance, and safety alerts in the next update.
-            </Text>
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
+              <Text style={styles.noticeText}>
+                {t('comingSoon', currentLanguage)}. This section will integrate real-time spatial navigation, PFZ fishing zones, AI Chatbot assistance, and safety alerts in the next update.
+              </Text>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* Floating Bottom Navigation Bar (Center Ask Bot with custom Whale Logo, Right SOS) */}
       <BottomNavBar
