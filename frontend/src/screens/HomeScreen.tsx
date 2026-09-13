@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   StatusBar,
   Alert,
   Platform,
@@ -13,6 +12,7 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { t, supportedLanguages } from '../i18n';
 import { SupportedLanguage, FishermanUser } from '../types';
@@ -20,17 +20,26 @@ import { getUserSession, clearSession } from '../storage/storage';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { BottomNavBar } from '../components/BottomNavBar';
 
+import { NavigationScreen } from './NavigationScreen';
+import { FishingZonesScreen } from './FishingZonesScreen';
+
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
 
 interface HomeScreenProps {
   currentLanguage: SupportedLanguage;
   onLogout: () => void;
+  onOpenFishingZones?: () => void;
+  onOpenNavigation?: () => void;
+  onOpenProfile?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   currentLanguage,
   onLogout,
+  onOpenFishingZones,
+  onOpenNavigation,
+  onOpenProfile,
 }) => {
   const [user, setUser] = useState<FishermanUser | null>(null);
   const [activeTab, setActiveTab] = useState<string>('nav');
@@ -79,7 +88,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       sos: 'Emergency SOS',
     };
 
-    if (tabId === 'bot') {
+    if (tabId === 'nav') {
+      if (onOpenNavigation) onOpenNavigation();
+    } else if (tabId === 'fishing') {
+      if (onOpenFishingZones) onOpenFishingZones();
+    } else if (tabId === 'bot') {
       Alert.alert(
         'Ask Bot (AI Chatbot)',
         'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
@@ -91,6 +104,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       );
     }
   };
+
+  // When active tab is 'nav', render the full Marine Navigation & Telemetry Screen directly!
+  if (activeTab === 'nav') {
+    return (
+      <View style={{ flex: 1 }}>
+        <NavigationScreen
+          currentLanguage={currentLanguage}
+          onBack={() => setActiveTab('fishing')}
+          onOpenMap={() => setActiveTab('fishing')}
+        />
+      </View>
+    );
+  }
+
+  // When active tab is 'fishing', render the full Potential Fishing Zones Screen directly!
+  if (activeTab === 'fishing') {
+    return (
+      <View style={{ flex: 1 }}>
+        <FishingZonesScreen
+          currentLanguage={currentLanguage}
+          onBack={() => setActiveTab('nav')}
+          onNavigateToHotspot={() => setActiveTab('nav')}
+          onTabPress={handleTabPress}
+        />
+      </View>
+    );
+  }
 
   const handleLogout = async () => {
     closeMenuDrawer();
@@ -167,8 +207,46 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={styles.noticeBox}>
             <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
             <Text style={styles.noticeText}>
-              {t('comingSoon', currentLanguage)}. This section will integrate real-time spatial navigation, PFZ fishing zones, AI Chatbot assistance, and safety alerts in the next update.
+              {t('comingSoon', currentLanguage)}. Access official INCOIS ocean forecasts, Sea Surface Temperature (SST), Chlorophyll-a layers, and Potential Fishing Zones.
             </Text>
+
+            {onOpenNavigation && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: Colors.primary,
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  borderRadius: 12,
+                  marginTop: 14,
+                  alignItems: 'center',
+                  width: '100%',
+                }}
+                onPress={onOpenNavigation}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
+                  🧭 Open Marine Navigation & Destination Target
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {onOpenFishingZones && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: Colors.secondary,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  marginTop: 10,
+                  alignItems: 'center',
+                  width: '100%',
+                }}
+                onPress={onOpenFishingZones}
+              >
+                <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
+                  🐟 Open INCOIS Fishing Zones Map
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -231,6 +309,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       <Text style={styles.infoBoxValue}>{user.pincode}</Text>
                     </View>
                   )}
+
+                  {onOpenProfile && (
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: Colors.secondary,
+                        borderColor: Colors.secondaryDark,
+                        borderWidth: 1.5,
+                        borderRadius: 12,
+                        paddingVertical: 10,
+                        alignItems: 'center',
+                        marginTop: 10,
+                        width: '100%',
+                      }}
+                      onPress={() => {
+                        closeMenuDrawer();
+                        onOpenProfile();
+                      }}
+                    >
+                      <Text style={{ color: Colors.primaryDark, fontSize: 13, fontWeight: '900' }}>
+                        👤 View & Edit Full Fisherman Profile
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Settings / Language Info */}
@@ -290,35 +391,35 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   appTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '900',
     color: Colors.textLight,
     letterSpacing: 1.2,
     marginBottom: 4,
   },
   welcomeText: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '900',
     color: Colors.secondary,
     marginBottom: 2,
   },
   appSubtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#B0ECE8',
-    fontWeight: '500',
+    fontWeight: '700',
   },
   hamburgerButton: {
-    width: 48,
-    height: 48,
+    width: 50,
+    height: 50,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   hamburgerIcon: {
-    fontSize: 26,
+    fontSize: 28,
     color: Colors.textLight,
     fontWeight: '900',
   },
@@ -345,41 +446,42 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   featureIcon: {
-    fontSize: 54,
+    fontSize: 58,
     marginBottom: 12,
   },
   botFeatureLogo: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     marginBottom: 12,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: Colors.primary,
   },
   featureTitle: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '900',
     color: Colors.text,
     textAlign: 'center',
   },
   noticeBox: {
     backgroundColor: Colors.secondary,
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 18,
     width: '100%',
     alignItems: 'center',
   },
   noticeTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '900',
     color: Colors.primaryDark,
     marginBottom: 6,
   },
   noticeText: {
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.text,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
+    fontWeight: '600',
   },
 
   /* Side Menu Drawer Styles */
@@ -415,20 +517,20 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
   },
   drawerHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: Colors.textLight,
   },
   closeButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeIcon: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '900',
     color: Colors.textLight,
   },
@@ -440,34 +542,34 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     backgroundColor: Colors.background,
     borderRadius: 18,
-    padding: 18,
+    padding: 20,
     borderWidth: 1.5,
     borderColor: Colors.border,
   },
   profileAvatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: Colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: Colors.primary,
   },
   avatarText: {
-    fontSize: 34,
+    fontSize: 38,
   },
   profileName: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '900',
     color: Colors.text,
-    marginBottom: 2,
+    marginBottom: 4,
     textAlign: 'center',
   },
   profilePhone: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: Colors.textSecondary,
     marginBottom: 12,
   },
@@ -475,26 +577,26 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: '#E0ECEC',
   },
   infoBoxLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: Colors.textSecondary,
   },
   infoBoxValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: Colors.text,
   },
   menuSection: {
     marginBottom: 24,
   },
   menuSectionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
     color: Colors.textSecondary,
     marginBottom: 10,
     textTransform: 'uppercase',
@@ -505,19 +607,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    padding: 14,
+    padding: 16,
     borderRadius: 14,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
   },
   menuItemLabel: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: Colors.text,
   },
   menuItemValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: Colors.primary,
   },
   logoutWrapper: {

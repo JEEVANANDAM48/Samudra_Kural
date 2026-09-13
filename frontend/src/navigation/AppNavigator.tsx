@@ -8,12 +8,17 @@ import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { FishingZonesScreen } from '../screens/FishingZonesScreen';
+import { NavigationScreen } from '../screens/NavigationScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { HotspotInfo } from '../services/pfzService';
 
-type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home';
+type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile';
 
 export const AppNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('loading');
   const [language, setLanguage] = useState<SupportedLanguage>('ta');
+  const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
 
   useEffect(() => {
     bootstrapApp();
@@ -22,33 +27,34 @@ export const AppNavigator: React.FC = () => {
   const bootstrapApp = async () => {
     try {
       const savedLang = await getLanguagePreference();
-      const token = await getAuthToken();
-
       if (savedLang) {
         setLanguage(savedLang);
       }
-
-      if (token) {
-        // Authenticated user goes straight to Home
-        setCurrentScreen('home');
-      } else {
-        // Unauthenticated user always starts on Welcome Screen
-        setCurrentScreen('welcome');
-      }
+      // Always ask language selection when app opens
+      setCurrentScreen('language');
     } catch (e) {
-      setCurrentScreen('welcome');
+      setCurrentScreen('language');
     }
   };
 
   // Step 1: Welcome Screen "GET STARTED" -> Navigates to Language Selection Screen
   const handleGetStarted = () => {
-    setCurrentScreen('language');
+    setCurrentScreen('login');
   };
 
-  // Step 2: Language Selection Screen "Continue" -> Navigates to Login Screen
-  const handleLanguageSelect = (selectedLang: SupportedLanguage) => {
+  // Step 2: Language Selection Screen "Continue" -> Navigates to Welcome Screen or Home Screen
+  const handleLanguageSelect = async (selectedLang: SupportedLanguage) => {
     setLanguage(selectedLang);
-    setCurrentScreen('login');
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        setCurrentScreen('home');
+      } else {
+        setCurrentScreen('welcome');
+      }
+    } catch (e) {
+      setCurrentScreen('welcome');
+    }
   };
 
   // Step 3: Register Screen success -> Navigates back to Login Screen
@@ -68,6 +74,11 @@ export const AppNavigator: React.FC = () => {
   // Step 5: Logout -> Returns to Welcome Screen
   const handleLogout = () => {
     setCurrentScreen('welcome');
+  };
+
+  const handleStartNavigationToHotspot = (spot: HotspotInfo) => {
+    setSelectedHotspot(spot);
+    setCurrentScreen('navigation');
   };
 
   if (currentScreen === 'loading') {
@@ -115,6 +126,39 @@ export const AppNavigator: React.FC = () => {
       {currentScreen === 'home' && (
         <HomeScreen
           currentLanguage={language}
+          onLogout={handleLogout}
+          onOpenFishingZones={() => setCurrentScreen('fishing_zones')}
+          onOpenNavigation={() => setCurrentScreen('navigation')}
+          onOpenProfile={() => setCurrentScreen('profile')}
+        />
+      )}
+
+      {/* 6. POTENTIAL FISHING ZONES SCREEN (INCOIS REAL DATA) */}
+      {currentScreen === 'fishing_zones' && (
+        <FishingZonesScreen
+          currentLanguage={language}
+          onBack={() => setCurrentScreen('home')}
+          onNavigateToHotspot={handleStartNavigationToHotspot}
+        />
+      )}
+
+      {/* 7. LIVE MARINE NAVIGATION SCREEN */}
+      {currentScreen === 'navigation' && (
+        <NavigationScreen
+          currentLanguage={language}
+          initialTarget={selectedHotspot}
+          onBack={() => setCurrentScreen('home')}
+          onOpenMap={() => setCurrentScreen('fishing_zones')}
+          onLogout={handleLogout}
+          onOpenProfile={() => setCurrentScreen('profile')}
+        />
+      )}
+
+      {/* 8. DEDICATED FISHERMAN PROFILE & SPECS SCREEN */}
+      {currentScreen === 'profile' && (
+        <ProfileScreen
+          currentLanguage={language}
+          onBack={() => setCurrentScreen('home')}
           onLogout={handleLogout}
         />
       )}
