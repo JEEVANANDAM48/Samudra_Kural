@@ -2,9 +2,18 @@ export interface FishermanUser {
   id?: string;
   name: string;
   phone: string;
+  emergencyPhone?: string;
   email?: string;
   address?: string;
   pincode?: string;
+  vesselName?: string;
+  vesselRegistration?: string;
+  vesselType?: string;
+  homePort?: string;
+  licenseNumber?: string;
+  aadhaarNumber?: string;
+  vhfRadioActive?: boolean;
+  lifeJacketsCount?: number;
 }
 
 export interface RegisterPayload {

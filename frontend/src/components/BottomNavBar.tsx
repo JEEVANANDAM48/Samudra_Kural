@@ -25,9 +25,9 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   const tabs = [
     { id: 'nav', icon: '🧭', label: t('placeholderNav', currentLanguage) },
     { id: 'fishing', icon: '🎣', label: t('placeholderFishing', currentLanguage) },
-    { id: 'bot', label: 'Ask Bot', isCenter: true },
+    { id: 'bot', label: t('askBot', currentLanguage), isCenter: true },
     { id: 'nets', icon: '🕸️', label: t('placeholderNets', currentLanguage) },
-    { id: 'sos', icon: '🆘', label: 'SOS' },
+    { id: 'sos', icon: '🆘', label: t('placeholderEmergency', currentLanguage) },
   ];
 
   return (
@@ -51,8 +51,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
                     resizeMode="cover"
                   />
                 </View>
-                <Text style={[styles.centerLabel, isActive && styles.activeCenterLabel]}>
-                  Ask Bot
+                <Text style={[styles.centerLabel, isActive && styles.activeCenterLabel]} numberOfLines={1}>
+                  {t('askBot', currentLanguage)}
                 </Text>
               </TouchableOpacity>
             );
@@ -118,26 +118,26 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabIcon: {
-    fontSize: 24,
+    fontSize: 26,
     marginBottom: 2,
-    opacity: 0.6,
+    opacity: 0.7,
   },
   activeIcon: {
     opacity: 1,
-    transform: [{ scale: 1.15 }],
+    transform: [{ scale: 1.18 }],
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: Colors.textSecondary,
   },
   activeLabel: {
     color: Colors.primary,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   activeDot: {
-    width: 5,
-    height: 5,
+    width: 6,
+    height: 6,
     borderRadius: 3,
     backgroundColor: Colors.primary,
     marginTop: 3,
@@ -146,11 +146,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -28,
+    maxWidth: 80,
   },
   centerButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
@@ -174,10 +175,11 @@ const styles = StyleSheet.create({
     borderRadius: 30,
   },
   centerLabel: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '900',
     color: Colors.primaryDark,
     marginTop: 2,
+    textAlign: 'center',
   },
   activeCenterLabel: {
     color: Colors.primary,

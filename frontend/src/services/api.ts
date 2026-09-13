@@ -1,7 +1,7 @@
 import { getAuthToken } from '../storage/storage';
 
 // Base API URL configured for Expo environment with sensible defaults
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000/api/v1';
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.4:8000/api/v1';
 
 export class ApiError extends Error {
   status: number;
@@ -29,9 +29,9 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
 
-  // 5-second AbortController timeout to prevent infinite loading spinners
+  // 15-second AbortController timeout for ocean physics calculations
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(url, {
@@ -57,7 +57,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     }
     if (error.name === 'AbortError') {
       throw new ApiError(
-        'Backend server connection timed out. The backend FastAPI server is offline.',
+        'Backend connection timed out. Ensure backend FastAPI server is running.',
         0,
         { isOffline: true }
       );
