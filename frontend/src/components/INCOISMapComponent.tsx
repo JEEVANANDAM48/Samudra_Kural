@@ -12,12 +12,14 @@ interface INCOISMapComponentProps {
   hotspots: HotspotInfo[];
   activeLayer: 'chl' | 'sst' | 'bathymetry';
   onNavigateToHotspot?: (hotspot: HotspotInfo) => void;
+  onSelectHotspot?: (hotspot: HotspotInfo) => void;
 }
 
 export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
   center,
   hotspots,
   activeLayer,
+  onSelectHotspot,
 }) => {
   // Generate dynamic Leaflet HTML with pinch-zoom, floating controls & INCOIS WMS
   const generateLeafletHTML = () => {
@@ -235,6 +237,12 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             '</div>';
 
             marker.bindPopup(popupContent);
+
+            marker.on('click', function() {
+              if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'HOTSPOT_SELECT', data: spot }));
+              }
+            });
           });
 
           markerGroup.addTo(map);
@@ -260,6 +268,15 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
   };
 
   const html = generateLeafletHTML();
+
+  const handleMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'HOTSPOT_SELECT' && onSelectHotspot) {
+        onSelectHotspot(data.data);
+      }
+    } catch (e) {}
+  };
 
   if (Platform.OS === 'web') {
     return (
@@ -287,6 +304,7 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
         scalesPageToFit={false}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
+        onMessage={handleMessage}
       />
     </View>
   );

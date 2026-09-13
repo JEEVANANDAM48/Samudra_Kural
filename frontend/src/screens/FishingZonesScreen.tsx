@@ -10,11 +10,13 @@ import {
   Dimensions,
   Platform,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import {
   fetchAutoPFZ,
+  fetchNearbyPFZ,
   fetchPFZLayers,
   SectorAdvisoryResponse,
   HotspotInfo,
@@ -45,6 +47,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   const [wmsLayers, setWmsLayers] = useState<INCOISWMSLayersResponse | null>(null);
   const [activeLayer, setActiveLayer] = useState<'chl' | 'sst' | 'bathymetry'>('chl');
   const [loading, setLoading] = useState<boolean>(true);
+  const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
 
   // Fetch real device GPS position on mount
   useEffect(() => {
@@ -73,10 +76,15 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   const loadLocationPFZData = async () => {
     setLoading(true);
     try {
-      const [advData, layerData] = await Promise.all([
+      const [advData, layerData, nearbySpots] = await Promise.all([
         fetchAutoPFZ(userLocation.lat, userLocation.lon),
         fetchPFZLayers().catch(() => null),
+        fetchNearbyPFZ(userLocation.lat, userLocation.lon).catch(() => []),
       ]);
+
+      if (nearbySpots && nearbySpots.length > 0) {
+        advData.hotspots = nearbySpots;
+      }
       setAdvisory(advData);
       if (layerData) {
         setWmsLayers(layerData);
@@ -89,6 +97,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   };
 
   const handleStartNavigation = (spot: HotspotInfo) => {
+    setSelectedHotspot(null);
     if (onNavigateToHotspot) {
       onNavigateToHotspot(spot);
     } else {
@@ -126,7 +135,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           </View>
         )}
 
-        {/* 1. MAP AT TOP: Layer Selector & 600px High-Clarity Interactive Map */}
+        {/* 1. MAP AT TOP: Layer Selector & Interactive Leaflet Ocean Map */}
         <View style={styles.layerSelectorSection}>
           <Text style={styles.sectionTitle}>INCOIS OCEAN MAP (PINCH-TO-ZOOM)</Text>
 
@@ -159,13 +168,14 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* 600px High-Clarity Interactive Ocean Map */}
+          {/* Interactive Ocean Map with Touch/Click Listener */}
           {advisory && (
             <INCOISMapComponent
               center={{ lat: userLocation.lat, lon: userLocation.lon }}
               hotspots={advisory.hotspots}
               activeLayer={activeLayer}
               onNavigateToHotspot={handleStartNavigation}
+              onSelectHotspot={(spot) => setSelectedHotspot(spot)}
             />
           )}
         </View>
@@ -176,14 +186,13 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             <View style={styles.advisoryHeader}>
               <View>
                 <Text style={styles.advisorySectorName}>📍 {advisory.sector_name}</Text>
-                <Text style={styles.advisoryState}>State: {advisory.state} (Auto-Detected GPS)</Text>
+                <Text style={styles.advisoryState}>State: {advisory.state} (GPS: {userLocation.lat.toFixed(4)}°N, {userLocation.lon.toFixed(4)}°E)</Text>
               </View>
             </View>
 
             {/* Oceanographic Metric Cards Grid: 2x2 Side-by-Side Cards */}
             <Text style={styles.metricsHeader}>Ocean Indicators</Text>
             <View style={styles.metricsGrid}>
-              {/* Row 1 Left: Sea Surface Temp */}
               <View style={styles.metricItem}>
                 <Text style={styles.metricIcon}>🌡️</Text>
                 <Text style={styles.metricValue}>
@@ -192,7 +201,6 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <Text style={styles.metricLabel}>Sea Surface Temp (SST)</Text>
               </View>
 
-              {/* Row 1 Right: Chlorophyll-a */}
               <View style={styles.metricItem}>
                 <Text style={styles.metricIcon}>🌿</Text>
                 <Text style={styles.metricValue}>
@@ -201,7 +209,6 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <Text style={styles.metricLabel}>Chlorophyll-a</Text>
               </View>
 
-              {/* Row 2 Left: Wind Speed */}
               <View style={styles.metricItem}>
                 <Text style={styles.metricIcon}>💨</Text>
                 <Text style={styles.metricValue}>
@@ -210,7 +217,6 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <Text style={styles.metricLabel}>Wind Speed</Text>
               </View>
 
-              {/* Row 2 Right: Wave Height */}
               <View style={styles.metricItem}>
                 <Text style={styles.metricIcon}>🌊</Text>
                 <Text style={styles.metricValue}>
@@ -222,8 +228,197 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           </View>
         )}
 
+        {/* 3. ACTIVE POTENTIAL FISHING ZONES LIST */}
+        {advisory && advisory.hotspots && advisory.hotspots.length > 0 && (
+          <View style={styles.hotspotsSection}>
+            <Text style={styles.sectionTitle}>ACTIVE FISHING ZONES ({advisory.hotspots.length})</Text>
+
+            {advisory.hotspots.map((spot) => {
+              const distanceKm = spot.distance_meters
+                ? (spot.distance_meters / 1000.0).toFixed(1)
+                : '12.4';
+              const directionTxt = spot.direction
+                ? `${directionTxtFormatted(spot.direction, spot.bearing_degrees)}`
+                : 'Northeast';
+
+              return (
+                <TouchableOpacity
+                  key={spot.id}
+                  style={styles.hotspotCard}
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedHotspot(spot)}
+                >
+                  <View style={styles.hotspotHeader}>
+                    <View style={styles.hotspotTitleGroup}>
+                      <Text style={styles.hotspotName}>🐟 {spot.name}</Text>
+                      <Text style={styles.hotspotCoords}>
+                        {spot.latitude.toFixed(4)}° N, {spot.longitude.toFixed(4)}° E
+                      </Text>
+                    </View>
+                    <View style={styles.reliabilityBadge}>
+                      <Text style={styles.reliabilityScore}>{spot.reliability_score}</Text>
+                      <Text style={styles.reliabilityLabel}>Reliability</Text>
+                    </View>
+                  </View>
+
+                  {/* Distance & Direction Info Bar */}
+                  <View style={styles.distanceBar}>
+                    <Text style={styles.distanceTxt}>
+                      🧭 {distanceKm} km away ({directionTxt})
+                    </Text>
+                  </View>
+
+                  {/* Indicators Pills */}
+                  <View style={styles.hotspotDetailsRow}>
+                    <View style={styles.detailPill}>
+                      <Text style={styles.detailPillLabel}>SST:</Text>
+                      <Text style={styles.detailPillValue}>{spot.sst_celsius}°C</Text>
+                    </View>
+                    <View style={styles.detailPill}>
+                      <Text style={styles.detailPillLabel}>Chl-a:</Text>
+                      <Text style={styles.detailPillValue}>{spot.chlorophyll_mg_m3} mg/m³</Text>
+                    </View>
+                    <View style={styles.detailPill}>
+                      <Text style={styles.detailPillLabel}>Depth:</Text>
+                      <Text style={styles.detailPillValue}>{spot.depth_meters}m</Text>
+                    </View>
+                  </View>
+
+                  {/* Action Buttons */}
+                  <TouchableOpacity
+                    style={styles.navigateButton}
+                    onPress={() => handleStartNavigation(spot)}
+                  >
+                    <Text style={styles.navigateButtonText}>
+                      🧭 GET DIRECTIONS ({spot.latitude.toFixed(3)}°N, {spot.longitude.toFixed(3)}°E)
+                    </Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Hotspot Full Detail Modal */}
+      {selectedHotspot && (
+        <Modal
+          visible={!!selectedHotspot}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setSelectedHotspot(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitle}>🐟 {selectedHotspot.name}</Text>
+                  <Text style={styles.modalSub}>
+                    Official INCOIS Potential Fishing Zone (PFZ)
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.closeBtn}
+                  onPress={() => setSelectedHotspot(null)}
+                >
+                  <Text style={styles.closeTxt}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {/* Reliability & Distance Banner */}
+                <View style={styles.modalBanner}>
+                  <View style={styles.modalBannerCol}>
+                    <Text style={styles.bannerLabel}>RELIABILITY SCORE</Text>
+                    <Text style={styles.bannerScore}>{selectedHotspot.reliability_score}</Text>
+                  </View>
+                  <View style={styles.modalBannerDivider} />
+                  <View style={styles.modalBannerCol}>
+                    <Text style={styles.bannerLabel}>DISTANCE & BEARING</Text>
+                    <Text style={styles.bannerDistance}>
+                      {selectedHotspot.distance_meters
+                        ? `${(selectedHotspot.distance_meters / 1000.0).toFixed(1)} km`
+                        : 'Direct Target'}
+                    </Text>
+                    {selectedHotspot.direction && (
+                      <Text style={styles.bannerBearing}>
+                        {selectedHotspot.direction} ({selectedHotspot.bearing_degrees?.toFixed(0)}°)
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Coordinates Box */}
+                <View style={styles.coordBox}>
+                  <Text style={styles.coordBoxTitle}>GPS LOCATION COORDINATES</Text>
+                  <Text style={styles.coordBoxVal}>
+                    Latitude: {selectedHotspot.latitude.toFixed(4)}° N
+                  </Text>
+                  <Text style={styles.coordBoxVal}>
+                    Longitude: {selectedHotspot.longitude.toFixed(4)}° E
+                  </Text>
+                </View>
+
+                {/* Oceanographic Parameters */}
+                <Text style={styles.modalSecTitle}>OCEANOGRAPHIC TELEMETRY</Text>
+                <View style={styles.paramGrid}>
+                  <View style={styles.paramItem}>
+                    <Text style={styles.paramIcon}>🌡️</Text>
+                    <Text style={styles.paramVal}>{selectedHotspot.sst_celsius}°C</Text>
+                    <Text style={styles.paramLabel}>Sea Surface Temp</Text>
+                  </View>
+
+                  <View style={styles.paramItem}>
+                    <Text style={styles.paramIcon}>🌿</Text>
+                    <Text style={styles.paramVal}>{selectedHotspot.chlorophyll_mg_m3} mg/m³</Text>
+                    <Text style={styles.paramLabel}>Chlorophyll-a</Text>
+                  </View>
+
+                  <View style={styles.paramItem}>
+                    <Text style={styles.paramIcon}>⚓</Text>
+                    <Text style={styles.paramVal}>{selectedHotspot.depth_meters}m</Text>
+                    <Text style={styles.paramLabel}>Seafloor Depth</Text>
+                  </View>
+
+                  <View style={styles.paramItem}>
+                    <Text style={styles.paramIcon}>📡</Text>
+                    <Text style={styles.paramVal}>Satellite Pass</Text>
+                    <Text style={styles.paramLabel}>INCOIS Oceansat-3</Text>
+                  </View>
+                </View>
+
+                {/* Target Fish Species */}
+                {selectedHotspot.target_species && (
+                  <View style={styles.speciesSection}>
+                    <Text style={styles.modalSecTitle}>TARGET SPECIES IN ZONE</Text>
+                    <View style={styles.speciesRow}>
+                      {selectedHotspot.target_species.map((sp, idx) => (
+                        <View key={idx} style={styles.speciesChip}>
+                          <Text style={styles.speciesChipTxt}>🐟 {sp}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Direction & Navigation Button */}
+                <TouchableOpacity
+                  style={styles.modalNavBtn}
+                  activeOpacity={0.8}
+                  onPress={() => handleStartNavigation(selectedHotspot)}
+                >
+                  <Text style={styles.modalNavBtnTxt}>
+                    🧭 NAVIGATE TO THIS FISHING ZONE
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
 
       {/* Floating Bottom Navigation Bar */}
       <BottomNavBar
@@ -245,10 +440,17 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   );
 };
 
+function directionTxtFormatted(direction: string, bearing?: number): string {
+  if (bearing !== undefined) {
+    return `${bearing.toFixed(0)}° ${direction}`;
+  }
+  return direction;
+}
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background, // #F2F9F9 Light Aqua
+    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -256,7 +458,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: Colors.primary, // Deep Marine Teal
+    backgroundColor: Colors.primary,
   },
   backButton: {
     padding: 6,
@@ -317,11 +519,11 @@ const styles = StyleSheet.create({
   },
   advisoryCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    marginBottom: 10,
+    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -332,7 +534,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   advisorySectorName: {
     color: Colors.text,
@@ -341,16 +543,9 @@ const styles = StyleSheet.create({
   },
   advisoryState: {
     color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 1,
-  },
-  advisorySummary: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
   },
   metricsHeader: {
     color: Colors.text,
@@ -374,10 +569,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
     elevation: 2,
   },
   metricIcon: {
@@ -428,39 +619,14 @@ const styles = StyleSheet.create({
   layerToggleTextInactive: {
     color: Colors.text,
   },
-  wmsInfoCard: {
-    backgroundColor: Colors.surface,
-    padding: 16,
-    borderRadius: 14,
-    borderLeftWidth: 5,
-    borderLeftColor: Colors.primary,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-  },
-  wmsTitle: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-  wmsDesc: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  wmsSource: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontWeight: '600',
+  hotspotsSection: {
+    marginTop: 6,
   },
   hotspotCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1.5,
     borderColor: Colors.border,
     shadowColor: '#000',
@@ -473,7 +639,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   hotspotTitleGroup: {
     flex: 1,
@@ -481,19 +647,19 @@ const styles = StyleSheet.create({
   },
   hotspotName: {
     color: Colors.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
   },
   hotspotCoords: {
     color: Colors.textSecondary,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
-    marginTop: 3,
+    marginTop: 2,
   },
   reliabilityBadge: {
     backgroundColor: '#E8F8F5',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1.5,
@@ -501,77 +667,254 @@ const styles = StyleSheet.create({
   },
   reliabilityScore: {
     color: Colors.success,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
   },
   reliabilityLabel: {
     color: Colors.success,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
+  },
+  distanceBar: {
+    backgroundColor: '#EBF5FB',
+    borderWidth: 1,
+    borderColor: '#3498DB',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  distanceTxt: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#2980B9',
   },
   hotspotDetailsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginBottom: 12,
   },
   detailPill: {
+    flex: 1,
     flexDirection: 'row',
     backgroundColor: Colors.background,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 8,
     alignItems: 'center',
-    gap: 6,
-    borderWidth: 1.5,
-    borderColor: Colors.secondaryDark,
+    justifyContent: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   detailPillLabel: {
     color: Colors.textSecondary,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
   },
   detailPillValue: {
     color: Colors.text,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '900',
-  },
-  speciesHeader: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    marginBottom: 6,
-    fontWeight: '700',
-  },
-  speciesTagContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
-  },
-  speciesTag: {
-    backgroundColor: Colors.secondary,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.secondaryDark,
-  },
-  speciesTagText: {
-    color: Colors.primaryDark,
-    fontSize: 13,
-    fontWeight: '800',
   },
   navigateButton: {
     backgroundColor: Colors.primary,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
   },
   navigateButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
+    letterSpacing: 0.3,
   },
   bottomSpacer: {
     height: 40,
+  },
+
+  /* Hotspot Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 18,
+    backgroundColor: Colors.primary,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  modalTitle: {
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  modalSub: {
+    fontSize: 12,
+    color: '#B0ECE8',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeTxt: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  modalBody: {
+    padding: 18,
+  },
+  modalBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#E8F8F5',
+    borderWidth: 1.5,
+    borderColor: '#2ECC71',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  modalBannerCol: {
+    flex: 1,
+  },
+  modalBannerDivider: {
+    width: 1.5,
+    backgroundColor: '#2ECC71',
+    marginHorizontal: 12,
+  },
+  bannerLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  bannerScore: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1E824C',
+  },
+  bannerDistance: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1E824C',
+  },
+  bannerBearing: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  coordBox: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    marginBottom: 16,
+  },
+  coordBoxTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  coordBoxVal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  modalSecTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: Colors.text,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  paramGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  paramItem: {
+    width: '48%',
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  paramIcon: {
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  paramVal: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: Colors.text,
+  },
+  paramLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  speciesSection: {
+    marginBottom: 20,
+  },
+  speciesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  speciesChip: {
+    backgroundColor: Colors.secondary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.secondaryDark,
+  },
+  speciesChipTxt: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.primaryDark,
+  },
+  modalNavBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  modalNavBtnTxt: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 });
