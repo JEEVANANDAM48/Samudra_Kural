@@ -22,6 +22,7 @@ import { BottomNavBar } from '../components/BottomNavBar';
 
 import { NavigationScreen } from './NavigationScreen';
 import { FishingZonesScreen } from './FishingZonesScreen';
+import { MyNetsScreen } from './MyNetsScreen';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
@@ -42,7 +43,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenProfile,
 }) => {
   const [user, setUser] = useState<FishermanUser | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('nav');
+  const [activeTab, setActiveTab] = useState<string>('nets');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
   // Slide animation for side menu drawer
@@ -80,11 +81,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleTabPress = (tabId: string) => {
     setActiveTab(tabId);
+    if (tabId === 'nets') {
+      // Direct view of My Nets
+      return;
+    }
     const tabNames: Record<string, string> = {
       nav: t('placeholderNav', currentLanguage),
       fishing: t('placeholderFishing', currentLanguage),
       bot: 'Ask Bot (AI Marine Chatbot)',
-      nets: t('placeholderNets', currentLanguage),
       sos: 'Emergency SOS',
     };
 
@@ -168,90 +172,92 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </View>
 
       {/* Main Content Area */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.featureCard}>
-          <View style={styles.cardTop}>
-            {activeTab === 'bot' ? (
-              <Image
-                source={require('../../assets/chatbot-logo.png')}
-                style={styles.botFeatureLogo}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text style={styles.featureIcon}>
-                {activeTab === 'nav'
-                  ? '🧭'
-                  : activeTab === 'fishing'
-                  ? '🎣'
-                  : activeTab === 'nets'
-                  ? '🕸️'
-                  : '🆘'}
-              </Text>
-            )}
-            <Text style={styles.featureTitle}>
-              {activeTab === 'nav'
-                ? t('placeholderNav', currentLanguage)
-                : activeTab === 'fishing'
-                ? t('placeholderFishing', currentLanguage)
-                : activeTab === 'bot'
-                ? 'Ask Bot (AI Chatbot)'
-                : activeTab === 'nets'
-                ? t('placeholderNets', currentLanguage)
-                : 'Emergency SOS'}
-            </Text>
-          </View>
-
-          <View style={styles.noticeBox}>
-            <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
-            <Text style={styles.noticeText}>
-              {t('comingSoon', currentLanguage)}. Access official INCOIS ocean forecasts, Sea Surface Temperature (SST), Chlorophyll-a layers, and Potential Fishing Zones.
-            </Text>
-
-            {onOpenNavigation && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: Colors.primary,
-                  paddingVertical: 14,
-                  paddingHorizontal: 16,
-                  borderRadius: 12,
-                  marginTop: 14,
-                  alignItems: 'center',
-                  width: '100%',
-                }}
-                onPress={onOpenNavigation}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
-                  🧭 Open Marine Navigation & Destination Target
+      <View style={styles.mainContainer}>
+        {activeTab === 'nets' ? (
+          <MyNetsScreen />
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.featureCard}>
+              <View style={styles.cardTop}>
+                {activeTab === 'bot' ? (
+                  <Image
+                    source={require('../../assets/chatbot-logo.png')}
+                    style={styles.botFeatureLogo}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.featureIcon}>
+                    {activeTab === 'nav'
+                      ? '🧭'
+                      : activeTab === 'fishing'
+                      ? '🎣'
+                      : '🆘'}
+                  </Text>
+                )}
+                <Text style={styles.featureTitle}>
+                  {activeTab === 'nav'
+                    ? t('placeholderNav', currentLanguage)
+                    : activeTab === 'fishing'
+                    ? t('placeholderFishing', currentLanguage)
+                    : activeTab === 'bot'
+                    ? 'Ask Bot (AI Chatbot)'
+                    : 'Emergency SOS'}
                 </Text>
-              </TouchableOpacity>
-            )}
+              </View>
 
-            {onOpenFishingZones && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: Colors.secondary,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 10,
-                  marginTop: 10,
-                  alignItems: 'center',
-                  width: '100%',
-                }}
-                onPress={onOpenFishingZones}
-              >
-                <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
-                  🐟 Open INCOIS Fishing Zones Map
+              <View style={styles.noticeBox}>
+                <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
+                <Text style={styles.noticeText}>
+                  {t('comingSoon', currentLanguage)}. Access official INCOIS ocean forecasts, Sea Surface Temperature (SST), Chlorophyll-a layers, and Potential Fishing Zones.
                 </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </ScrollView>
 
-      {/* Floating Bottom Navigation Bar (Center Ask Bot with custom Whale Logo, Right SOS) */}
+                {onOpenNavigation && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.primary,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      borderRadius: 12,
+                      marginTop: 14,
+                      alignItems: 'center',
+                      width: '100%',
+                    }}
+                    onPress={onOpenNavigation}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
+                      🧭 Open Marine Navigation & Destination Target
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {onOpenFishingZones && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.secondary,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 10,
+                      marginTop: 10,
+                      alignItems: 'center',
+                      width: '100%',
+                    }}
+                    onPress={onOpenFishingZones}
+                  >
+                    <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
+                      🐟 Open INCOIS Fishing Zones Map
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </ScrollView>
+        )}
+      </View>
+
+      {/* Floating Bottom Navigation Bar */}
       <BottomNavBar
         activeTab={activeTab}
         onTabPress={handleTabPress}
@@ -423,9 +429,15 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     fontWeight: '900',
   },
+  mainContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 90,
+  },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingHorizontal: 4,
+    paddingTop: 8,
     paddingBottom: 110,
   },
   featureCard: {
