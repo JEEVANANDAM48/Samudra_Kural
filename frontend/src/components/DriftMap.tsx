@@ -25,7 +25,7 @@ export const DriftMap: React.FC<DriftMapProps> = ({
   width = Dimensions.get('window').width - 32,
   height = 320,
 }) => {
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
 
   if (!points || points.length === 0) {
