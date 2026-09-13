@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { Colors } from '../theme/colors';
 import { SupportedLanguage } from '../types';
-import { getLanguagePreference, getAuthToken } from '../storage/storage';
+import { getLanguagePreference, getAuthToken, saveLanguagePreference } from '../storage/storage';
 import { LanguageScreen } from '../screens/LanguageScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -122,45 +122,24 @@ export const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* 5. HOME SCREEN */}
-      {currentScreen === 'home' && (
+      {/* 5. HOME & AUTHENTICATED APP SCREENS (TOP HEADER BANNER RENDERED ACROSS ALL PAGES) */}
+      {(currentScreen === 'home' || currentScreen === 'fishing_zones' || currentScreen === 'navigation' || currentScreen === 'profile') && (
         <HomeScreen
           currentLanguage={language}
           onLogout={handleLogout}
-          onOpenFishingZones={() => setCurrentScreen('fishing_zones')}
-          onOpenNavigation={() => setCurrentScreen('navigation')}
-          onOpenProfile={() => setCurrentScreen('profile')}
-        />
-      )}
-
-      {/* 6. POTENTIAL FISHING ZONES SCREEN (INCOIS REAL DATA) */}
-      {currentScreen === 'fishing_zones' && (
-        <FishingZonesScreen
-          currentLanguage={language}
-          initialTarget={selectedHotspot}
-          onBack={() => setCurrentScreen('home')}
-          onNavigateToHotspot={handleStartNavigationToHotspot}
-        />
-      )}
-
-      {/* 7. LIVE MARINE NAVIGATION SCREEN */}
-      {currentScreen === 'navigation' && (
-        <NavigationScreen
-          currentLanguage={language}
-          initialTarget={selectedHotspot}
-          onBack={() => setCurrentScreen('home')}
-          onOpenMap={() => setCurrentScreen('fishing_zones')}
-          onLogout={handleLogout}
-          onOpenProfile={() => setCurrentScreen('profile')}
-        />
-      )}
-
-      {/* 8. DEDICATED FISHERMAN PROFILE & SPECS SCREEN */}
-      {currentScreen === 'profile' && (
-        <ProfileScreen
-          currentLanguage={language}
-          onBack={() => setCurrentScreen('home')}
-          onLogout={handleLogout}
+          onLanguageChange={async (newLang) => {
+            setLanguage(newLang);
+            await saveLanguagePreference(newLang);
+          }}
+          initialTab={
+            currentScreen === 'fishing_zones'
+              ? 'fishing'
+              : currentScreen === 'navigation'
+              ? 'nav'
+              : currentScreen === 'profile'
+              ? 'profile'
+              : 'nav'
+          }
         />
       )}
     </View>

@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   scrollList: {
-    paddingBottom: 40,
+    paddingBottom: 90,
   },
   emptyState: {
     backgroundColor: '#FFFFFF',

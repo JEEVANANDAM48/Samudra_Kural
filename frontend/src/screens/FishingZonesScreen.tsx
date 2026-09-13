@@ -36,6 +36,7 @@ interface FishingZonesScreenProps {
   onBack?: () => void;
   onNavigateToHotspot?: (hotspot: HotspotInfo) => void;
   onTabPress?: (tabId: string) => void;
+  hideTopHeader?: boolean;
 }
 
 export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
@@ -44,6 +45,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   onBack,
   onNavigateToHotspot,
   onTabPress,
+  hideTopHeader = false,
 }) => {
   const [userLocation, setUserLocation] = useState({ lat: 13.0827, lon: 80.3800 });
   const [advisory, setAdvisory] = useState<SectorAdvisoryResponse | null>(null);
@@ -146,18 +148,20 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Potential Fishing Zone</Text>
-          <Text style={styles.headerSubtitle}>INCOIS Oceansat-3 & Marine Data</Text>
+      {!hideTopHeader && (
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Potential Fishing Zone</Text>
+            <Text style={styles.headerSubtitle}>INCOIS Oceansat-3 & Marine Data</Text>
+          </View>
+          <View style={styles.incoisBadge}>
+            <Text style={styles.incoisBadgeText}>🌊 LIVE DATA</Text>
+          </View>
         </View>
-        <View style={styles.incoisBadge}>
-          <Text style={styles.incoisBadgeText}>🌊 LIVE DATA</Text>
-        </View>
-      </View>
+      )}
 
       <ScrollView ref={scrollViewRef} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {/* Loading Indicator */}
@@ -243,7 +247,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
               onPress={() => setActiveLayer('chl')}
             >
               <Text style={[styles.layerToggleText, activeLayer === 'chl' ? styles.layerToggleTextActive : styles.layerToggleTextInactive]}>
-                🌿 Chlorophyll-a
+                Chlorophyll-a
               </Text>
             </TouchableOpacity>
 
@@ -252,7 +256,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
               onPress={() => setActiveLayer('sst')}
             >
               <Text style={[styles.layerToggleText, activeLayer === 'sst' ? styles.layerToggleTextActive : styles.layerToggleTextInactive]}>
-                🌡️ SST Heatmap
+                SST Heatmap
               </Text>
             </TouchableOpacity>
 
@@ -261,7 +265,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
               onPress={() => setActiveLayer('bathymetry')}
             >
               <Text style={[styles.layerToggleText, activeLayer === 'bathymetry' ? styles.layerToggleTextActive : styles.layerToggleTextInactive]}>
-                ⚓ Bathymetry
+                Bathymetry
               </Text>
             </TouchableOpacity>
           </View>
@@ -284,7 +288,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           <View style={styles.advisoryCard}>
             <View style={styles.advisoryHeader}>
               <View>
-                <Text style={styles.advisorySectorName}>📍 {advisory.sector_name}</Text>
+                <Text style={styles.advisorySectorName}>{advisory.sector_name}</Text>
                 <Text style={styles.advisoryState}>State: {advisory.state} (GPS: {userLocation.lat.toFixed(4)}°N, {userLocation.lon.toFixed(4)}°E)</Text>
               </View>
             </View>
@@ -391,7 +395,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                       style={styles.copyBtnCard}
                       onPress={() => handleCopyCoordinates(spot)}
                     >
-                      <Text style={styles.copyBtnCardTxt}>📋 Copy GPS</Text>
+                      <Text style={styles.copyBtnCardTxt}>Copy GPS</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -399,7 +403,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                       onPress={() => handleStartNavigation(spot)}
                     >
                       <Text style={styles.navigateButtonText}>
-                        {isTargeted ? '✓ MAP ROUTE ACTIVE' : '🧭 NAVIGATE & SHOW MAP ROUTE'}
+                        {isTargeted ? '✓ MAP ROUTE ACTIVE' : 'NAVIGATE & SHOW MAP ROUTE'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -539,22 +543,24 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         </Modal>
       )}
 
-      {/* Floating Bottom Navigation Bar */}
-      <BottomNavBar
-        activeTab="fishing"
-        onTabPress={(tabId) => {
-          if (onTabPress) {
-            onTabPress(tabId);
-          } else if (tabId === 'nav' && onBack) {
-            onBack();
-          } else if (tabId === 'bot') {
-            Alert.alert('Ask Bot (AI Chatbot)', 'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.');
-          } else if (tabId === 'sos') {
-            Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
-          }
-        }}
-        currentLanguage={currentLanguage as SupportedLanguage}
-      />
+      {/* Floating Bottom Navigation Bar (Only rendered when screen is standalone) */}
+      {!hideTopHeader && (
+        <BottomNavBar
+          activeTab="fishing"
+          onTabPress={(tabId) => {
+            if (onTabPress) {
+              onTabPress(tabId);
+            } else if (tabId === 'nav' && onBack) {
+              onBack();
+            } else if (tabId === 'bot') {
+              Alert.alert('Ask Bot (AI Chatbot)', 'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.');
+            } else if (tabId === 'sos') {
+              Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
+            }
+          }}
+          currentLanguage={currentLanguage as SupportedLanguage}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -644,7 +650,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   container: {
-    padding: 12,
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 90,
   },
 
   /* Live Route Telemetry Card Styles */
@@ -654,7 +662,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 2,
     borderColor: Colors.secondary,
-    marginBottom: 14,
+    marginBottom: 16,
     shadowColor: Colors.secondary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

@@ -23,6 +23,7 @@ interface ProfileScreenProps {
   onBack: () => void;
   onLogout: () => void;
   onLanguageChange?: (lang: SupportedLanguage) => void;
+  hideTopHeader?: boolean;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -30,6 +31,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onBack,
   onLogout,
   onLanguageChange,
+  hideTopHeader = false,
 }) => {
   const [user, setUser] = useState<FishermanUser>({
     name: 'K. Veeraraghavan',
@@ -48,6 +50,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [isLangModalOpen, setIsLangModalOpen] = useState<boolean>(false);
 
   // Form Fields for Editing Profile
   const [editName, setEditName] = useState<string>('');
@@ -176,7 +179,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
 
           <Text style={styles.fishermanName}>{user.name}</Text>
-          <Text style={styles.fishermanPhone}>📱 {user.phone}</Text>
+          <Text style={styles.fishermanPhone}>{user.phone}</Text>
 
           <View style={styles.quickGrid}>
             <View style={styles.quickGridBox}>
@@ -194,7 +197,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* 2. VESSEL & FLEET SPECIFICATIONS CARD */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>🛥️ VESSEL & LICENSE DETAILS</Text>
+            <Text style={styles.sectionTitle}>VESSEL & LICENSE DETAILS</Text>
             <TouchableOpacity onPress={openEditModal}>
               <Text style={styles.sectionEditLink}>Edit Vessel</Text>
             </TouchableOpacity>
@@ -206,7 +209,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Vessel Registration #:</Text>
+            <Text style={styles.detailLabel}>Vessel Registration:</Text>
             <Text style={styles.detailValueBadge}>{user.vesselRegistration || 'TN-01-MM-8492'}</Text>
           </View>
 
@@ -221,55 +224,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Fishing License No:</Text>
+            <Text style={styles.detailLabel}>Fishing License Number:</Text>
             <Text style={styles.detailValue}>{user.licenseNumber || 'IND-TN-2024-94021'}</Text>
-          </View>
-        </View>
-
-        {/* 3. OFFSHORE SAFETY EQUIPMENT CHECKLIST */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>🛟 OFFSHORE SAFETY EQUIPMENT</Text>
-
-          <View style={styles.safetyItem}>
-            <Text style={styles.safetyIcon}>📡</Text>
-            <View style={styles.safetyTextGroup}>
-              <Text style={styles.safetyTitle}>VHF Marine Radio Transceiver</Text>
-              <Text style={styles.safetyStatusActive}>
-                {user.vhfRadioActive !== false ? '✅ Active on Channel 16 Distress Frequency' : '⚠️ Inactive'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.safetyItem}>
-            <Text style={styles.safetyIcon}>🛟</Text>
-            <View style={styles.safetyTextGroup}>
-              <Text style={styles.safetyTitle}>Life Jackets / Floating Gear</Text>
-              <Text style={styles.safetyStatusActive}>
-                ✅ {user.lifeJacketsCount || 6} SOLAS Verified Jackets Onboard
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.safetyItem}>
-            <Text style={styles.safetyIcon}>📟</Text>
-            <View style={styles.safetyTextGroup}>
-              <Text style={styles.safetyTitle}>Emergency DAT / EPIRB Transponder</Text>
-              <Text style={styles.safetyStatusActive}>✅ Installed (ISRO Satellite Distress Transponder)</Text>
-            </View>
-          </View>
-
-          <View style={styles.safetyItem}>
-            <Text style={styles.safetyIcon}>🧭</Text>
-            <View style={styles.safetyTextGroup}>
-              <Text style={styles.safetyTitle}>GPS Hardware Navigational Receiver</Text>
-              <Text style={styles.safetyStatusActive}>✅ Live Smartphone Hardware Lock Active</Text>
-            </View>
           </View>
         </View>
 
         {/* 4. RESIDENTIAL ADDRESS & PORT LOCATION CARD */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>🏠 RESIDENTIAL & PORT ADDRESS</Text>
+          <Text style={styles.sectionTitle}>RESIDENTIAL & PORT ADDRESS</Text>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Street Address:</Text>
@@ -289,30 +251,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {/* 5. APP SETTINGS & LANGUAGE */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>⚙️ APP PREFERENCES & LANGUAGE</Text>
+          <Text style={styles.sectionTitle}>APP PREFERENCES & LANGUAGE</Text>
 
-          <View style={styles.detailRow}>
+          <TouchableOpacity
+            style={styles.detailRow}
+            activeOpacity={0.7}
+            onPress={() => setIsLangModalOpen(true)}
+          >
             <Text style={styles.detailLabel}>Current App Language:</Text>
             <Text style={styles.detailValueHighlight}>
-              {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'தமிழ் (Tamil)'}
+              {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'Tamil'} ›
             </Text>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>INCOIS Marine Advisories:</Text>
-            <Text style={styles.detailValueActive}>✅ Live Regional Alerts Enabled</Text>
+            <Text style={styles.detailValueActive}>Live Regional Alerts Enabled</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Emergency SOS Broadcast:</Text>
-            <Text style={styles.detailValueActive}>✅ Auto-Beacon Transmit Enabled</Text>
+            <Text style={styles.detailValueActive}>Auto-Beacon Transmit Enabled</Text>
           </View>
         </View>
 
         {/* 6. LOGOUT BUTTON */}
         <View style={styles.logoutSection}>
           <PrimaryButton
-            title="🚪 Logout Account"
+            title="Logout Account"
             variant="outline"
             onPress={handleLogoutPress}
             style={styles.logoutButtonOverride}
@@ -322,6 +288,82 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={isLangModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsLangModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Select App Language</Text>
+                <Text style={styles.modalSubtitle}>Choose your preferred marine portal language</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setIsLangModalOpen(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+              {supportedLanguages.map((langOption) => {
+                const isSelected = langOption.code === currentLanguage;
+                return (
+                  <TouchableOpacity
+                    key={langOption.code}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isSelected ? 'rgba(0, 95, 96, 0.1)' : Colors.background,
+                      borderColor: isSelected ? Colors.primary : Colors.border,
+                      borderWidth: isSelected ? 2 : 1.5,
+                      borderRadius: 14,
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                      marginBottom: 10,
+                    }}
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      setIsLangModalOpen(false);
+                      if (onLanguageChange) {
+                        onLanguageChange(langOption.code);
+                      } else {
+                        await saveUserSession({ ...user });
+                      }
+                      Alert.alert(
+                        'Language Updated',
+                        `Samudra Kural app language set to ${langOption.nativeName} (${langOption.englishName}).`
+                      );
+                    }}
+                  >
+                    <View>
+                      <Text style={{ fontSize: 18, fontWeight: '900', color: isSelected ? Colors.primaryDark : Colors.text, marginBottom: 2 }}>
+                        {langOption.nativeName}
+                      </Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: isSelected ? Colors.primary : Colors.textSecondary }}>
+                        {langOption.englishName}
+                      </Text>
+                    </View>
+
+                    {isSelected && (
+                      <View style={{ backgroundColor: Colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>✓ ACTIVE</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* EDIT PROFILE MODAL */}
       <Modal
@@ -395,7 +437,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
               <View style={styles.inputRow}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
-                  <Text style={styles.inputLabel}>Vessel Reg #</Text>
+                  <Text style={styles.inputLabel}>Vessel Reg Number</Text>
                   <TextInput
                     style={styles.textInput}
                     value={editVesselRegistration}
@@ -517,6 +559,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 16,
+    paddingBottom: 90,
   },
   profileHeroCard: {
     backgroundColor: Colors.surface,

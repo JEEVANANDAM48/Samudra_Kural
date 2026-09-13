@@ -40,6 +40,7 @@ interface NavigationScreenProps {
   onLogout?: () => void;
   onOpenProfile?: () => void;
   onTabPress?: (tabId: string) => void;
+  hideTopHeader?: boolean;
 }
 
 // Helper to determine state priority order: 1=Tamil Nadu, 2=Andhra Pradesh, 3=Kerala, 4=Others
@@ -104,6 +105,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   onLogout,
   onOpenProfile,
   onTabPress,
+  hideTopHeader = false,
 }) => {
   // Current Boat Location (Positioned offshore in Bay of Bengal sea)
   const [boatLocation, setBoatLocation] = useState({ lat: 13.0827, lon: 80.3800 });
@@ -387,32 +389,25 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => (onOpenProfile ? onOpenProfile() : setIsProfileModalOpen(true))}>
-          <Text style={styles.backButtonText}>☰</Text>
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>SamudraKural</Text>
-          <Text style={styles.headerSubtitle}>Real-time Marine GPS Navigation</Text>
+      {!hideTopHeader && (
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => (onOpenProfile ? onOpenProfile() : setIsProfileModalOpen(true))}>
+            <Text style={styles.backButtonText}>☰</Text>
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>SamudraKural</Text>
+            <Text style={styles.headerSubtitle}>Real-time Marine GPS Navigation</Text>
+          </View>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveBadgeText}>LIVE GPS</Text>
+          </View>
         </View>
-        <View style={styles.liveBadge}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveBadgeText}>LIVE GPS</Text>
-        </View>
-      </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {/* 1. CENTERED HERO LATITUDE & LONGITUDE DISPLAY (PROMINENT & HIGH VISIBILITY) */}
         <View style={styles.heroGpsCard}>
-          <View style={styles.heroGpsBadge}>
-            <View style={styles.heroGpsDot} />
-            <Text style={styles.heroGpsBadgeText}>LIVE GPS LOCK</Text>
-          </View>
-
-          <Text style={styles.fishermanWelcomeText}>
-            Welcome, {fishermanName}!
-          </Text>
-
           <Text style={styles.heroGpsTitle}>VESSEL CURRENT COORDINATES</Text>
 
           <View style={styles.heroGpsValueBox}>
@@ -444,7 +439,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         <View style={styles.telemetryGrid}>
           {/* Card 1: Wave Height */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryIcon}>🌊</Text>
             <Text style={styles.telemetryValue}>{telemetry?.waveHeight || '0.8m'}</Text>
             <Text style={styles.telemetryLabel}>Wave Height</Text>
             <Text style={styles.telemetrySub}>Sea State: {telemetry?.seaState || 'Slight'}</Text>
@@ -452,7 +446,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
           {/* Card 2: Wind Speed */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryIcon}>💨</Text>
             <Text style={styles.telemetryValue}>{telemetry?.windSpeedKnots || '12 kts'}</Text>
             <Text style={styles.telemetryLabel}>Wind Speed</Text>
             <Text style={styles.telemetrySub}>
@@ -462,7 +455,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
           {/* Card 3: Boat Speed */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryIcon}>🛥️</Text>
             <Text style={styles.telemetryValue}>{boatSpeedKnots} knots</Text>
             <Text style={styles.telemetryLabel}>Boat Speed (SOG)</Text>
             <Text style={styles.telemetrySub}>({(boatSpeedKnots * 1.852).toFixed(1)} km/h)</Text>
@@ -470,7 +462,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
           {/* Card 4: Distance & ETA */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryIcon}>⏱️</Text>
             <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
             <Text style={styles.telemetryLabel}>Distance & ETA</Text>
             <Text style={styles.telemetrySub}>ETA {navDetails.formatted_eta}</Text>
@@ -487,7 +478,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             <View style={styles.telemetryGrid}>
               {/* Card 1: Target Latitude */}
               <View style={styles.telemetryCard}>
-                <Text style={styles.telemetryIcon}>📍</Text>
                 <Text style={styles.telemetryValue}>{activeTarget.latitude.toFixed(4)}° N</Text>
                 <Text style={styles.telemetryLabel}>Target Latitude</Text>
                 <Text style={styles.telemetrySub}>Degrees North</Text>
@@ -495,7 +485,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Card 2: Target Longitude */}
               <View style={styles.telemetryCard}>
-                <Text style={styles.telemetryIcon}>📍</Text>
                 <Text style={styles.telemetryValue}>{activeTarget.longitude.toFixed(4)}° E</Text>
                 <Text style={styles.telemetryLabel}>Target Longitude</Text>
                 <Text style={styles.telemetrySub}>Degrees East</Text>
@@ -503,7 +492,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Card 3: Distance to Target */}
               <View style={styles.telemetryCard}>
-                <Text style={styles.telemetryIcon}>📏</Text>
                 <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
                 <Text style={styles.telemetryLabel}>Distance to Target</Text>
                 <Text style={styles.telemetrySub}>({(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km)</Text>
@@ -511,7 +499,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Card 4: Water Depth */}
               <View style={styles.telemetryCard}>
-                <Text style={styles.telemetryIcon}>⚓</Text>
                 <Text style={styles.telemetryValue}>{activeTarget.depth_meters ? `${activeTarget.depth_meters}m` : '26m'}</Text>
                 <Text style={styles.telemetryLabel}>Water Depth</Text>
                 <Text style={styles.telemetrySub}>Sea Floor Bathymetry</Text>
@@ -570,11 +557,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <View style={styles.switchButtonRow}>
             {activeTarget.is_shore ? (
               <TouchableOpacity style={styles.switchTargetBtn} onPress={handleSwitchTargetToPFZ}>
-                <Text style={styles.switchTargetBtnText}>🎣 Switch to Fishing Zone Target</Text>
+                <Text style={styles.switchTargetBtnText}>Switch to Fishing Zone Target</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.switchShoreBtn} onPress={handleSwitchTargetToShore}>
-                <Text style={styles.switchShoreBtnText}>🏠 Return to Shore Base (Emergency/Home)</Text>
+                <Text style={styles.switchShoreBtnText}>Return to Shore Base</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -586,14 +573,14 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             style={styles.addCustomMainBtn}
             onPress={() => setIsAddCustomVisible(true)}
           >
-            <Text style={styles.addCustomMainBtnText}>📍 Add Custom Coordinates for Fishing Zone</Text>
+            <Text style={styles.addCustomMainBtnText}>Add Custom Coordinates for Fishing Zone</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.changeTargetMainBtn}
             onPress={() => setIsPickerVisible(true)}
           >
-            <Text style={styles.changeTargetMainBtnText}>🎯 Change Target Destination (Select Hotspot / Shore)</Text>
+            <Text style={styles.changeTargetMainBtnText}>Change Target Destination (Select Hotspot / Shore)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -601,7 +588,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             onPress={() => setIsNavigating(!isNavigating)}
           >
             <Text style={styles.actionBtnText}>
-              {isNavigating ? '⏸ Pause GPS Tracking' : '▶ Resume GPS Tracking'}
+              {isNavigating ? 'Pause GPS Tracking' : 'Resume GPS Tracking'}
             </Text>
           </TouchableOpacity>
 
@@ -609,7 +596,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             style={styles.mapBtn}
             onPress={onOpenMap}
           >
-            <Text style={styles.mapBtnText}>🗺️ Open Ocean Map</Text>
+            <Text style={styles.mapBtnText}>Open Ocean Map</Text>
           </TouchableOpacity>
         </View>
 
@@ -873,24 +860,26 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         </View>
       </Modal>
 
-      {/* Floating Bottom Navigation Bar */}
-      <BottomNavBar
-        activeTab="nav"
-        onTabPress={(tabId) => {
-          if (onTabPress) {
-            onTabPress(tabId);
-          } else if (tabId === 'fishing' && onOpenMap) {
-            onOpenMap();
-          } else if (tabId === 'nets' && onBack) {
-            onBack();
-          } else if (tabId === 'bot') {
-            Alert.alert('Ask Bot (AI Chatbot)', 'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.');
-          } else if (tabId === 'sos') {
-            Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
-          }
-        }}
-        currentLanguage={currentLanguage as SupportedLanguage}
-      />
+      {/* Floating Bottom Navigation Bar (Only rendered when screen is standalone) */}
+      {!hideTopHeader && (
+        <BottomNavBar
+          activeTab="nav"
+          onTabPress={(tabId) => {
+            if (onTabPress) {
+              onTabPress(tabId);
+            } else if (tabId === 'fishing' && onOpenMap) {
+              onOpenMap();
+            } else if (tabId === 'nets' && onBack) {
+              onBack();
+            } else if (tabId === 'bot') {
+              Alert.alert('Ask Bot (AI Chatbot)', 'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.');
+            } else if (tabId === 'sos') {
+              Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
+            }
+          }}
+          currentLanguage={currentLanguage as SupportedLanguage}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -954,7 +943,9 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   container: {
-    padding: 12,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 90,
   },
   heroGpsCard: {
     backgroundColor: Colors.surface,
@@ -962,7 +953,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 2,
     borderColor: Colors.primary,
-    marginBottom: 12,
+    marginBottom: 16,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -1057,11 +1048,11 @@ const styles = StyleSheet.create({
   },
   targetCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: Colors.primary,
-    marginBottom: 10,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -1169,7 +1160,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginTop: 10,
+    marginBottom: 10,
   },
   sectionTitle: {
     color: Colors.text,
@@ -1217,14 +1209,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   telemetryCard: {
     width: '48.5%',
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
+    padding: 12,
+    marginBottom: 12,
     borderWidth: 1.5,
     borderColor: Colors.border,
     shadowColor: '#000',
@@ -1260,7 +1252,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   oceanCardTitle: {
     color: Colors.text,
@@ -1319,7 +1311,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   controlButtonsGroup: {
-    gap: 8,
+    gap: 12,
+    marginBottom: 16,
   },
   actionBtn: {
     paddingVertical: 10,
@@ -1431,7 +1424,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   bottomSpacer: {
-    height: 50,
+    height: 10,
   },
 
   // Target Destination Modal Styles
