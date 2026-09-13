@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, StyleSheet, Dimensions, Platform, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
+import * as Clipboard from 'expo-clipboard';
 import { HotspotInfo } from '../services/pfzService';
 import { Colors } from '../theme/colors';
 
@@ -11,6 +12,7 @@ interface INCOISMapComponentProps {
   center: { lat: number; lon: number };
   hotspots: HotspotInfo[];
   activeLayer: 'chl' | 'sst' | 'bathymetry';
+  selectedNavigationTarget?: HotspotInfo | null;
   onNavigateToHotspot?: (hotspot: HotspotInfo) => void;
   onSelectHotspot?: (hotspot: HotspotInfo) => void;
 }
@@ -19,11 +21,14 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
   center,
   hotspots,
   activeLayer,
+  selectedNavigationTarget,
+  onNavigateToHotspot,
   onSelectHotspot,
 }) => {
-  // Generate dynamic Leaflet HTML with pinch-zoom, floating controls & INCOIS WMS
+  // Generate dynamic Leaflet HTML with pinch-zoom, user location, route line & copy coordinates
   const generateLeafletHTML = () => {
     const hotspotsJSON = JSON.stringify(hotspots);
+    const targetJSON = selectedNavigationTarget ? JSON.stringify(selectedNavigationTarget) : 'null';
 
     return `
       <!DOCTYPE html>
@@ -54,14 +59,14 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
           }
           .popup-title {
             font-weight: 900 !important;
-            font-size: 18px !important;
+            font-size: 17px !important;
             color: #00F5D4 !important;
-            margin-bottom: 8px !important;
+            margin-bottom: 6px !important;
           }
           .popup-info {
-            font-size: 15px !important;
+            font-size: 14px !important;
             color: #FFFFFF !important;
-            line-height: 1.7 !important;
+            line-height: 1.6 !important;
           }
           .popup-label {
             color: #A0ECED !important;
@@ -74,35 +79,92 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
           .popup-score {
             color: #FFD166 !important;
             font-weight: 900 !important;
-            font-size: 16px !important;
+            font-size: 15px !important;
+          }
+          .copy-btn {
+            background: #00F5D4 !important;
+            color: #0D2526 !important;
+            font-weight: 900 !important;
+            font-size: 13px !important;
+            border: none !important;
+            padding: 8px 12px !important;
+            border-radius: 8px !important;
+            margin-top: 10px !important;
+            cursor: pointer !important;
+            width: 100% !important;
+            text-align: center !important;
+            box-shadow: 0 2px 6px rgba(0,245,212,0.4) !important;
+          }
+          .copy-btn:active {
+            opacity: 0.8;
           }
           .pfz-pin {
-            width: 30px;
-            height: 30px;
+            width: 32px;
+            height: 32px;
             background: radial-gradient(circle, #00F5D4 35%, #005F60 90%);
             border: 2.5px solid #FFFFFF;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
-            box-shadow: 0 0 12px rgba(0, 245, 212, 0.9), 0 2px 6px rgba(0,0,0,0.6);
+            font-size: 17px;
+            box-shadow: 0 0 14px rgba(0, 245, 212, 0.9), 0 2px 6px rgba(0,0,0,0.6);
             cursor: pointer;
+          }
+          .user-pin {
+            width: 34px;
+            height: 34px;
+            background: radial-gradient(circle, #FF4757 35%, #C0392B 90%);
+            border: 2.5px solid #FFFFFF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 0 16px rgba(255, 71, 87, 0.9), 0 2px 6px rgba(0,0,0,0.6);
+          }
+          .target-pin {
+            width: 36px;
+            height: 36px;
+            background: radial-gradient(circle, #FFD166 35%, #D4AC0D 90%);
+            border: 3px solid #FFFFFF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+            box-shadow: 0 0 18px rgba(255, 209, 102, 1.0), 0 2px 8px rgba(0,0,0,0.7);
           }
           .legend-box {
             position: absolute;
             bottom: 16px;
             right: 12px;
             z-index: 1000;
-            background: rgba(0, 31, 45, 0.90);
+            background: rgba(0, 31, 45, 0.92);
             border: 1.5px solid #00A896;
             border-radius: 10px;
             padding: 10px 14px;
             color: #FFFFFF;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 700;
             font-family: sans-serif;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+          }
+          .nav-route-banner {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            right: 70px;
+            z-index: 1000;
+            background: rgba(13, 37, 38, 0.92);
+            border: 1.5px solid #00F5D4;
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 800;
+            font-family: sans-serif;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
           }
           .floating-zoom-bar {
             position: absolute;
@@ -137,6 +199,17 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
       </head>
       <body>
         <div id="map"></div>
+
+        ${
+          selectedNavigationTarget
+            ? `<div class="nav-route-banner">
+                🧭 <b>LIVE NAVIGATION ROUTE</b><br>
+                From: My Location (${center.lat.toFixed(3)}°N, ${center.lon.toFixed(3)}°E)<br>
+                To: ${selectedNavigationTarget.name} (${selectedNavigationTarget.latitude.toFixed(3)}°N, ${selectedNavigationTarget.longitude.toFixed(3)}°E)
+              </div>`
+            : ''
+        }
+
         <div class="floating-zoom-bar">
           <div class="zoom-btn" onclick="map.zoomIn()">+</div>
           <div class="zoom-btn" onclick="map.zoomOut()">−</div>
@@ -205,8 +278,29 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
               `
           }
 
-          // Hotspots Custom Markers & INCOIS PFZ Vector Boundary Lines
+          function sendWebMessage(obj) {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+            }
+          }
+
+          function copyGpsCoords(lat, lon) {
+            sendWebMessage({ type: 'COPY_COORDS', lat: lat, lon: lon });
+          }
+
+          // 1. Render User GPS Location Pin
+          var userIcon = L.divIcon({
+            className: 'user-pin-wrapper',
+            html: '<div class="user-pin">🚤</div>',
+            iconSize: [34, 34],
+            iconAnchor: [17, 17]
+          });
+          var userMarker = L.marker([${center.lat}, ${center.lon}], { icon: userIcon }).addTo(map);
+          userMarker.bindPopup('<div class="custom-popup"><div class="popup-title">🚤 MY LOCATION (GPS)</div><div class="popup-info"><span class="popup-label">Latitude:</span> <span class="popup-value">${center.lat.toFixed(4)}° N</span><br><span class="popup-label">Longitude:</span> <span class="popup-value">${center.lon.toFixed(4)}° E</span></div><button class="copy-btn" onclick="copyGpsCoords(${center.lat}, ${center.lon})">📋 Copy My GPS (${center.lat.toFixed(4)}, ${center.lon.toFixed(4)})</button></div>');
+
+          // 2. Render Hotspots Custom Markers & INCOIS PFZ Vector Boundary Lines
           var hotspots = ${hotspotsJSON};
+          var navTarget = ${targetJSON};
           var markerGroup = L.featureGroup();
           var sectorGroups = {};
 
@@ -215,18 +309,22 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             if (!sectorGroups[secId]) sectorGroups[secId] = [];
             sectorGroups[secId].push([spot.latitude, spot.longitude]);
 
+            var isSelectedTarget = navTarget && navTarget.id === spot.id;
+            var pinClass = isSelectedTarget ? 'target-pin' : 'pfz-pin';
+            var pinIcon = isSelectedTarget ? '🎯' : '🐟';
+
             var icon = L.divIcon({
               className: 'pfz-pin-wrapper',
-              html: '<div class="pfz-pin">🐟</div>',
-              iconSize: [26, 26],
-              iconAnchor: [13, 13]
+              html: '<div class="' + pinClass + '">' + pinIcon + '</div>',
+              iconSize: [32, 32],
+              iconAnchor: [16, 16]
             });
 
             var marker = L.marker([spot.latitude, spot.longitude], { icon: icon });
             markerGroup.addLayer(marker);
 
             var popupContent = '<div class="custom-popup">' +
-              '<div class="popup-title">🐟 ' + spot.name + '</div>' +
+              '<div class="popup-title">' + pinIcon + ' ' + spot.name + '</div>' +
               '<div class="popup-info">' +
                 '<span class="popup-label">📍 Latitude:</span> <span class="popup-value">' + spot.latitude + '° N</span><br>' +
                 '<span class="popup-label">📍 Longitude:</span> <span class="popup-value">' + spot.longitude + '° E</span><br>' +
@@ -234,18 +332,38 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
                 '<span class="popup-label">⏱️ Validity:</span> <span class="popup-value">' + spot.valid_until + '</span><br>' +
                 '<span class="popup-label">🎯 Reliability:</span> <span class="popup-score">' + spot.reliability_score + '</span>' +
               '</div>' +
+              '<button class="copy-btn" onclick="copyGpsCoords(' + spot.latitude + ', ' + spot.longitude + ')">📋 Copy GPS (' + spot.latitude + ', ' + spot.longitude + ')</button>' +
             '</div>';
 
             marker.bindPopup(popupContent);
 
             marker.on('click', function() {
-              if (window.ReactNativeWebView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'HOTSPOT_SELECT', data: spot }));
-              }
+              sendWebMessage({ type: 'HOTSPOT_SELECT', data: spot });
             });
           });
 
           markerGroup.addTo(map);
+
+          // 3. Render Navigation Route Polyline if target is selected!
+          if (navTarget) {
+            var routeCoords = [
+              [${center.lat}, ${center.lon}],
+              [navTarget.latitude, navTarget.longitude]
+            ];
+
+            var routeLine = L.polyline(routeCoords, {
+              color: '#00F5D4',
+              weight: 4,
+              dashArray: '8, 8',
+              opacity: 0.95
+            }).addTo(map);
+
+            routeLine.bindPopup('<div class="custom-popup"><div class="popup-title">🧭 Live Navigation Route</div><div class="popup-info">My Location ➔ ' + navTarget.name + '</div></div>');
+
+            // Auto-fit bounds to show BOTH My Location & Target Fishing Zone on map!
+            var bounds = L.latLngBounds(routeCoords);
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
 
           // Draw INCOIS PFZ Convergence Vector Lines for all sectors
           Object.keys(sectorGroups).forEach(function(secId) {
@@ -253,12 +371,11 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             if (coords.length > 1) {
               coords.sort(function(a, b) { return a[0] - b[0]; });
               var polyline = L.polyline(coords, {
-                color: '#00F5D4',
-                weight: 2,
-                dashArray: '6, 6',
-                opacity: 0.85
+                color: '#3498DB',
+                weight: 1.5,
+                dashArray: '4, 4',
+                opacity: 0.60
               }).addTo(map);
-              polyline.bindPopup('<div class="custom-popup"><div class="popup-title">INCOIS PFZ Thermal/Chl Front (' + secId + ')</div><div class="popup-info">Official Oceanographic High-Fish Aggregation Zone</div></div>');
             }
           });
         </script>
@@ -269,11 +386,18 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
 
   const html = generateLeafletHTML();
 
-  const handleMessage = (event: any) => {
+  const handleMessage = async (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'HOTSPOT_SELECT' && onSelectHotspot) {
         onSelectHotspot(data.data);
+      } else if (data.type === 'COPY_COORDS') {
+        const coordStr = `${data.lat.toFixed(4)}, ${data.lon.toFixed(4)}`;
+        await Clipboard.setStringAsync(coordStr);
+        Alert.alert(
+          'Coordinates Copied!',
+          `GPS Coordinates (${coordStr}) copied to clipboard. You can paste it into any navigation app.`
+        );
       }
     } catch (e) {}
   };

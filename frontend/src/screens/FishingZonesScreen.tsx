@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 import { Colors } from '../theme/colors';
 import {
   fetchAutoPFZ,
@@ -48,6 +49,9 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   const [activeLayer, setActiveLayer] = useState<'chl' | 'sst' | 'bathymetry'>('chl');
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
+  const [selectedNavigationTarget, setSelectedNavigationTarget] = useState<HotspotInfo | null>(null);
+
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Fetch real device GPS position on mount
   useEffect(() => {
@@ -96,14 +100,32 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
     }
   };
 
+  const handleCopyCoordinates = async (spot: HotspotInfo) => {
+    const coordStr = `${spot.latitude.toFixed(4)}, ${spot.longitude.toFixed(4)}`;
+    try {
+      await Clipboard.setStringAsync(coordStr);
+      Alert.alert(
+        'Coordinates Copied! 📋',
+        `GPS Coordinates (${coordStr}) copied to clipboard. You can paste it into any navigation tool or map.`
+      );
+    } catch (err) {
+      Alert.alert('GPS Coordinates', coordStr);
+    }
+  };
+
   const handleStartNavigation = (spot: HotspotInfo) => {
     setSelectedHotspot(null);
+    setSelectedNavigationTarget(spot);
+
+    // Scroll to top where map is located to display live route trajectory
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+
     if (onNavigateToHotspot) {
       onNavigateToHotspot(spot);
     } else {
       Alert.alert(
-        'Compass Navigation Initiated',
-        `Navigating to ${spot.name}\nLat: ${spot.latitude}°N, Lon: ${spot.longitude}°E`
+        'Live Route Navigation Loaded',
+        `Route mapped from My Location to ${spot.name}\nLat: ${spot.latitude.toFixed(4)}°N, Lon: ${spot.longitude.toFixed(4)}°E`
       );
     }
   };
@@ -126,7 +148,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {/* Loading Indicator */}
         {loading && (
           <View style={styles.refreshingBar}>
@@ -135,7 +157,25 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           </View>
         )}
 
-        {/* 1. MAP AT TOP: Layer Selector & Interactive Leaflet Ocean Map */}
+        {/* Active Route Banner if target selected */}
+        {selectedNavigationTarget && (
+          <View style={styles.activeRouteBanner}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.activeRouteTitle}>🧭 ACTIVE ROUTE TO FISHING ZONE</Text>
+              <Text style={styles.activeRouteSub}>
+                Target: {selectedNavigationTarget.name} ({selectedNavigationTarget.latitude.toFixed(4)}°N, {selectedNavigationTarget.longitude.toFixed(4)}°E)
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.clearRouteBtn}
+              onPress={() => setSelectedNavigationTarget(null)}
+            >
+              <Text style={styles.clearRouteTxt}>✕ Clear</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 1. MAP AT TOP: Layer Selector & Interactive Ocean Map */}
         <View style={styles.layerSelectorSection}>
           <Text style={styles.sectionTitle}>INCOIS OCEAN MAP (PINCH-TO-ZOOM)</Text>
 
@@ -168,12 +208,13 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Interactive Ocean Map with Touch/Click Listener */}
+          {/* Interactive Ocean Map with Route Line & Copying */}
           {advisory && (
             <INCOISMapComponent
               center={{ lat: userLocation.lat, lon: userLocation.lon }}
               hotspots={advisory.hotspots}
               activeLayer={activeLayer}
+              selectedNavigationTarget={selectedNavigationTarget}
               onNavigateToHotspot={handleStartNavigation}
               onSelectHotspot={(spot) => setSelectedHotspot(spot)}
             />
@@ -241,10 +282,12 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 ? `${directionTxtFormatted(spot.direction, spot.bearing_degrees)}`
                 : 'Northeast';
 
+              const isTargeted = selectedNavigationTarget?.id === spot.id;
+
               return (
                 <TouchableOpacity
                   key={spot.id}
-                  style={styles.hotspotCard}
+                  style={[styles.hotspotCard, isTargeted && styles.hotspotCardTargeted]}
                   activeOpacity={0.85}
                   onPress={() => setSelectedHotspot(spot)}
                 >
@@ -252,7 +295,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                     <View style={styles.hotspotTitleGroup}>
                       <Text style={styles.hotspotName}>🐟 {spot.name}</Text>
                       <Text style={styles.hotspotCoords}>
-                        {spot.latitude.toFixed(4)}° N, {spot.longitude.toFixed(4)}° E
+                        Lat: {spot.latitude.toFixed(4)}° N, Lon: {spot.longitude.toFixed(4)}° E
                       </Text>
                     </View>
                     <View style={styles.reliabilityBadge}>
@@ -284,15 +327,24 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                     </View>
                   </View>
 
-                  {/* Action Buttons */}
-                  <TouchableOpacity
-                    style={styles.navigateButton}
-                    onPress={() => handleStartNavigation(spot)}
-                  >
-                    <Text style={styles.navigateButtonText}>
-                      🧭 GET DIRECTIONS ({spot.latitude.toFixed(3)}°N, {spot.longitude.toFixed(3)}°E)
-                    </Text>
-                  </TouchableOpacity>
+                  {/* Action Buttons Row */}
+                  <View style={styles.cardActionsRow}>
+                    <TouchableOpacity
+                      style={styles.copyBtnCard}
+                      onPress={() => handleCopyCoordinates(spot)}
+                    >
+                      <Text style={styles.copyBtnCardTxt}>📋 Copy GPS</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.navigateButton, isTargeted && styles.navigateButtonActive]}
+                      onPress={() => handleStartNavigation(spot)}
+                    >
+                      <Text style={styles.navigateButtonText}>
+                        {isTargeted ? '✓ VIEW ROUTE ON MAP' : '🧭 NAVIGATE TO THIS ZONE'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -302,7 +354,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Hotspot Full Detail Modal */}
+      {/* Hotspot Full Detail Modal with Copy & Navigation */}
       {selectedHotspot && (
         <Modal
           visible={!!selectedHotspot}
@@ -351,7 +403,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Coordinates Box */}
+                {/* Coordinates Box with Copy Button */}
                 <View style={styles.coordBox}>
                   <Text style={styles.coordBoxTitle}>GPS LOCATION COORDINATES</Text>
                   <Text style={styles.coordBoxVal}>
@@ -360,6 +412,15 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                   <Text style={styles.coordBoxVal}>
                     Longitude: {selectedHotspot.longitude.toFixed(4)}° E
                   </Text>
+
+                  <TouchableOpacity
+                    style={styles.modalCopyBtn}
+                    onPress={() => handleCopyCoordinates(selectedHotspot)}
+                  >
+                    <Text style={styles.modalCopyBtnTxt}>
+                      📋 Copy Coordinates ({selectedHotspot.latitude.toFixed(4)}, {selectedHotspot.longitude.toFixed(4)})
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Oceanographic Parameters */}
@@ -411,7 +472,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                   onPress={() => handleStartNavigation(selectedHotspot)}
                 >
                   <Text style={styles.modalNavBtnTxt}>
-                    🧭 NAVIGATE TO THIS FISHING ZONE
+                    🧭 NAVIGATE & SHOW MAP ROUTE
                   </Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -496,6 +557,41 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 12,
+  },
+  activeRouteBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0D2526',
+    borderColor: Colors.secondary,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+  },
+  activeRouteTitle: {
+    color: Colors.secondary,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  activeRouteSub: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  clearRouteBtn: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  clearRouteTxt: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   sectionTitle: {
     color: Colors.text,
@@ -635,6 +731,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  hotspotCardTargeted: {
+    borderColor: Colors.primary,
+    borderWidth: 2.5,
+    backgroundColor: '#F0FDFA',
+  },
   hotspotHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -717,15 +818,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
   },
+  cardActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  copyBtnCard: {
+    backgroundColor: '#EBF5FB',
+    borderColor: '#3498DB',
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  copyBtnCardTxt: {
+    color: '#2980B9',
+    fontSize: 13,
+    fontWeight: '900',
+  },
   navigateButton: {
+    flex: 1,
     backgroundColor: Colors.primary,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navigateButtonActive: {
+    backgroundColor: Colors.primaryDark,
   },
   navigateButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.3,
   },
@@ -743,7 +868,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '85%',
+    maxHeight: '88%',
     paddingBottom: 24,
   },
   modalHeader: {
@@ -824,8 +949,8 @@ const styles = StyleSheet.create({
   },
   coordBox: {
     backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: Colors.border,
     marginBottom: 16,
@@ -838,9 +963,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   coordBoxVal: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: Colors.text,
+  },
+  modalCopyBtn: {
+    backgroundColor: Colors.secondary,
+    borderColor: Colors.secondaryDark,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalCopyBtnTxt: {
+    color: Colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '900',
   },
   modalSecTitle: {
     fontSize: 13,
