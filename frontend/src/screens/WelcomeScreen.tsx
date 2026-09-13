@@ -24,12 +24,14 @@ interface WelcomeScreenProps {
   currentLanguage: SupportedLanguage;
   onGetStarted: () => void;
   onChangeLanguage?: () => void;
+  onOpenCoastalGuard?: () => void;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   currentLanguage,
   onGetStarted,
   onChangeLanguage,
+  onOpenCoastalGuard,
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -117,7 +119,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           />
         </View>
 
-        {/* Footer with GET STARTED Button */}
+        {/* Footer with GET STARTED Button & Coastal Guard Portal Button */}
         <View style={styles.footer}>
           <PrimaryButton
             title={t('getStarted', currentLanguage)}
@@ -126,6 +128,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             variant="secondary"
             textStyle={styles.buttonText}
           />
+
+          {onOpenCoastalGuard && (
+            <TouchableOpacity
+              style={styles.cgWelcomeBtn}
+              activeOpacity={0.8}
+              onPress={onOpenCoastalGuard}
+            >
+              <Text style={styles.cgWelcomeTxt}>👮 Coastal Guard Officer Portal ➔</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -193,6 +205,20 @@ const styles = StyleSheet.create({
   buttonText: {
     color: Colors.primaryDark,
     fontSize: 20,
+    fontWeight: '800',
+  },
+  cgWelcomeBtn: {
+    backgroundColor: '#0F3A5D',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  cgWelcomeTxt: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '800',
   },
 });

@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { Colors } from '../theme/colors';
 import { SupportedLanguage } from '../types';
 import { getLanguagePreference, getAuthToken } from '../storage/storage';
+import { useLanguage } from '../i18n';
 import { LanguageScreen } from '../screens/LanguageScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -11,13 +12,17 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { FishingZonesScreen } from '../screens/FishingZonesScreen';
 import { NavigationScreen } from '../screens/NavigationScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { BotScreen } from '../screens/BotScreen';
+import { CoastalGuardHomeScreen } from '../screens/coastal_guard/CoastalGuardHomeScreen';
+import { CGLoginScreen } from '../screens/coastal_guard/CGLoginScreen';
 import { HotspotInfo } from '../services/pfzService';
 
-type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile';
+type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile' | 'bot' | 'cg_login' | 'coastal_guard';
 
 export const AppNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('loading');
-  const [language, setLanguage] = useState<SupportedLanguage>('ta');
+  const [previousScreen, setPreviousScreen] = useState<ScreenState>('welcome');
+  const { language, setLanguage, t } = useLanguage();
   const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
 
   useEffect(() => {
@@ -27,25 +32,42 @@ export const AppNavigator: React.FC = () => {
   const bootstrapApp = async () => {
     try {
       const savedLang = await getLanguagePreference();
+      const token = await getAuthToken();
+
       if (savedLang) {
-        setLanguage(savedLang);
+        await setLanguage(savedLang);
+        if (token) {
+          setCurrentScreen('home');
+        } else {
+          setCurrentScreen('welcome');
+        }
+      } else {
+        // First launch - show language selection screen
+        setCurrentScreen('language');
       }
-      // Always ask language selection when app opens
-      setCurrentScreen('language');
     } catch (e) {
-      setCurrentScreen('language');
+      setCurrentScreen('welcome');
     }
   };
 
-  // Step 1: Welcome Screen "GET STARTED" -> Navigates to Language Selection Screen
+  const handleOpenLanguage = () => {
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('language');
+  };
+
+  // Step 1: Welcome Screen "GET STARTED" -> Navigates to Login Screen
   const handleGetStarted = () => {
     setCurrentScreen('login');
   };
 
-  // Step 2: Language Selection Screen "Continue" -> Navigates to Welcome Screen or Home Screen
+  // Step 2: Language Selection Screen "Continue" -> Navigates to appropriate destination
   const handleLanguageSelect = async (selectedLang: SupportedLanguage) => {
-    setLanguage(selectedLang);
+    await setLanguage(selectedLang);
     try {
+      if (previousScreen && previousScreen !== 'loading' && previousScreen !== 'language') {
+        setCurrentScreen(previousScreen);
+        return;
+      }
       const token = await getAuthToken();
       if (token) {
         setCurrentScreen('home');
@@ -60,8 +82,8 @@ export const AppNavigator: React.FC = () => {
   // Step 3: Register Screen success -> Navigates back to Login Screen
   const handleRegisterSuccess = () => {
     Alert.alert(
-      'Registration Complete',
-      'Account created successfully! Please login with your mobile number and 6-digit PIN.'
+      t('registrationComplete'),
+      t('registrationSuccessMsg')
     );
     setCurrentScreen('login');
   };
@@ -78,7 +100,7 @@ export const AppNavigator: React.FC = () => {
 
   const handleStartNavigationToHotspot = (spot: HotspotInfo) => {
     setSelectedHotspot(spot);
-    setCurrentScreen('navigation');
+    setCurrentScreen('fishing_zones');
   };
 
   if (currentScreen === 'loading') {
@@ -96,12 +118,18 @@ export const AppNavigator: React.FC = () => {
         <WelcomeScreen
           currentLanguage={language}
           onGetStarted={handleGetStarted}
+          onChangeLanguage={handleOpenLanguage}
+          onOpenCoastalGuard={() => setCurrentScreen('cg_login')}
         />
       )}
 
       {/* 2. PREFERRED LANGUAGE SELECTION SCREEN */}
       {currentScreen === 'language' && (
-        <LanguageScreen onLanguageSelected={handleLanguageSelect} />
+        <LanguageScreen
+          initialLanguage={language}
+          onLanguageSelected={handleLanguageSelect}
+          onCancel={previousScreen && previousScreen !== 'loading' && previousScreen !== 'language' ? () => setCurrentScreen(previousScreen) : undefined}
+        />
       )}
 
       {/* 3. LOGIN SCREEN */}
@@ -109,11 +137,20 @@ export const AppNavigator: React.FC = () => {
         <LoginScreen
           currentLanguage={language}
           onLoginSuccess={handleLoginSuccess}
+          onLoginCoastalGuard={() => setCurrentScreen('cg_login')}
           onNavigateToRegister={() => setCurrentScreen('register')}
         />
       )}
 
-      {/* 4. REGISTER SCREEN */}
+      {/* 4. DEDICATED SAGAR SAKHI COASTAL GUARD OFFICER LOGIN SCREEN */}
+      {currentScreen === 'cg_login' && (
+        <CGLoginScreen
+          onLoginSuccess={() => setCurrentScreen('coastal_guard')}
+          onNavigateToFishermanLogin={() => setCurrentScreen('login')}
+        />
+      )}
+
+      {/* 5. REGISTER SCREEN */}
       {currentScreen === 'register' && (
         <RegisterScreen
           currentLanguage={language}
@@ -122,27 +159,38 @@ export const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* 5. HOME SCREEN */}
-      {currentScreen === 'home' && (
-        <HomeScreen
-          currentLanguage={language}
+      {/* 6. COASTAL GUARD (SAGAR SAKHI) COMMAND CENTER MODULE */}
+      {currentScreen === 'coastal_guard' && (
+        <CoastalGuardHomeScreen
           onLogout={handleLogout}
-          onOpenFishingZones={() => setCurrentScreen('fishing_zones')}
-          onOpenNavigation={() => setCurrentScreen('navigation')}
-          onOpenProfile={() => setCurrentScreen('profile')}
+          onSwitchToFishermanView={() => setCurrentScreen('home')}
         />
       )}
 
-      {/* 6. POTENTIAL FISHING ZONES SCREEN (INCOIS REAL DATA) */}
+      {/* 6. HOME & AUTHENTICATED APP SCREENS (TOP HEADER BANNER RENDERED ACROSS ALL PAGES) */}
+      {(currentScreen === 'home' || currentScreen === 'fishing_zones' || currentScreen === 'navigation' || currentScreen === 'profile' || currentScreen === 'bot') && (
+        <HomeScreen
+          currentLanguage={language}
+          onLogout={handleLogout}
+          onLanguageChange={async (newLang) => await setLanguage(newLang)}
+          onOpenFishingZones={() => setCurrentScreen('fishing_zones')}
+          onOpenNavigation={() => setCurrentScreen('navigation')}
+          onOpenProfile={() => setCurrentScreen('profile')}
+          initialTab={currentScreen === 'bot' ? 'bot' : undefined}
+        />
+      )}
+
+      {/* 7. POTENTIAL FISHING ZONES SCREEN (INCOIS REAL DATA) */}
       {currentScreen === 'fishing_zones' && (
         <FishingZonesScreen
           currentLanguage={language}
+          initialTarget={selectedHotspot}
           onBack={() => setCurrentScreen('home')}
           onNavigateToHotspot={handleStartNavigationToHotspot}
         />
       )}
 
-      {/* 7. LIVE MARINE NAVIGATION SCREEN */}
+      {/* 8. LIVE MARINE NAVIGATION SCREEN */}
       {currentScreen === 'navigation' && (
         <NavigationScreen
           currentLanguage={language}
@@ -154,12 +202,22 @@ export const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* 8. DEDICATED FISHERMAN PROFILE & SPECS SCREEN */}
+      {/* 9. DEDICATED FISHERMAN PROFILE & SPECS SCREEN */}
       {currentScreen === 'profile' && (
         <ProfileScreen
           currentLanguage={language}
           onBack={() => setCurrentScreen('home')}
           onLogout={handleLogout}
+          onLanguageChange={async (newLang) => await setLanguage(newLang)}
+        />
+      )}
+
+      {/* 10. ASK BOT SCREEN */}
+      {currentScreen === 'bot' && (
+        <BotScreen
+          currentLanguage={language}
+          onBack={() => setCurrentScreen('home')}
+          onNavigateToHotspot={handleStartNavigationToHotspot}
         />
       )}
     </View>

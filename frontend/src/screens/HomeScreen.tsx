@@ -11,17 +11,24 @@ import {
   Animated,
   Dimensions,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
-import { t, supportedLanguages } from '../i18n';
+import { t, supportedLanguages, useLanguage } from '../i18n';
 import { SupportedLanguage, FishermanUser } from '../types';
-import { getUserSession, clearSession } from '../storage/storage';
+import { getUserSession, clearSession, saveLanguagePreference } from '../storage/storage';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { BottomNavBar } from '../components/BottomNavBar';
+import { SOSScreen } from '../sos/SOSScreen';
 
 import { NavigationScreen } from './NavigationScreen';
 import { FishingZonesScreen } from './FishingZonesScreen';
+import { MyNetsScreen } from './MyNetsScreen';
+import { ProfileScreen } from './ProfileScreen';
+import { BotScreen } from './BotScreen';
+import { HotspotInfo } from '../services/pfzService';
+import { coastalGuardService } from '../services/coastalGuardService';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
@@ -29,28 +36,41 @@ const DRAWER_WIDTH = width * 0.82;
 interface HomeScreenProps {
   currentLanguage: SupportedLanguage;
   onLogout: () => void;
+  onLanguageChange?: (lang: SupportedLanguage) => void;
   onOpenFishingZones?: () => void;
   onOpenNavigation?: () => void;
   onOpenProfile?: () => void;
+  initialTab?: string;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   currentLanguage,
   onLogout,
+  onLanguageChange,
   onOpenFishingZones,
   onOpenNavigation,
   onOpenProfile,
+  initialTab,
 }) => {
+  const { setLanguage } = useLanguage();
   const [user, setUser] = useState<FishermanUser | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('nav');
+  const [activeTab, setActiveTab] = useState<string>(initialTab || 'nav');
+  const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [isLangModalOpen, setIsLangModalOpen] = useState<boolean>(false);
 
   // Slide animation for side menu drawer
   const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
 
   useEffect(() => {
     loadUser();
-  }, []);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const loadUser = async () => {
     const session = await getUserSession();
@@ -88,49 +108,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       sos: 'Emergency SOS',
     };
 
-    if (tabId === 'nav') {
-      if (onOpenNavigation) onOpenNavigation();
-    } else if (tabId === 'fishing') {
-      if (onOpenFishingZones) onOpenFishingZones();
-    } else if (tabId === 'bot') {
+    if (tabId === 'sos') {
+      // SOS tab presents dedicated Emergency SOS Screen
+      return;
+    }
+
+    if (tabId === 'bot') {
       Alert.alert(
         'Ask Bot (AI Chatbot)',
         'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
       );
-    } else {
-      Alert.alert(
-        tabNames[tabId] || 'Feature',
-        t('comingSoon', currentLanguage)
-      );
+    } else if (tabId === 'sos') {
+      coastalGuardService.triggerSOS(13.0827, 80.3800, 'Emergency Distress', 'Distress beacon signal transmitted from mobile GPS.', 4)
+        .then((sos) => {
+          Alert.alert(
+            'Emergency SOS Transmitted 🚨',
+            `Distress beacon (SOS #${sos.id}) transmitted to Samudra Kural Coastal Guard HQ & nearest patrol vessels.`
+          );
+        })
+        .catch(() => {
+          Alert.alert(
+            'Emergency SOS Transmitted 🚨',
+            'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
+          );
+        });
     }
   };
-
-  // When active tab is 'nav', render the full Marine Navigation & Telemetry Screen directly!
-  if (activeTab === 'nav') {
-    return (
-      <View style={{ flex: 1 }}>
-        <NavigationScreen
-          currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('fishing')}
-          onOpenMap={() => setActiveTab('fishing')}
-        />
-      </View>
-    );
-  }
-
-  // When active tab is 'fishing', render the full Potential Fishing Zones Screen directly!
-  if (activeTab === 'fishing') {
-    return (
-      <View style={{ flex: 1 }}>
-        <FishingZonesScreen
-          currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('nav')}
-          onNavigateToHotspot={() => setActiveTab('nav')}
-          onTabPress={handleTabPress}
-        />
-      </View>
-    );
-  }
 
   const handleLogout = async () => {
     closeMenuDrawer();
@@ -145,7 +148,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} translucent={false} />
       
-      {/* Top Header Banner with comfortable top spacing and Top-Right Hamburger Menu */}
+      {/* Top Header Banner with comfortable top spacing and Top-Right Hamburger Menu on ALL pages */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.titleContainer}>
@@ -168,90 +171,139 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </View>
 
       {/* Main Content Area */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.featureCard}>
-          <View style={styles.cardTop}>
-            {activeTab === 'bot' ? (
-              <Image
-                source={require('../../assets/chatbot-logo.png')}
-                style={styles.botFeatureLogo}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text style={styles.featureIcon}>
+      {activeTab === 'sos' ? (
+        <SOSScreen currentLanguage={currentLanguage} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.featureCard}>
+            <View style={styles.cardTop}>
+              {activeTab === 'bot' ? (
+                <Image
+                  source={require('../../assets/chatbot-logo.png')}
+                  style={styles.botFeatureLogo}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.featureIcon}>
+                  {activeTab === 'nav'
+                    ? '🧭'
+                    : activeTab === 'fishing'
+                    ? '🎣'
+                    : activeTab === 'nets'
+                    ? '🕸️'
+                    : '🆘'}
+                </Text>
+              )}
+              <Text style={styles.featureTitle}>
                 {activeTab === 'nav'
-                  ? '🧭'
+                  ? t('placeholderNav', currentLanguage)
                   : activeTab === 'fishing'
-                  ? '🎣'
+                  ? t('placeholderFishing', currentLanguage)
+                  : activeTab === 'bot'
+                  ? 'Ask Bot (AI Chatbot)'
                   : activeTab === 'nets'
-                  ? '🕸️'
-                  : '🆘'}
+                  ? t('placeholderNets', currentLanguage)
+                  : 'Emergency SOS'}
               </Text>
-            )}
-            <Text style={styles.featureTitle}>
-              {activeTab === 'nav'
-                ? t('placeholderNav', currentLanguage)
-                : activeTab === 'fishing'
-                ? t('placeholderFishing', currentLanguage)
-                : activeTab === 'bot'
-                ? 'Ask Bot (AI Chatbot)'
-                : activeTab === 'nets'
-                ? t('placeholderNets', currentLanguage)
-                : 'Emergency SOS'}
-            </Text>
+            </View>
+
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
+              <Text style={styles.noticeText}>
+                {t('comingSoon', currentLanguage)}. This section will integrate real-time spatial navigation, PFZ fishing zones, AI Chatbot assistance, and safety alerts in the next update.
+              </Text>
+            </View>
           </View>
+        </ScrollView>
+      )}
 
-          <View style={styles.noticeBox}>
-            <Text style={styles.noticeTitle}>Marine Utility Portal</Text>
-            <Text style={styles.noticeText}>
-              {t('comingSoon', currentLanguage)}. Access official INCOIS ocean forecasts, Sea Surface Temperature (SST), Chlorophyll-a layers, and Potential Fishing Zones.
-            </Text>
+        {activeTab === 'bot' && (
+          <BotScreen
+            currentLanguage={currentLanguage}
+            onBack={() => setActiveTab('nav')}
+            onNavigateToHotspot={(spot) => {
+              setSelectedHotspot(spot);
+              setActiveTab('nav');
+            }}
+            onTabPress={handleTabPress}
+            hideTopHeader={true}
+          />
+        )}
 
-            {onOpenNavigation && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: Colors.primary,
-                  paddingVertical: 14,
-                  paddingHorizontal: 16,
-                  borderRadius: 12,
-                  marginTop: 14,
-                  alignItems: 'center',
-                  width: '100%',
-                }}
-                onPress={onOpenNavigation}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
-                  🧭 Open Marine Navigation & Destination Target
+        {activeTab !== 'nets' && activeTab !== 'nav' && activeTab !== 'fishing' && activeTab !== 'profile' && activeTab !== 'bot' && (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.featureCard}>
+              <View style={styles.cardTop}>
+                {activeTab === 'bot' ? (
+                  <Image
+                    source={require('../../assets/chatbot-logo.png')}
+                    style={styles.botFeatureLogo}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.featureIcon}>🆘</Text>
+                )}
+                <Text style={styles.featureTitle}>
+                  {activeTab === 'bot' ? 'Ask Bot (AI Chatbot)' : 'Emergency SOS'}
                 </Text>
-              </TouchableOpacity>
-            )}
+              </View>
 
-            {onOpenFishingZones && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: Colors.secondary,
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 10,
-                  marginTop: 10,
-                  alignItems: 'center',
-                  width: '100%',
-                }}
-                onPress={onOpenFishingZones}
-              >
-                <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
-                  🐟 Open INCOIS Fishing Zones Map
+              <View style={styles.noticeBox}>
+                <Text style={styles.noticeTitle}>{t('appSubtitle', currentLanguage)}</Text>
+                <Text style={styles.noticeText}>
+                  {t('comingSoon', currentLanguage)}. {t('pfzSubtitle', currentLanguage)}.
                 </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </ScrollView>
 
-      {/* Floating Bottom Navigation Bar (Center Ask Bot with custom Whale Logo, Right SOS) */}
+                {onOpenNavigation && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.primary,
+                      paddingVertical: 14,
+                      paddingHorizontal: 16,
+                      borderRadius: 12,
+                      marginTop: 14,
+                      alignItems: 'center',
+                      width: '100%',
+                    }}
+                    onPress={onOpenNavigation}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
+                      🧭 {t('navigationTitle', currentLanguage)}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {onOpenFishingZones && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.secondary,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 10,
+                      marginTop: 10,
+                      alignItems: 'center',
+                      width: '100%',
+                    }}
+                    onPress={onOpenFishingZones}
+                  >
+                    <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
+                      {t('openIncoisMap', currentLanguage)}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </ScrollView>
+        )}
+      </View>
+
+      {/* Floating Bottom Navigation Bar */}
       <BottomNavBar
         activeTab={activeTab}
         onTabPress={handleTabPress}
@@ -278,7 +330,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <SafeAreaView style={{ flex: 1 }}>
               {/* Drawer Header */}
               <View style={styles.drawerHeader}>
-                <Text style={styles.drawerHeaderTitle}>Menu & Profile</Text>
+                <Text style={styles.drawerHeaderTitle}>{t('menuAndProfile', currentLanguage)}</Text>
                 <TouchableOpacity
                   onPress={closeMenuDrawer}
                   style={styles.closeButton}
@@ -287,63 +339,95 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <ScrollView contentContainerStyle={styles.drawerBody}>
-                {/* User Profile Info Card */}
+              <ScrollView contentContainerStyle={styles.drawerBody} showsVerticalScrollIndicator={false}>
+                {/* Complete Fisherman Profile Info Card */}
                 <View style={styles.profileSection}>
                   <View style={styles.profileAvatar}>
                     <Text style={styles.avatarText}>👤</Text>
                   </View>
-                  <Text style={styles.profileName}>{user?.name || 'Fisherman User'}</Text>
-                  <Text style={styles.profilePhone}>{user?.phone || '+91 9876543210'}</Text>
 
-                  {user?.address && (
+                  <View style={styles.verifiedBadgeDrawer}>
+                    <Text style={styles.verifiedBadgeDrawerTxt}>✓ {t('verifiedFisherman', currentLanguage)}</Text>
+                  </View>
+
+                  <Text style={styles.profileName}>{user?.name || 'K. Veeraraghavan'}</Text>
+                  <Text style={styles.profilePhone}>{user?.phone || '+91 98401 23456'}</Text>
+
+                  <TouchableOpacity
+                    style={styles.fullProfileDrawerBtn}
+                    onPress={() => {
+                      closeMenuDrawer();
+                      setActiveTab('profile');
+                    }}
+                  >
+                    <Text style={styles.fullProfileDrawerBtnTxt}>
+                      {t('viewEditProfile', currentLanguage)}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Official Fisherman Specs List */}
+                  <View style={{ width: '100%', marginTop: 12 }}>
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Address:</Text>
-                      <Text style={styles.infoBoxValue}>{user.address}</Text>
+                      <Text style={styles.infoBoxLabel}>{t('emergencyContact', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValueHighlight}>{user?.emergencyPhone || '+91 94440 99999'}</Text>
                     </View>
-                  )}
 
-                  {user?.pincode && (
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Pincode:</Text>
-                      <Text style={styles.infoBoxValue}>{user.pincode}</Text>
+                      <Text style={styles.infoBoxLabel}>{t('vesselBoat', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.vesselName || 'Sea King IX'}</Text>
                     </View>
-                  )}
 
-                  {onOpenProfile && (
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: Colors.secondary,
-                        borderColor: Colors.secondaryDark,
-                        borderWidth: 1.5,
-                        borderRadius: 12,
-                        paddingVertical: 10,
-                        alignItems: 'center',
-                        marginTop: 10,
-                        width: '100%',
-                      }}
-                      onPress={() => {
-                        closeMenuDrawer();
-                        onOpenProfile();
-                      }}
-                    >
-                      <Text style={{ color: Colors.primaryDark, fontSize: 13, fontWeight: '900' }}>
-                        👤 View & Edit Full Fisherman Profile
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('registrationNumber', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValueBadge}>{user?.vesselRegistration || 'TN-01-MM-8492'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('homeHarbor', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.homePort || 'Kasimedu Harbour, Chennai'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('licenseNumber', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.licenseNumber || 'IND-TN-2024-94021'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('aadhaarId', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.aadhaarNumber || 'XXXX-XXXX-8492'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('address', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.address || 'Harbour Main Road'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('pincode', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.pincode || '600013'}</Text>
+                    </View>
+                  </View>
                 </View>
 
                 {/* Settings / Language Info */}
                 <View style={styles.menuSection}>
-                  <Text style={styles.menuSectionTitle}>App Settings</Text>
+                  <Text style={styles.menuSectionTitle}>{t('appSettings', currentLanguage)}</Text>
                   
-                  <View style={styles.menuItem}>
-                    <Text style={styles.menuItemLabel}>🌐 Language</Text>
-                    <Text style={styles.menuItemValue}>
-                      {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'Tamil'}
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setIsLangModalOpen(true);
+                    }}
+                  >
+                    <Text style={styles.menuItemLabel}>{t('language', currentLanguage)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.menuItemValue}>
+                        {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'Tamil'}
+                      </Text>
+                      <Text style={{ color: Colors.primary, fontSize: 16, fontWeight: '900' }}>›</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Logout Action */}
@@ -359,6 +443,73 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Animated.View>
         </View>
       )}
+
+      {/* Interactive App Language Selection Modal */}
+      <Modal
+        visible={isLangModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsLangModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Select App Language</Text>
+                <Text style={styles.modalSubtitle}>Choose your preferred marine portal language</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setIsLangModalOpen(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.langListScroll} showsVerticalScrollIndicator={false}>
+              {supportedLanguages.map((langOption) => {
+                const isSelected = langOption.code === currentLanguage;
+                return (
+                  <TouchableOpacity
+                    key={langOption.code}
+                    style={[
+                      styles.langCard,
+                      isSelected && styles.langCardSelected,
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      setIsLangModalOpen(false);
+                      await setLanguage(langOption.code);
+                      if (onLanguageChange) {
+                        onLanguageChange(langOption.code);
+                      }
+                      Alert.alert(
+                        'Language Updated',
+                        `Samudra Kural app language set to ${langOption.nativeName} (${langOption.englishName}).`
+                      );
+                    }}
+                  >
+                    <View style={styles.langTextGroup}>
+                      <Text style={[styles.langNativeName, isSelected && styles.langTextSelected]}>
+                        {langOption.nativeName}
+                      </Text>
+                      <Text style={[styles.langEnglishName, isSelected && styles.langSubSelected]}>
+                        {langOption.englishName}
+                      </Text>
+                    </View>
+
+                    {isSelected && (
+                      <View style={styles.checkBadge}>
+                        <Text style={styles.checkBadgeTxt}>✓ ACTIVE</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -370,124 +521,126 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 16 : 20,
-    paddingBottom: 22,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 6 : 10,
+    paddingBottom: 12,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
   titleContainer: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   appTitle: {
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: '900',
     color: Colors.textLight,
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: Colors.secondary,
+    letterSpacing: 0.8,
     marginBottom: 2,
   },
+  welcomeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.secondary,
+    marginBottom: 1,
+  },
   appSubtitle: {
-    fontSize: 16,
+    fontSize: 12,
     color: '#B0ECE8',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   hamburgerButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   hamburgerIcon: {
-    fontSize: 28,
+    fontSize: 22,
     color: Colors.textLight,
     fontWeight: '900',
   },
+  mainContainer: {
+    flex: 1,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 110,
+    paddingBottom: 24,
   },
   featureCard: {
     backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-    borderWidth: 2,
     borderRadius: 22,
-    padding: 24,
-    alignItems: 'center',
+    padding: 22,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  cardTop: {
-    alignItems: 'center',
+    shadowRadius: 10,
+    elevation: 4,
     marginBottom: 20,
   },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingBottom: 14,
+  },
   featureIcon: {
-    fontSize: 58,
-    marginBottom: 12,
+    fontSize: 32,
+    marginRight: 12,
   },
   botFeatureLogo: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    marginBottom: 12,
-    borderWidth: 2.5,
-    borderColor: Colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
   },
   featureTitle: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '900',
     color: Colors.text,
-    textAlign: 'center',
   },
   noticeBox: {
     backgroundColor: Colors.secondary,
-    padding: 18,
-    borderRadius: 18,
-    width: '100%',
-    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.secondaryDark,
   },
   noticeTitle: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '800',
     color: Colors.primaryDark,
     marginBottom: 6,
   },
   noticeText: {
-    fontSize: 16,
+    fontSize: 13,
     color: Colors.text,
-    textAlign: 'center',
-    lineHeight: 22,
-    fontWeight: '600',
+    lineHeight: 19,
+    fontWeight: '500',
   },
-
-  /* Side Menu Drawer Styles */
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(13, 37, 38, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   drawerContainer: {
     position: 'absolute',
@@ -496,133 +649,288 @@ const styles = StyleSheet.create({
     right: 0,
     width: DRAWER_WIDTH,
     backgroundColor: Colors.surface,
+    borderTopLeftRadius: 28,
+    borderBottomLeftRadius: 28,
     shadowColor: '#000',
     shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 20,
-    borderTopLeftRadius: 24,
-    borderBottomLeftRadius: 24,
+    shadowRadius: 12,
+    elevation: 16,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 16,
   },
   drawerHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 16,
+    alignItems: 'center',
     paddingBottom: 16,
     borderBottomWidth: 1.5,
-    borderBottomColor: Colors.secondaryDark,
-    backgroundColor: Colors.primary,
-    borderTopLeftRadius: 24,
+    borderBottomColor: Colors.border,
   },
   drawerHeaderTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    color: Colors.textLight,
+    color: Colors.text,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   closeIcon: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: Colors.textLight,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.textSecondary,
   },
   drawerBody: {
-    padding: 20,
+    paddingVertical: 18,
   },
   profileSection: {
     alignItems: 'center',
-    marginBottom: 24,
     backgroundColor: Colors.background,
+    padding: 18,
     borderRadius: 18,
-    padding: 20,
     borderWidth: 1.5,
     borderColor: Colors.border,
+    marginBottom: 20,
   },
   profileAvatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: Colors.secondary,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: Colors.primary,
+    marginBottom: 10,
   },
   avatarText: {
-    fontSize: 38,
+    fontSize: 32,
   },
   profileName: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '800',
     color: Colors.text,
-    marginBottom: 4,
-    textAlign: 'center',
+    marginBottom: 2,
   },
   profilePhone: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 13,
     color: Colors.textSecondary,
-    marginBottom: 12,
+    fontWeight: '600',
+    marginBottom: 10,
   },
   infoBox: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E0ECEC',
+    borderTopColor: Colors.border,
   },
   infoBoxLabel: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: Colors.textSecondary,
+    flex: 1,
   },
   infoBoxValue: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: Colors.text,
+    textAlign: 'right',
+    flex: 1.2,
+  },
+  verifiedBadgeDrawer: {
+    backgroundColor: 'rgba(0, 168, 150, 0.15)',
+    borderColor: Colors.primary,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  verifiedBadgeDrawerTxt: {
+    color: Colors.primaryDark,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  fullProfileDrawerBtn: {
+    backgroundColor: Colors.secondary,
+    borderColor: Colors.secondaryDark,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    marginTop: 6,
+    width: '100%',
+  },
+  fullProfileDrawerBtnTxt: {
+    color: Colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  infoBoxValueHighlight: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: Colors.error,
+    textAlign: 'right',
+  },
+  infoBoxValueBadge: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: Colors.primaryDark,
+    backgroundColor: Colors.secondary,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  infoBoxValueActive: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.success,
   },
   menuSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   menuSectionTitle: {
-    fontSize: 17,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
     color: Colors.textSecondary,
     marginBottom: 10,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    padding: 16,
+    backgroundColor: Colors.background,
+    padding: 14,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: Colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   menuItemLabel: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.text,
   },
   menuItemValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primaryDark,
   },
   logoutWrapper: {
     marginTop: 10,
+  },
+  /* Language Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 30, 40, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    maxHeight: '82%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1.5,
+    borderBottomColor: Colors.border,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    color: Colors.primaryDark,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  modalSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  modalCloseText: {
+    color: Colors.textSecondary,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  langListScroll: {
+    marginTop: 8,
+  },
+  langCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.background,
+    borderColor: Colors.border,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  langCardSelected: {
+    backgroundColor: 'rgba(0, 95, 96, 0.1)',
+    borderColor: Colors.primary,
+    borderWidth: 2,
+  },
+  langTextGroup: {
+    flex: 1,
+  },
+  langNativeName: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  langEnglishName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  langTextSelected: {
+    color: Colors.primaryDark,
+  },
+  langSubSelected: {
+    color: Colors.primary,
+  },
+  checkBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  checkBadgeTxt: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
   },
 });

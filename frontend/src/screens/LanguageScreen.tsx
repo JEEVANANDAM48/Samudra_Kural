@@ -10,20 +10,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
-import { supportedLanguages, t } from '../i18n';
+import { supportedLanguages, t, useLanguage } from '../i18n';
 import { SupportedLanguage, LanguageOption } from '../types';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { saveLanguagePreference } from '../storage/storage';
 
 interface LanguageScreenProps {
+  initialLanguage?: SupportedLanguage;
   onLanguageSelected: (lang: SupportedLanguage) => void;
+  onCancel?: () => void;
 }
 
-export const LanguageScreen: React.FC<LanguageScreenProps> = ({ onLanguageSelected }) => {
-  const [selectedLang, setSelectedLang] = useState<SupportedLanguage>('ta');
+export const LanguageScreen: React.FC<LanguageScreenProps> = ({
+  initialLanguage = 'ta',
+  onLanguageSelected,
+  onCancel,
+}) => {
+  const { setLanguage } = useLanguage();
+  const [selectedLang, setSelectedLang] = useState<SupportedLanguage>(initialLanguage);
 
   const handleContinue = async () => {
-    await saveLanguagePreference(selectedLang);
+    await setLanguage(selectedLang);
     onLanguageSelected(selectedLang);
   };
 
@@ -70,6 +77,14 @@ export const LanguageScreen: React.FC<LanguageScreenProps> = ({ onLanguageSelect
             title={t('continue', selectedLang)}
             onPress={handleContinue}
           />
+          {onCancel && (
+            <TouchableOpacity
+              onPress={onCancel}
+              style={styles.cancelBtn}
+            >
+              <Text style={styles.cancelBtnText}>{t('cancel', selectedLang)}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -149,5 +164,15 @@ const styles = StyleSheet.create({
   footer: {
     paddingVertical: 16,
     backgroundColor: Colors.background,
+  },
+  cancelBtn: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  cancelBtnText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: '600',
   },
 });

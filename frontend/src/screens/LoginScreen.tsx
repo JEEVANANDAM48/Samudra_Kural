@@ -21,12 +21,14 @@ import { authService } from '../services/authService';
 interface LoginScreenProps {
   currentLanguage: SupportedLanguage;
   onLoginSuccess: () => void;
+  onLoginCoastalGuard?: () => void;
   onNavigateToRegister: () => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   currentLanguage,
   onLoginSuccess,
+  onLoginCoastalGuard,
   onNavigateToRegister,
 }) => {
   const [mobile, setMobile] = useState('');
@@ -152,6 +154,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               style={styles.loginButton}
             />
 
+            {/* Coastal Guard Officer Command Center Direct Access */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                if (onLoginCoastalGuard) {
+                  onLoginCoastalGuard();
+                }
+              }}
+              style={styles.cgLoginBtn}
+            >
+              <Text style={styles.cgLoginBtnTxt}>
+                👮 Samudra Kural — Coastal Guard Login
+              </Text>
+            </TouchableOpacity>
+
             {/* Navigation to Register */}
             <TouchableOpacity
               activeOpacity={0.7}
@@ -266,5 +283,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primary,
     textDecorationLine: 'underline',
+  },
+  cgLoginBtn: {
+    backgroundColor: '#0F3A5D',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 16,
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
+    elevation: 3,
+    shadowColor: '#0F3A5D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  cgLoginBtnTxt: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
 });
