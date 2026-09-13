@@ -11,9 +11,10 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { FishingZonesScreen } from '../screens/FishingZonesScreen';
 import { NavigationScreen } from '../screens/NavigationScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { BotScreen } from '../screens/BotScreen';
 import { HotspotInfo } from '../services/pfzService';
 
-type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile';
+type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile' | 'bot';
 
 export const AppNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('loading');
@@ -146,10 +147,7 @@ export const AppNavigator: React.FC = () => {
             } else if (tabId === 'nav') {
               setCurrentScreen('navigation');
             } else if (tabId === 'bot') {
-              Alert.alert(
-                'Ask Bot (AI Chatbot)',
-                'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
-              );
+              setCurrentScreen('bot');
             } else if (tabId === 'sos') {
               Alert.alert(
                 'Emergency SOS',
@@ -175,10 +173,7 @@ export const AppNavigator: React.FC = () => {
             } else if (tabId === 'fishing') {
               setCurrentScreen('fishing_zones');
             } else if (tabId === 'bot') {
-              Alert.alert(
-                'Ask Bot (AI Chatbot)',
-                'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
-              );
+              setCurrentScreen('bot');
             } else if (tabId === 'sos') {
               Alert.alert(
                 'Emergency SOS',
@@ -195,6 +190,29 @@ export const AppNavigator: React.FC = () => {
           currentLanguage={language}
           onBack={() => setCurrentScreen('home')}
           onLogout={handleLogout}
+        />
+      )}
+
+      {/* 9. ASK BOT (ORCA 12-AI MARINE ASSISTANT) */}
+      {currentScreen === 'bot' && (
+        <BotScreen
+          currentLanguage={language}
+          onBack={() => setCurrentScreen('home')}
+          onNavigateToHotspot={handleStartNavigationToHotspot}
+          onTabPress={(tabId) => {
+            if (tabId === 'home' || tabId === 'nets') {
+              setCurrentScreen('home');
+            } else if (tabId === 'fishing') {
+              setCurrentScreen('fishing_zones');
+            } else if (tabId === 'nav') {
+              setCurrentScreen('navigation');
+            } else if (tabId === 'sos') {
+              Alert.alert(
+                'Emergency SOS',
+                'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
+              );
+            }
+          }}
         />
       )}
     </View>

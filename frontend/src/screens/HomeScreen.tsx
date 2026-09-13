@@ -23,6 +23,7 @@ import { BottomNavBar } from '../components/BottomNavBar';
 import { NavigationScreen } from './NavigationScreen';
 import { FishingZonesScreen } from './FishingZonesScreen';
 import { MyNetsScreen } from './MyNetsScreen';
+import { BotScreen } from './BotScreen';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
@@ -97,10 +98,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     } else if (tabId === 'fishing') {
       if (onOpenFishingZones) onOpenFishingZones();
     } else if (tabId === 'bot') {
-      Alert.alert(
-        'Ask Bot (AI Chatbot)',
-        'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
-      );
+      // Direct view of Ask Bot AI Assistant
+      return;
     } else {
       Alert.alert(
         tabNames[tabId] || 'Feature',
@@ -117,6 +116,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           currentLanguage={currentLanguage}
           onBack={() => setActiveTab('fishing')}
           onOpenMap={() => setActiveTab('fishing')}
+        />
+      </View>
+    );
+  }
+
+  // When active tab is 'bot', render the ORCA 12-AI Marine Chatbot Screen directly!
+  if (activeTab === 'bot') {
+    return (
+      <View style={{ flex: 1 }}>
+        <BotScreen
+          currentLanguage={currentLanguage}
+          onBack={() => setActiveTab('nets')}
+          onNavigateToHotspot={() => {
+            if (onOpenFishingZones) onOpenFishingZones();
+          }}
+          onTabPress={handleTabPress}
         />
       </View>
     );
