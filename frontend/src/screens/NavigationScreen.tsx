@@ -39,6 +39,7 @@ interface NavigationScreenProps {
   onOpenMap?: () => void;
   onLogout?: () => void;
   onOpenProfile?: () => void;
+  onTabPress?: (tabId: string) => void;
 }
 
 // Helper to determine state priority order: 1=Tamil Nadu, 2=Andhra Pradesh, 3=Kerala, 4=Others
@@ -102,6 +103,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   onOpenMap,
   onLogout,
   onOpenProfile,
+  onTabPress,
 }) => {
   // Current Boat Location (Positioned offshore in Bay of Bengal sea)
   const [boatLocation, setBoatLocation] = useState({ lat: 13.0827, lon: 80.3800 });
@@ -875,9 +877,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
       <BottomNavBar
         activeTab="nav"
         onTabPress={(tabId) => {
-          if (tabId === 'fishing' && onOpenMap) {
+          if (onTabPress) {
+            onTabPress(tabId);
+          } else if (tabId === 'fishing' && onOpenMap) {
             onOpenMap();
-          } else if (tabId === 'home' && onBack) {
+          } else if (tabId === 'nets' && onBack) {
             onBack();
           } else if (tabId === 'bot') {
             Alert.alert('Ask Bot (AI Chatbot)', 'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.');

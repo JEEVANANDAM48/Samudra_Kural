@@ -151,7 +151,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Potential Fishing Zones</Text>
+          <Text style={styles.headerTitle}>Potential Fishing Zone</Text>
           <Text style={styles.headerSubtitle}>INCOIS Oceansat-3 & Marine Data</Text>
         </View>
         <View style={styles.incoisBadge}>

@@ -115,8 +115,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <View style={{ flex: 1 }}>
         <NavigationScreen
           currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('fishing')}
+          onBack={() => setActiveTab('nets')}
           onOpenMap={() => setActiveTab('fishing')}
+          onTabPress={handleTabPress}
         />
       </View>
     );
@@ -150,26 +151,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} translucent={false} />
       
       {/* Top Header Banner with comfortable top spacing and Top-Right Hamburger Menu */}
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.appTitle}>{t('homeTitle', currentLanguage)}</Text>
-            <Text style={styles.welcomeText}>
-              {t('homeWelcome', currentLanguage)}, {user?.name || 'Fisherman User'}!
-            </Text>
-            <Text style={styles.appSubtitle}>{t('homeSubtitle', currentLanguage)}</Text>
-          </View>
+      {activeTab !== 'nets' && (
+        <View style={styles.header}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.appTitle}>{t('homeTitle', currentLanguage)}</Text>
+              <Text style={styles.welcomeText}>
+                {t('homeWelcome', currentLanguage)}, {user?.name || 'Fisherman User'}!
+              </Text>
+              <Text style={styles.appSubtitle}>{t('homeSubtitle', currentLanguage)}</Text>
+            </View>
 
-          {/* Three Lines Top-Right Hamburger Button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={openMenuDrawer}
-            style={styles.hamburgerButton}
-          >
-            <Text style={styles.hamburgerIcon}>☰</Text>
-          </TouchableOpacity>
+            {/* Three Lines Top-Right Hamburger Button */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={openMenuDrawer}
+              style={styles.hamburgerButton}
+            >
+              <Text style={styles.hamburgerIcon}>☰</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Main Content Area */}
       <View style={styles.mainContainer}>
