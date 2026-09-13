@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Colors } from '../../theme/colors';
+import { saveCGOfficerSession } from '../../storage/storage';
 
 interface CGLoginScreenProps {
   onLoginSuccess: (officerData?: any) => void;
@@ -39,7 +40,7 @@ export const CGLoginScreen: React.FC<CGLoginScreenProps> = ({
     setErrorMsg(null);
   };
 
-  const handleOfficerLogin = () => {
+  const handleOfficerLogin = async () => {
     setErrorMsg(null);
     if (!officerId.trim()) {
       setErrorMsg('Please enter your Officer Service ID / Badge Number.');
@@ -51,6 +52,11 @@ export const CGLoginScreen: React.FC<CGLoginScreenProps> = ({
     }
 
     setLoading(true);
+    await saveCGOfficerSession({
+      officerId: officerId.trim(),
+      rank,
+      station: station.trim() || 'Chennai Command HQ Station',
+    });
     setTimeout(() => {
       setLoading(false);
       Alert.alert(

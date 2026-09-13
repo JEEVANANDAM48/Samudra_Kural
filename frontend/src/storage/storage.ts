@@ -108,3 +108,48 @@ export const clearSession = async (): Promise<void> => {
     console.error('Error clearing session:', error);
   }
 };
+
+// --- Coastal Guard Officer Session Storage ---
+export interface CGOfficerUser {
+  officerId: string;
+  rank: string;
+  station: string;
+  badgeNo?: string;
+  clearanceLevel?: string;
+}
+
+const ASYNC_CG_OFFICER_KEY = '@samudra_kural_cg_officer_session';
+const SECURE_CG_OFFICER_KEY = 'samudra_kural_cg_officer_data';
+
+export const saveCGOfficerSession = async (officer: CGOfficerUser): Promise<void> => {
+  try {
+    const json = JSON.stringify(officer);
+    await AsyncStorage.setItem(ASYNC_CG_OFFICER_KEY, json);
+    try {
+      await SecureStore.setItemAsync(SECURE_CG_OFFICER_KEY, json);
+    } catch (e) {}
+  } catch (error) {
+    console.error('Error saving CG officer session:', error);
+  }
+};
+
+export const getCGOfficerSession = async (): Promise<CGOfficerUser | null> => {
+  try {
+    const asyncJson = await AsyncStorage.getItem(ASYNC_CG_OFFICER_KEY);
+    if (asyncJson) {
+      return JSON.parse(asyncJson);
+    }
+    const secureJson = await SecureStore.getItemAsync(SECURE_CG_OFFICER_KEY);
+    if (secureJson) {
+      return JSON.parse(secureJson);
+    }
+  } catch (error) {}
+  return null;
+};
+
+export const clearCGOfficerSession = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(ASYNC_CG_OFFICER_KEY);
+    await SecureStore.deleteItemAsync(SECURE_CG_OFFICER_KEY);
+  } catch (error) {}
+};
