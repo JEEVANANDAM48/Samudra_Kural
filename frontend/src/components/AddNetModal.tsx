@@ -14,6 +14,8 @@ import {
 import { Colors } from '../theme/colors';
 import { NetType, CreateNetPayload } from '../types/net';
 
+import { getCurrentFishermanGPS } from '../utils/location';
+
 interface AddNetModalProps {
   visible: boolean;
   onClose: () => void;
@@ -43,10 +45,21 @@ export const AddNetModal: React.FC<AddNetModalProps> = ({ visible, onClose, onSu
   const [durationHours, setDurationHours] = useState<number>(4);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const handleUseCurrentLocation = () => {
-    // Standard coastal location default for Chennai/Coromandel
-    setLatitude('13.0827');
-    setLongitude('80.3050');
+  React.useEffect(() => {
+    if (visible) {
+      handleUseCurrentLocation();
+    }
+  }, [visible]);
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      const gps = await getCurrentFishermanGPS();
+      setLatitude(gps.latitude.toFixed(4));
+      setLongitude(gps.longitude.toFixed(4));
+    } catch (e) {
+      setLatitude('13.0827');
+      setLongitude('80.3050');
+    }
   };
 
   const handleStartPrediction = async () => {

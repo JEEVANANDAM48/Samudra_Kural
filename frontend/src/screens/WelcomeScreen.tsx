@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   Animated,
   Dimensions,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { t, supportedLanguages } from '../i18n';
 import { SupportedLanguage } from '../types';

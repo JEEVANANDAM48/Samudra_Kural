@@ -1,3 +1,5 @@
+import * as Location from 'expo-location';
+
 export interface FishermanGPS {
   latitude: number;
   longitude: number;
@@ -7,9 +9,29 @@ export interface FishermanGPS {
 
 /**
  * Get current fisherman device GPS location.
- * Falls back to active fishing harbor/boat coordinate if native GPS permission is pending.
+ * Uses expo-location for live device hardware GPS, falls back if permission is pending.
  */
 export async function getCurrentFishermanGPS(): Promise<FishermanGPS> {
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status === 'granted') {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      if (loc && loc.coords) {
+        return {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          accuracy: loc.coords.accuracy || 5.0,
+          timestamp: loc.timestamp || Date.now(),
+        };
+      }
+    }
+  } catch (err) {
+    console.log('Expo location permission / fetch error:', err);
+  }
+
+  // Fallback if native location is unavailable
   return new Promise((resolve) => {
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -22,7 +44,6 @@ export async function getCurrentFishermanGPS(): Promise<FishermanGPS> {
           });
         },
         () => {
-          // Default coastal boat location near Chennai / Marina Coast
           resolve({
             latitude: 13.0620,
             longitude: 80.3210,
