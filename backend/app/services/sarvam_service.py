@@ -17,6 +17,12 @@ SARVAM_LANG_MAP: Dict[str, str] = {
     "ml": "ml-IN",
     "hi": "hi-IN",
     "en": "en-IN",
+    "mr": "mr-IN",
+    "gu": "gu-IN",
+    "or": "od-IN",
+    "od": "od-IN",
+    "kn": "kn-IN",
+    "bn": "bn-IN",
 }
 
 SARVAM_SPEAKER_MAP: Dict[str, str] = {
@@ -25,6 +31,12 @@ SARVAM_SPEAKER_MAP: Dict[str, str] = {
     "ml": "kavya",
     "hi": "kavya",
     "en": "kavya",
+    "mr": "kavya",
+    "gu": "kavya",
+    "or": "kavya",
+    "od": "kavya",
+    "kn": "kavya",
+    "bn": "kavya",
 }
 
 class SarvamAIService:
@@ -47,31 +59,80 @@ class SarvamAIService:
         language_code: str = "ta"
     ) -> Dict[str, Any]:
         """
-        Transcribe audio voice recording to text using Sarvam AI Saarika API.
+        Transcribe audio voice recording to text using Sarvam AI Saaras API (saaras:v3).
+        Supports WAV, MP3, M4A, AAC, and WEBM audio recordings.
         """
         if not self.api_key:
             return {"status": "error", "message": "Sarvam API key not configured", "transcript": ""}
 
         headers = {"api-subscription-key": self.api_key}
-        target_lang = SARVAM_LANG_MAP.get(language_code, "ta-IN")
+        
+        # When language is unknown/auto or empty, allow Sarvam Saaras to auto-detect language
+        if language_code in ("unknown", "auto", None, "", "any"):
+            target_lang = "unknown"
+        else:
+            target_lang = SARVAM_LANG_MAP.get(language_code, "unknown")
+
+        # Determine audio mime type from extension
+        ext = filename.lower().split(".")[-1] if "." in filename else "m4a"
+        mime_map = {
+            "wav": "audio/wav",
+            "m4a": "audio/x-m4a",
+            "mp4": "audio/mp4",
+            "mp3": "audio/mpeg",
+            "webm": "audio/webm",
+            "aac": "audio/aac",
+            "ogg": "audio/ogg",
+            "flac": "audio/flac",
+            "3gp": "audio/amr"
+        }
+        content_type = mime_map.get(ext, "audio/x-m4a")
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                files = {"file": (filename, file_bytes, "audio/wav")}
+            async with httpx.AsyncClient(timeout=18.0) as client:
+                files = {"file": (filename, file_bytes, content_type)}
                 data = {
                     "language_code": target_lang,
-                    "model": "saarika:v2",
+                    "model": "saaras:v3",
                     "with_timestamps": "false"
                 }
                 res = await client.post(SARVAM_STT_URL, headers=headers, data=data, files=files)
                 if res.status_code == 200:
                     result = res.json()
-                    transcript = result.get("transcript", "")
-                    logger.info(f"Sarvam STT success ({target_lang}): '{transcript}'")
-                    return {"status": "success", "transcript": transcript, "raw": result}
+                    transcript = result.get("transcript", "").strip()
+                    detected_code = result.get("language_code") or target_lang
+                    
+                    # Reverse map regional Sarvam code to 2-letter app code
+                    lang_rev = {
+                        "ta-IN": "ta",
+                        "te-IN": "te",
+                        "ml-IN": "ml",
+                        "hi-IN": "hi",
+                        "en-IN": "en",
+                        "mr-IN": "mr",
+                        "gu-IN": "gu",
+                        "od-IN": "or",
+                        "or-IN": "or",
+                        "kn-IN": "kn",
+                        "bn-IN": "bn",
+                    }
+                    detected_app_lang = lang_rev.get(detected_code, "ta" if target_lang == "unknown" else language_code)
+                    
+                    logger.info(f"Sarvam STT success. Detected: {detected_code} -> {detected_app_lang}. Transcript: '{transcript}'")
+                    return {
+                        "status": "success",
+                        "transcript": transcript,
+                        "language_code": detected_code,
+                        "language": detected_app_lang,
+                        "raw": result
+                    }
                 else:
                     logger.error(f"Sarvam STT failed HTTP {res.status_code}: {res.text}")
-                    return {"status": "error", "message": res.text, "transcript": ""}
+                    return {
+                        "status": "error",
+                        "message": f"Sarvam STT failed ({res.status_code}): {res.text}",
+                        "transcript": ""
+                    }
         except Exception as e:
             logger.error(f"Error calling Sarvam STT API: {e}")
             return {"status": "error", "message": str(e), "transcript": ""}
@@ -83,10 +144,22 @@ class SarvamAIService:
         speaker: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Synthesize natural regional voice audio (.wav/.mp3) from text using Sarvam AI Bulbul API.
+        Synthesize natural regional voice audio (.wav) from text using Sarvam AI Bulbul API.
         """
         if not self.api_key:
             return {"status": "error", "message": "Sarvam API key not configured"}
+
+        # Clean markdown symbols from text before sending to TTS
+        clean_text = (
+            text.replace("**", "")
+            .replace("*", "")
+            .replace("#", "")
+            .replace("•", "")
+            .replace("`", "")
+            .strip()
+        )
+        if not clean_text:
+            return {"status": "error", "message": "Cleaned text is empty"}
 
         headers = {
             "api-subscription-key": self.api_key,
@@ -96,8 +169,8 @@ class SarvamAIService:
         target_speaker = speaker or SARVAM_SPEAKER_MAP.get(language_code, "kavya")
 
         payload = {
+            "inputs": [clean_text[:1500]],
             "target_language_code": target_lang,
-            "text": text[:500],  # Keep prompt concise for low latency
             "speaker": target_speaker,
             "pitch": 0,
             "pace": 1.0,
@@ -108,7 +181,7 @@ class SarvamAIService:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=12.0) as client:
+            async with httpx.AsyncClient(timeout=3.5) as client:
                 res = await client.post(SARVAM_TTS_URL, headers=headers, json=payload)
                 if res.status_code == 200:
                     result = res.json()
@@ -118,11 +191,12 @@ class SarvamAIService:
                     return {
                         "status": "success",
                         "audio_base64": audio_b64,
-                        "language": target_lang
+                        "language": target_lang,
+                        "format": "wav"
                     }
                 else:
                     logger.error(f"Sarvam TTS failed HTTP {res.status_code}: {res.text}")
-                    return {"status": "error", "message": res.text}
+                    return {"status": "error", "message": res.text, "audio_base64": None}
         except Exception as e:
             logger.error(f"Error calling Sarvam TTS API: {e}")
             return {"status": "error", "message": str(e)}
@@ -130,24 +204,39 @@ class SarvamAIService:
     async def generate_regional_marine_summary(
         self,
         prompt: str,
-        language_code: str = "ta"
+        language_code: str = "ta",
+        system_instruction: Optional[str] = None
     ) -> Optional[str]:
         """
-        Use Google Gemini API or Sarvam-105B LLM model to generate dynamic custom marine answers.
+        Use Google Gemini API (gemini-2.0-flash) or Sarvam-105B LLM to generate grounded,
+        concise marine answers tailored for coastal fishermen.
         """
+        default_system = (
+            f"You are Samudra Kural AI, an expert marine advisory system for Indian fishermen. "
+            f"Give a short, clear, actionable response in 2 to 4 lines. "
+            f"Respond strictly in language '{language_code}'. "
+            f"Use ONLY the measurements provided in the prompt. Never invent numbers or contradict safety ratings."
+        )
+        active_system = system_instruction or default_system
+
         # 1. Try Google Gemini API if GEMINI_API_KEY is present
         gemini_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
         if gemini_key:
             try:
                 gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
                 payload = {
+                    "system_instruction": {
+                        "parts": [{"text": active_system}]
+                    },
                     "contents": [{
-                        "parts": [{
-                            "text": f"You are Samudra Kural ORCA AI, an expert marine assistant for Indian fishermen. Answer the user's specific question concisely, accurately, and politely in language '{language_code}'. Question: {prompt}"
-                        }]
-                    }]
+                        "parts": [{"text": prompt}]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "maxOutputTokens": 250
+                    }
                 }
-                async with httpx.AsyncClient(timeout=12.0) as client:
+                async with httpx.AsyncClient(timeout=6.0) as client:
                     res = await client.post(gemini_url, json=payload)
                     if res.status_code == 200:
                         data = res.json()
@@ -175,16 +264,16 @@ class SarvamAIService:
             "messages": [
                 {
                     "role": "system",
-                    "content": f"You are Samudra Kural ORCA AI, an expert marine advisory system for Indian fishermen. Answer the user's question concisely in language '{language_code}'."
+                    "content": active_system
                 },
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 300,
-            "temperature": 0.3
+            "max_tokens": 250,
+            "temperature": 0.2
         }
 
         try:
-            async with httpx.AsyncClient(timeout=12.0) as client:
+            async with httpx.AsyncClient(timeout=6.0) as client:
                 res = await client.post(SARVAM_LLM_URL, headers=headers, json=payload)
                 if res.status_code == 200:
                     data = res.json()

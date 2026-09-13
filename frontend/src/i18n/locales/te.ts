@@ -268,6 +268,25 @@ export const te: Record<TranslationKeys, string> = {
   compassCourse: "కంపాస్ దిశ",
   sstHeatmap: "ఉష్ణోగ్రత మ్యాప్ (SST)",
   bathymetry: "లోతు కొలత",
-  chlorophyllA: "క్లోరోఫిల్-ఎ"
+  chlorophyllA: "క్లోరోఫిల్-ఎ",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 ఏజెంట్లు లైవ్‌లో ఉన్నాయి",
+  liveTelemetryHeading: "ప్రత్యక్ష ఉపగ్రహ & సముద్ర టెలిమెట్రీ",
+  showRouteOceanMap: "సముద్ర మ్యాప్‌లో మార్గాన్ని చూపించు",
+  spokenVoiceBadge: "🎤 మాట్లాడిన వాయిస్",
+  listenNativeVoice: "🔊 మాతృభాషలో వినండి",
+  stopVoice: "⏹️ ఆడియో ఆపు",
+  playingAudio: "ఆడియో ప్లే అవుతోంది...",
+  ttsSub: "వాయిస్ ద్వారా సలహా",
+  aiMarineAssistant: "AI సముద్ర సహాయకుడు",
+  botWelcome: "నమస్కారం! నేను సముద్ర కురల్ ORCA 12-AI ఏజెంట్ సహాయకుడిని. మీరు వాయిస్ లేదా టెక్స్ట్ ద్వారా ఏవైనా ప్రశ్నలు అడగవచ్చు!",
+  askMarineQuestionPlaceholder: "వాయిస్ లేదా టైప్ చేసి అడగండి...",
+  typeQuestionPlaceholder: "ప్రశ్నను టైప్ చేయండి...",
+  quickPromptsTitle: "శీఘ్ర ప్రశ్నలు",
+  emergencySosTitle: "అత్యవసర SOS",
+  emergencySosMsg: "కోస్ట్ గార్డ్ మరియు సమీప నౌకలకు అత్యవసర సంకేతం పంపబడింది.",
+  seaSurfaceTempLabel: "సముద్ర ఉపరితల ఉష్ణోగ్రత",
+  oceanCurrentLabel: "నీటి ప్రవాహం"
 };
 

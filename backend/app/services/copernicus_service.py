@@ -176,13 +176,21 @@ class CopernicusMarineService:
             else:
                 surface_phy = phy_ds
 
-            # Interpolate spatially and temporally
-            point_phy = surface_phy.interp(
-                latitude=latitude,
-                longitude=longitude,
-                time=np.datetime64(target_time_utc.replace(tzinfo=None)),
-                method="linear"
-            )
+            # Point selection from remote dataset: select nearest spatial & temporal grid point
+            try:
+                point_phy = surface_phy.sel(
+                    latitude=latitude,
+                    longitude=longitude,
+                    time=np.datetime64(target_time_utc.replace(tzinfo=None)),
+                    method="nearest"
+                )
+            except Exception:
+                point_phy = surface_phy.interp(
+                    latitude=latitude,
+                    longitude=longitude,
+                    time=np.datetime64(target_time_utc.replace(tzinfo=None)),
+                    method="linear"
+                )
 
             # Validate variable names
             uo_var = "uo" if "uo" in surface_phy.data_vars else [v for v in surface_phy.data_vars if "uo" in str(v).lower()][0]
@@ -199,12 +207,20 @@ class CopernicusMarineService:
             wave_direction = 90.0
 
             if wav_ds is not None:
-                point_wav = wav_ds.interp(
-                    latitude=latitude,
-                    longitude=longitude,
-                    time=np.datetime64(target_time_utc.replace(tzinfo=None)),
-                    method="linear"
-                )
+                try:
+                    point_wav = wav_ds.sel(
+                        latitude=latitude,
+                        longitude=longitude,
+                        time=np.datetime64(target_time_utc.replace(tzinfo=None)),
+                        method="nearest"
+                    )
+                except Exception:
+                    point_wav = wav_ds.interp(
+                        latitude=latitude,
+                        longitude=longitude,
+                        time=np.datetime64(target_time_utc.replace(tzinfo=None)),
+                        method="linear"
+                    )
                 if "VSDX" in wav_ds.data_vars:
                     stokes_u = float(np.asarray(point_wav["VSDX"].values).squeeze())
                 if "VSDY" in wav_ds.data_vars:
