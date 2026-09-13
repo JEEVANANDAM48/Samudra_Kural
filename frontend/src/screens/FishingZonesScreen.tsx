@@ -27,6 +27,7 @@ import * as Location from 'expo-location';
 import { INCOISMapComponent } from '../components/INCOISMapComponent';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { SupportedLanguage } from '../types';
+import { useLanguage } from '../i18n';
 
 const { width } = Dimensions.get('window');
 
@@ -45,6 +46,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   onNavigateToHotspot,
   onTabPress,
 }) => {
+  const { t, tDirection, language } = useLanguage();
   const [userLocation, setUserLocation] = useState({ lat: 13.0827, lon: 80.3800 });
   const [advisory, setAdvisory] = useState<SectorAdvisoryResponse | null>(null);
   const [wmsLayers, setWmsLayers] = useState<INCOISWMSLayersResponse | null>(null);
@@ -113,11 +115,11 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
     try {
       await Clipboard.setStringAsync(coordStr);
       Alert.alert(
-        'Coordinates Copied! 📋',
-        `GPS Coordinates (${coordStr}) copied to clipboard. You can paste it into any navigation tool or map.`
+        t('coordinatesCopied'),
+        `${t('vesselCoordinates')}: ${coordStr}`
       );
     } catch (err) {
-      Alert.alert('GPS Coordinates', coordStr);
+      Alert.alert(t('coordinatesCopied'), coordStr);
     }
   };
 
@@ -151,11 +153,11 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Potential Fishing Zone</Text>
-          <Text style={styles.headerSubtitle}>INCOIS Oceansat-3 & Marine Data</Text>
+          <Text style={styles.headerTitle}>{t('pfzTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('pfzSubtitle')}</Text>
         </View>
         <View style={styles.incoisBadge}>
-          <Text style={styles.incoisBadgeText}>🌊 LIVE DATA</Text>
+          <Text style={styles.incoisBadgeText}>🌊 {t('liveSatelliteData')}</Text>
         </View>
       </View>
 
@@ -164,7 +166,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         {loading && (
           <View style={styles.refreshingBar}>
             <ActivityIndicator size="small" color={Colors.primary} />
-            <Text style={styles.refreshingText}>Locating Nearest Fishing Zones & Marine Data...</Text>
+            <Text style={styles.refreshingText}>{t('loading')}</Text>
           </View>
         )}
 
@@ -174,27 +176,27 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             <View style={styles.routeHeaderRow}>
               <View style={styles.routeLiveBadge}>
                 <View style={styles.routeLiveDot} />
-                <Text style={styles.routeLiveTxt}>LIVE OCEAN MAP ROUTE & NAVIGATION</Text>
+                <Text style={styles.routeLiveTxt}>{t('mapRouteActive')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.stopRouteBtn}
                 onPress={() => setSelectedNavigationTarget(null)}
               >
-                <Text style={styles.stopRouteTxt}>✕ Stop Navigation</Text>
+                <Text style={styles.stopRouteTxt}>✕ {t('stopNavigation')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* From - To Box */}
             <View style={styles.fromToContainer}>
               <View style={styles.fromToItem}>
-                <Text style={styles.fromToLabel}>📍 FROM (MY GPS LOCATION)</Text>
+                <Text style={styles.fromToLabel}>📍 {t('fromGps')}</Text>
                 <Text style={styles.fromToVal}>{userLocation.lat.toFixed(4)}° N, {userLocation.lon.toFixed(4)}° E</Text>
               </View>
 
               <Text style={styles.fromToArrow}>➔</Text>
 
               <View style={styles.fromToItem}>
-                <Text style={styles.fromToLabel}>🎯 TO (SELECTED FISHING ZONE)</Text>
+                <Text style={styles.fromToLabel}>🎯 {t('toFishingZone')}</Text>
                 <Text style={styles.fromToVal} numberOfLines={1}>{selectedNavigationTarget.name}</Text>
                 <Text style={styles.fromToSub}>{selectedNavigationTarget.latitude.toFixed(4)}° N, {selectedNavigationTarget.longitude.toFixed(4)}° E</Text>
               </View>
@@ -206,28 +208,28 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <Text style={styles.routeMetricIcon}>📏</Text>
                 <Text style={styles.routeMetricVal}>{routeDistanceKm.toFixed(1)} km</Text>
                 <Text style={styles.routeMetricSub}>({routeDistanceNM.toFixed(1)} NM)</Text>
-                <Text style={styles.routeMetricLabel}>Distance</Text>
+                <Text style={styles.routeMetricLabel}>{t('distance')}</Text>
               </View>
 
               <View style={styles.routeMetricItem}>
                 <Text style={styles.routeMetricIcon}>🛥️</Text>
                 <Text style={styles.routeMetricVal}>{vesselSpeedKnots} knots</Text>
                 <Text style={styles.routeMetricSub}>(15.7 km/h)</Text>
-                <Text style={styles.routeMetricLabel}>Vessel Speed</Text>
+                <Text style={styles.routeMetricLabel}>{t('vesselSpeed')}</Text>
               </View>
 
               <View style={styles.routeMetricItem}>
                 <Text style={styles.routeMetricIcon}>⏱️</Text>
                 <Text style={styles.routeMetricVal}>{routeEtaMins} mins</Text>
                 <Text style={styles.routeMetricSub}>(~{(routeEtaMins / 60).toFixed(1)} hrs)</Text>
-                <Text style={styles.routeMetricLabel}>Est. Travel Time</Text>
+                <Text style={styles.routeMetricLabel}>{t('estTravelTime')}</Text>
               </View>
 
               <View style={styles.routeMetricItem}>
                 <Text style={styles.routeMetricIcon}>🧭</Text>
-                <Text style={styles.routeMetricVal}>{routeBearing.toFixed(0)}° {routeCardinal}</Text>
-                <Text style={styles.routeMetricSub}>Compass Course</Text>
-                <Text style={styles.routeMetricLabel}>Bearing</Text>
+                <Text style={styles.routeMetricVal}>{routeBearing.toFixed(0)}° {tDirection(routeCardinal)}</Text>
+                <Text style={styles.routeMetricSub}>{t('compassCourse')}</Text>
+                <Text style={styles.routeMetricLabel}>{t('bearing')}</Text>
               </View>
             </View>
           </View>
@@ -235,7 +237,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
         {/* 2. MAP SECTION: Layer Selector & Interactive Ocean Map */}
         <View style={styles.layerSelectorSection}>
-          <Text style={styles.sectionTitle}>INCOIS OCEAN MAP (PINCH-TO-ZOOM)</Text>
+          <Text style={styles.sectionTitle}>{t('incoisOceanMap')}</Text>
 
           <View style={styles.layerToggleGroup}>
             <TouchableOpacity
@@ -243,7 +245,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
               onPress={() => setActiveLayer('chl')}
             >
               <Text style={[styles.layerToggleText, activeLayer === 'chl' ? styles.layerToggleTextActive : styles.layerToggleTextInactive]}>
-                🌿 Chlorophyll-a
+                🌿 {t('chlorophyllA')}
               </Text>
             </TouchableOpacity>
 
@@ -252,7 +254,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
               onPress={() => setActiveLayer('sst')}
             >
               <Text style={[styles.layerToggleText, activeLayer === 'sst' ? styles.layerToggleTextActive : styles.layerToggleTextInactive]}>
-                🌡️ SST Heatmap
+                🌡️ {t('sstHeatmap')}
               </Text>
             </TouchableOpacity>
 
@@ -261,7 +263,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
               onPress={() => setActiveLayer('bathymetry')}
             >
               <Text style={[styles.layerToggleText, activeLayer === 'bathymetry' ? styles.layerToggleTextActive : styles.layerToggleTextInactive]}>
-                ⚓ Bathymetry
+                ⚓ {t('bathymetry')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -285,19 +287,19 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             <View style={styles.advisoryHeader}>
               <View>
                 <Text style={styles.advisorySectorName}>📍 {advisory.sector_name}</Text>
-                <Text style={styles.advisoryState}>State: {advisory.state} (GPS: {userLocation.lat.toFixed(4)}°N, {userLocation.lon.toFixed(4)}°E)</Text>
+                <Text style={styles.advisoryState}>{advisory.state} (GPS: {userLocation.lat.toFixed(4)}°N, {userLocation.lon.toFixed(4)}°E)</Text>
               </View>
             </View>
 
             {/* Oceanographic Metric Cards Grid: 2x2 Side-by-Side Cards */}
-            <Text style={styles.metricsHeader}>Ocean Indicators</Text>
+            <Text style={styles.metricsHeader}>{t('oceanIndicators')}</Text>
             <View style={styles.metricsGrid}>
               <View style={styles.metricItem}>
                 <Text style={styles.metricIcon}>🌡️</Text>
                 <Text style={styles.metricValue}>
                   {advisory.oceanographic_indicators.sea_surface_temperature}
                 </Text>
-                <Text style={styles.metricLabel}>Sea Surface Temp (SST)</Text>
+                <Text style={styles.metricLabel}>{t('sstLayer')}</Text>
               </View>
 
               <View style={styles.metricItem}>
@@ -305,7 +307,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <Text style={styles.metricValue}>
                   {advisory.oceanographic_indicators.chlorophyll_a}
                 </Text>
-                <Text style={styles.metricLabel}>Chlorophyll-a</Text>
+                <Text style={styles.metricLabel}>{t('chlorophyllA')}</Text>
               </View>
 
               <View style={styles.metricItem}>
@@ -313,7 +315,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <Text style={styles.metricValue}>
                   {advisory.oceanographic_indicators.wind_speed_knots}
                 </Text>
-                <Text style={styles.metricLabel}>Wind Speed</Text>
+                <Text style={styles.metricLabel}>{t('windSpeed')}</Text>
               </View>
 
               <View style={styles.metricItem}>
@@ -321,7 +323,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <Text style={styles.metricValue}>
                   {advisory.oceanographic_indicators.wave_height_meters}
                 </Text>
-                <Text style={styles.metricLabel}>Wave Height</Text>
+                <Text style={styles.metricLabel}>{t('waveHeight')}</Text>
               </View>
             </View>
           </View>
@@ -330,7 +332,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         {/* 4. ACTIVE POTENTIAL FISHING ZONES LIST */}
         {advisory && advisory.hotspots && advisory.hotspots.length > 0 && (
           <View style={styles.hotspotsSection}>
-            <Text style={styles.sectionTitle}>ACTIVE FISHING ZONES ({advisory.hotspots.length})</Text>
+            <Text style={styles.sectionTitle}>{t('activeFishingZones')} ({advisory.hotspots.length})</Text>
 
             {advisory.hotspots.map((spot) => {
               const distanceKm = spot.distance_meters
@@ -338,7 +340,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 : '12.4';
               const directionTxt = spot.direction
                 ? `${directionTxtFormatted(spot.direction, spot.bearing_degrees)}`
-                : 'Northeast';
+                : tDirection('Northeast');
 
               const isTargeted = selectedNavigationTarget?.id === spot.id;
 
@@ -353,19 +355,19 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                     <View style={styles.hotspotTitleGroup}>
                       <Text style={styles.hotspotName}>🐟 {spot.name}</Text>
                       <Text style={styles.hotspotCoords}>
-                        Lat: {spot.latitude.toFixed(4)}° N, Lon: {spot.longitude.toFixed(4)}° E
+                        {t('latitude')}: {spot.latitude.toFixed(4)}° N, {t('longitude')}: {spot.longitude.toFixed(4)}° E
                       </Text>
                     </View>
                     <View style={styles.reliabilityBadge}>
                       <Text style={styles.reliabilityScore}>{spot.reliability_score}</Text>
-                      <Text style={styles.reliabilityLabel}>Reliability</Text>
+                      <Text style={styles.reliabilityLabel}>{t('reliability')}</Text>
                     </View>
                   </View>
 
                   {/* Distance & Direction Info Bar */}
                   <View style={styles.distanceBar}>
                     <Text style={styles.distanceTxt}>
-                      🧭 {distanceKm} km away ({directionTxt})
+                      🧭 {distanceKm} km ({directionTxt})
                     </Text>
                   </View>
 
@@ -380,7 +382,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                       <Text style={styles.detailPillValue}>{spot.chlorophyll_mg_m3} mg/m³</Text>
                     </View>
                     <View style={styles.detailPill}>
-                      <Text style={styles.detailPillLabel}>Depth:</Text>
+                      <Text style={styles.detailPillLabel}>{t('depth')}:</Text>
                       <Text style={styles.detailPillValue}>{spot.depth_meters}m</Text>
                     </View>
                   </View>
@@ -391,7 +393,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                       style={styles.copyBtnCard}
                       onPress={() => handleCopyCoordinates(spot)}
                     >
-                      <Text style={styles.copyBtnCardTxt}>📋 Copy GPS</Text>
+                      <Text style={styles.copyBtnCardTxt}>📋 {t('copyGps')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -399,7 +401,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                       onPress={() => handleStartNavigation(spot)}
                     >
                       <Text style={styles.navigateButtonText}>
-                        {isTargeted ? '✓ MAP ROUTE ACTIVE' : '🧭 NAVIGATE & SHOW MAP ROUTE'}
+                        {isTargeted ? `✓ ${t('mapRouteActive')}` : `🧭 ${t('navigateAndShowRoute')}`}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -426,7 +428,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <View style={{ flex: 1 }}>
                   <Text style={styles.modalTitle}>🐟 {selectedHotspot.name}</Text>
                   <Text style={styles.modalSub}>
-                    Official INCOIS Potential Fishing Zone (PFZ)
+                    {t('pfzSubtitle')}
                   </Text>
                 </View>
 
@@ -442,20 +444,20 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 {/* Reliability & Distance Banner */}
                 <View style={styles.modalBanner}>
                   <View style={styles.modalBannerCol}>
-                    <Text style={styles.bannerLabel}>RELIABILITY SCORE</Text>
+                    <Text style={styles.bannerLabel}>{t('reliability')}</Text>
                     <Text style={styles.bannerScore}>{selectedHotspot.reliability_score}</Text>
                   </View>
                   <View style={styles.modalBannerDivider} />
                   <View style={styles.modalBannerCol}>
-                    <Text style={styles.bannerLabel}>DISTANCE & BEARING</Text>
+                    <Text style={styles.bannerLabel}>{t('distance')} & {t('bearing')}</Text>
                     <Text style={styles.bannerDistance}>
                       {selectedHotspot.distance_meters
                         ? `${(selectedHotspot.distance_meters / 1000.0).toFixed(1)} km`
-                        : 'Direct Target'}
+                        : `${selectedHotspot.latitude.toFixed(3)}°N`}
                     </Text>
                     {selectedHotspot.direction && (
                       <Text style={styles.bannerBearing}>
-                        {selectedHotspot.direction} ({selectedHotspot.bearing_degrees?.toFixed(0)}°)
+                        {tDirection(selectedHotspot.direction)} ({selectedHotspot.bearing_degrees?.toFixed(0)}°)
                       </Text>
                     )}
                   </View>
@@ -463,12 +465,12 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
                 {/* Coordinates Box with Copy Button */}
                 <View style={styles.coordBox}>
-                  <Text style={styles.coordBoxTitle}>GPS LOCATION COORDINATES</Text>
+                  <Text style={styles.coordBoxTitle}>{t('vesselCoordinates')}</Text>
                   <Text style={styles.coordBoxVal}>
-                    Latitude: {selectedHotspot.latitude.toFixed(4)}° N
+                    {t('latitude')}: {selectedHotspot.latitude.toFixed(4)}° N
                   </Text>
                   <Text style={styles.coordBoxVal}>
-                    Longitude: {selectedHotspot.longitude.toFixed(4)}° E
+                    {t('longitude')}: {selectedHotspot.longitude.toFixed(4)}° E
                   </Text>
 
                   <TouchableOpacity
@@ -476,43 +478,43 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                     onPress={() => handleCopyCoordinates(selectedHotspot)}
                   >
                     <Text style={styles.modalCopyBtnTxt}>
-                      📋 Copy Coordinates ({selectedHotspot.latitude.toFixed(4)}, {selectedHotspot.longitude.toFixed(4)})
+                      📋 {t('copyCoordinates')} ({selectedHotspot.latitude.toFixed(4)}, {selectedHotspot.longitude.toFixed(4)})
                     </Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Oceanographic Parameters */}
-                <Text style={styles.modalSecTitle}>OCEANOGRAPHIC TELEMETRY</Text>
+                <Text style={styles.modalSecTitle}>{t('oceanAndVesselTelemetry')}</Text>
                 <View style={styles.paramGrid}>
                   <View style={styles.paramItem}>
                     <Text style={styles.paramIcon}>🌡️</Text>
                     <Text style={styles.paramVal}>{selectedHotspot.sst_celsius}°C</Text>
-                    <Text style={styles.paramLabel}>Sea Surface Temp</Text>
+                    <Text style={styles.paramLabel}>{t('sstLayer')}</Text>
                   </View>
 
                   <View style={styles.paramItem}>
                     <Text style={styles.paramIcon}>🌿</Text>
                     <Text style={styles.paramVal}>{selectedHotspot.chlorophyll_mg_m3} mg/m³</Text>
-                    <Text style={styles.paramLabel}>Chlorophyll-a</Text>
+                    <Text style={styles.paramLabel}>{t('chlorophyllA')}</Text>
                   </View>
 
                   <View style={styles.paramItem}>
                     <Text style={styles.paramIcon}>⚓</Text>
                     <Text style={styles.paramVal}>{selectedHotspot.depth_meters}m</Text>
-                    <Text style={styles.paramLabel}>Seafloor Depth</Text>
+                    <Text style={styles.paramLabel}>{t('waterDepth')}</Text>
                   </View>
 
                   <View style={styles.paramItem}>
                     <Text style={styles.paramIcon}>📡</Text>
-                    <Text style={styles.paramVal}>Satellite Pass</Text>
-                    <Text style={styles.paramLabel}>INCOIS Oceansat-3</Text>
+                    <Text style={styles.paramVal}>INCOIS</Text>
+                    <Text style={styles.paramLabel}>{t('liveSatelliteData')}</Text>
                   </View>
                 </View>
 
                 {/* Target Fish Species */}
                 {selectedHotspot.target_species && (
                   <View style={styles.speciesSection}>
-                    <Text style={styles.modalSecTitle}>TARGET SPECIES IN ZONE</Text>
+                    <Text style={styles.modalSecTitle}>{t('placeholderFishing')}</Text>
                     <View style={styles.speciesRow}>
                       {selectedHotspot.target_species.map((sp, idx) => (
                         <View key={idx} style={styles.speciesChip}>
@@ -530,7 +532,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                   onPress={() => handleStartNavigation(selectedHotspot)}
                 >
                   <Text style={styles.modalNavBtnTxt}>
-                    🧭 SHOW ROUTE ON OCEAN MAP
+                    🧭 {t('navigateAndShowRoute')}
                   </Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -548,12 +550,12 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           } else if ((tabId === 'nav' || tabId === 'nets' || tabId === 'home') && onBack) {
             onBack();
           } else if (tabId === 'bot') {
-            Alert.alert('Ask Bot (AI Chatbot)', 'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.');
+            Alert.alert(`${t('askBot')} (${t('askBotSub')})`, t('comingSoon'));
           } else if (tabId === 'sos') {
-            Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
+            Alert.alert(t('placeholderEmergency'), t('comingSoon'));
           }
         }}
-        currentLanguage={currentLanguage as SupportedLanguage}
+        currentLanguage={language}
       />
     </SafeAreaView>
   );

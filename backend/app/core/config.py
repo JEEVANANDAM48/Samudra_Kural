@@ -1,6 +1,11 @@
 from typing import Optional, Dict
+from pathlib import Path
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Robust root directory resolution regardless of where Uvicorn/Python is invoked
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+ENV_FILE_PATH = PROJECT_ROOT / ".env"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Samudra Kural Backend"
@@ -29,7 +34,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY", "")
 
-    # Copernicus Marine Toolbox Authentication & Datasets
+    # Copernicus Marine Toolbox Authentication & Datasets (loaded from root .env)
     COPERNICUSMARINE_SERVICE_USERNAME: Optional[str] = os.getenv("COPERNICUSMARINE_SERVICE_USERNAME", "Madhumitha")
     COPERNICUSMARINE_SERVICE_PASSWORD: Optional[str] = os.getenv("COPERNICUSMARINE_SERVICE_PASSWORD", "Vmadhu@1712")
 
@@ -68,7 +73,7 @@ class Settings(BaseSettings):
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(ENV_FILE_PATH),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore"
