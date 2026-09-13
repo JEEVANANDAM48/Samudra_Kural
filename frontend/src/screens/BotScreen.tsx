@@ -49,6 +49,7 @@ interface BotScreenProps {
   onBack?: () => void;
   onNavigateToHotspot?: (spot: any) => void;
   onTabPress?: (tabId: string) => void;
+  hideTopHeader?: boolean;
 }
 
 const QUICK_PROMPTS: Record<string, string[]> = {
@@ -113,6 +114,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
   onBack,
   onNavigateToHotspot,
   onTabPress,
+  hideTopHeader = false,
 }) => {
   const { language: globalLang, setLanguage, t } = useLanguage();
   const lang = (globalLang || currentLanguage || 'en') as SupportedLanguage;
@@ -393,24 +395,31 @@ export const BotScreen: React.FC<BotScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
 
       {/* Header Banner */}
-      <View style={styles.header}>
-        <View style={styles.headerLeftRow}>
-          {onBack && (
-            <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-              <Text style={styles.backBtnTxt}>←</Text>
-            </TouchableOpacity>
-          )}
-          <Image
-            source={require('../../assets/chatbot-logo.png')}
-            style={styles.headerLogo}
-            resizeMode="cover"
-          />
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>{t('askBot')}</Text>
-            <Text style={styles.headerSubtitle}>Real-Time Satellite & Marine Intelligence</Text>
+      {!hideTopHeader && (
+        <View style={styles.header}>
+          <View style={styles.headerLeftRow}>
+            {onBack && (
+              <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+                <Text style={styles.backBtnTxt}>←</Text>
+              </TouchableOpacity>
+            )}
+            <Image
+              source={require('../../assets/chatbot-logo.png')}
+              style={styles.headerLogo}
+              resizeMode="cover"
+            />
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>{t('askBot')}</Text>
+              <Text style={styles.headerSubtitle}>Real-Time Satellite & Marine Intelligence</Text>
+            </View>
+          </View>
+
+          <View style={styles.onlineBadge}>
+            <Text style={styles.onlineDot}>🟢</Text>
+            <Text style={styles.onlineText}>12 AGENTS LIVE</Text>
           </View>
         </View>
-      </View>
+      )}
 
       {/* Language Selector Chips */}
       <View style={styles.langBar}>
@@ -679,19 +688,21 @@ export const BotScreen: React.FC<BotScreenProps> = ({
       </View>
 
       {/* Floating Bottom Navigation Bar */}
-      <BottomNavBar
-        activeTab="bot"
-        onTabPress={(tabId) => {
-          if (onTabPress) {
-            onTabPress(tabId);
-          } else if (tabId === 'home' || tabId === 'nets') {
-            if (onBack) onBack();
-          } else if (tabId === 'sos') {
-            Alert.alert(t('emergencySosTitle'), t('emergencySosMsg'));
-          }
-        }}
-        currentLanguage={lang as SupportedLanguage}
-      />
+      {!hideTopHeader && (
+        <BottomNavBar
+          activeTab="bot"
+          onTabPress={(tabId) => {
+            if (onTabPress) {
+              onTabPress(tabId);
+            } else if (tabId === 'home' || tabId === 'nets') {
+              if (onBack) onBack();
+            } else if (tabId === 'sos') {
+              Alert.alert(t('emergencySosTitle'), t('emergencySosMsg'));
+            }
+          }}
+          currentLanguage={lang as SupportedLanguage}
+        />
+      )}
     </SafeAreaView>
   );
 };

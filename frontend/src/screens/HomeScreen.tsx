@@ -11,19 +11,24 @@ import {
   Animated,
   Dimensions,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
-import { t, supportedLanguages } from '../i18n';
+import { t, supportedLanguages, useLanguage } from '../i18n';
 import { SupportedLanguage, FishermanUser } from '../types';
-import { getUserSession, clearSession } from '../storage/storage';
+import { getUserSession, clearSession, saveLanguagePreference } from '../storage/storage';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { BottomNavBar } from '../components/BottomNavBar';
+import { SOSScreen } from '../sos/SOSScreen';
 
 import { NavigationScreen } from './NavigationScreen';
 import { FishingZonesScreen } from './FishingZonesScreen';
 import { MyNetsScreen } from './MyNetsScreen';
+import { ProfileScreen } from './ProfileScreen';
 import { BotScreen } from './BotScreen';
+import { HotspotInfo } from '../services/pfzService';
+import { coastalGuardService } from '../services/coastalGuardService';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
@@ -31,30 +36,41 @@ const DRAWER_WIDTH = width * 0.82;
 interface HomeScreenProps {
   currentLanguage: SupportedLanguage;
   onLogout: () => void;
-  onChangeLanguage?: () => void;
+  onLanguageChange?: (lang: SupportedLanguage) => void;
   onOpenFishingZones?: () => void;
   onOpenNavigation?: () => void;
   onOpenProfile?: () => void;
+  initialTab?: string;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   currentLanguage,
   onLogout,
-  onChangeLanguage,
+  onLanguageChange,
   onOpenFishingZones,
   onOpenNavigation,
   onOpenProfile,
+  initialTab,
 }) => {
+  const { setLanguage } = useLanguage();
   const [user, setUser] = useState<FishermanUser | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('nets');
+  const [activeTab, setActiveTab] = useState<string>(initialTab || 'nav');
+  const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [isLangModalOpen, setIsLangModalOpen] = useState<boolean>(false);
 
   // Slide animation for side menu drawer
   const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
 
   useEffect(() => {
     loadUser();
-  }, []);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const loadUser = async () => {
     const session = await getUserSession();
@@ -84,75 +100,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleTabPress = (tabId: string) => {
     setActiveTab(tabId);
-    if (tabId === 'nets') {
-      // Direct view of My Nets
-      return;
-    }
-    const tabNames: Record<string, string> = {
-      nav: t('placeholderNav', currentLanguage),
-      fishing: t('placeholderFishing', currentLanguage),
-      bot: `${t('askBot', currentLanguage)} (${t('askBotSub', currentLanguage)})`,
-      sos: t('placeholderEmergency', currentLanguage),
-    };
-
-    if (tabId === 'nav') {
-      if (onOpenNavigation) onOpenNavigation();
-    } else if (tabId === 'fishing') {
-      if (onOpenFishingZones) onOpenFishingZones();
-    } else if (tabId === 'bot') {
-      // Direct view of Ask Bot AI Assistant
-      return;
-    } else {
-      Alert.alert(
-        tabNames[tabId] || t('appTitle', currentLanguage),
-        t('comingSoon', currentLanguage)
-      );
-    }
   };
-
-  // When active tab is 'nav', render the full Marine Navigation & Telemetry Screen directly!
-  if (activeTab === 'nav') {
-    return (
-      <View style={{ flex: 1 }}>
-        <NavigationScreen
-          currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('nets')}
-          onOpenMap={() => setActiveTab('fishing')}
-          onTabPress={handleTabPress}
-        />
-      </View>
-    );
-  }
-
-  // When active tab is 'bot', render the ORCA 12-AI Marine Chatbot Screen directly!
-  if (activeTab === 'bot') {
-    return (
-      <View style={{ flex: 1 }}>
-        <BotScreen
-          currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('nets')}
-          onNavigateToHotspot={() => {
-            if (onOpenFishingZones) onOpenFishingZones();
-          }}
-          onTabPress={handleTabPress}
-        />
-      </View>
-    );
-  }
-
-  // When active tab is 'fishing', render the full Potential Fishing Zones Screen directly!
-  if (activeTab === 'fishing') {
-    return (
-      <View style={{ flex: 1 }}>
-        <FishingZonesScreen
-          currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('nets')}
-          onNavigateToHotspot={() => setActiveTab('nav')}
-          onTabPress={handleTabPress}
-        />
-      </View>
-    );
-  }
 
   const handleLogout = async () => {
     closeMenuDrawer();
@@ -167,115 +115,75 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} translucent={false} />
       
-      {/* Top Header Banner with comfortable top spacing and Top-Right Hamburger Menu */}
-      {activeTab !== 'nets' && (
-        <View style={styles.header}>
-          <View style={styles.headerTopRow}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.appTitle}>{t('homeTitle', currentLanguage)}</Text>
-              <Text style={styles.welcomeText}>
-                {t('homeWelcome', currentLanguage)}, {user?.name || 'Fisherman User'}!
-              </Text>
-              <Text style={styles.appSubtitle}>{t('homeSubtitle', currentLanguage)}</Text>
-            </View>
-
-            {/* Three Lines Top-Right Hamburger Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={openMenuDrawer}
-              style={styles.hamburgerButton}
-            >
-              <Text style={styles.hamburgerIcon}>☰</Text>
-            </TouchableOpacity>
+      {/* Top Header Banner with comfortable top spacing and Top-Right Hamburger Menu on ALL pages */}
+      <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.appTitle}>{t('homeTitle', currentLanguage)}</Text>
+            <Text style={styles.welcomeText}>
+              {t('homeWelcome', currentLanguage)}, {user?.name || 'Fisherman User'}!
+            </Text>
+            <Text style={styles.appSubtitle}>{t('homeSubtitle', currentLanguage)}</Text>
           </View>
+
+          {/* Three Lines Top-Right Hamburger Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={openMenuDrawer}
+            style={styles.hamburgerButton}
+          >
+            <Text style={styles.hamburgerIcon}>☰</Text>
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
 
       {/* Main Content Area */}
-      <View style={styles.mainContainer}>
-        {activeTab === 'nets' ? (
-          <MyNetsScreen />
-        ) : (
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.featureCard}>
-              <View style={styles.cardTop}>
-                {activeTab === 'bot' ? (
-                  <Image
-                    source={require('../../assets/chatbot-logo.png')}
-                    style={styles.botFeatureLogo}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Text style={styles.featureIcon}>
-                    {activeTab === 'nav'
-                      ? '🧭'
-                      : activeTab === 'fishing'
-                      ? '🎣'
-                      : '🆘'}
-                  </Text>
-                )}
-                <Text style={styles.featureTitle}>
-                  {activeTab === 'nav'
-                    ? t('placeholderNav', currentLanguage)
-                    : activeTab === 'fishing'
-                    ? t('placeholderFishing', currentLanguage)
-                    : activeTab === 'bot'
-                    ? `${t('askBot', currentLanguage)} (${t('askBotSub', currentLanguage)})`
-                    : t('placeholderEmergency', currentLanguage)}
-                </Text>
-              </View>
-
-              <View style={styles.noticeBox}>
-                <Text style={styles.noticeTitle}>{t('appSubtitle', currentLanguage)}</Text>
-                <Text style={styles.noticeText}>
-                  {t('comingSoon', currentLanguage)}. {t('pfzSubtitle', currentLanguage)}.
-                </Text>
-
-                {onOpenNavigation && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: Colors.primary,
-                      paddingVertical: 14,
-                      paddingHorizontal: 16,
-                      borderRadius: 12,
-                      marginTop: 14,
-                      alignItems: 'center',
-                      width: '100%',
-                    }}
-                    onPress={onOpenNavigation}
-                  >
-                    <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
-                      🧭 {t('navigationTitle', currentLanguage)}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {onOpenFishingZones && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: Colors.secondary,
-                      paddingVertical: 12,
-                      paddingHorizontal: 16,
-                      borderRadius: 10,
-                      marginTop: 10,
-                      alignItems: 'center',
-                      width: '100%',
-                    }}
-                    onPress={onOpenFishingZones}
-                  >
-                    <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
-                      {t('openIncoisMap', currentLanguage)}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </ScrollView>
-        )}
-      </View>
+      {activeTab === 'sos' ? (
+        <SOSScreen currentLanguage={currentLanguage} />
+      ) : activeTab === 'nav' ? (
+        <NavigationScreen
+          currentLanguage={currentLanguage}
+          initialTarget={selectedHotspot}
+          onBack={() => setActiveTab('nav')}
+          onOpenMap={() => setActiveTab('fishing')}
+          onLogout={handleLogout}
+          onOpenProfile={onOpenProfile}
+          onTabPress={handleTabPress}
+          hideTopHeader={true}
+        />
+      ) : activeTab === 'fishing' ? (
+        <FishingZonesScreen
+          currentLanguage={currentLanguage}
+          initialTarget={selectedHotspot}
+          onBack={() => setActiveTab('nav')}
+          onNavigateToHotspot={(spot) => {
+            setSelectedHotspot(spot);
+            setActiveTab('nav');
+          }}
+          onTabPress={handleTabPress}
+          hideTopHeader={true}
+        />
+      ) : activeTab === 'bot' ? (
+        <BotScreen
+          currentLanguage={currentLanguage}
+          onBack={() => setActiveTab('nav')}
+          onNavigateToHotspot={(spot) => {
+            setSelectedHotspot(spot);
+            setActiveTab('nav');
+          }}
+          onTabPress={handleTabPress}
+          hideTopHeader={true}
+        />
+      ) : activeTab === 'nets' ? (
+        <MyNetsScreen />
+      ) : activeTab === 'profile' ? (
+        <ProfileScreen
+          currentLanguage={currentLanguage}
+          onBack={() => setActiveTab('nav')}
+          onLogout={handleLogout}
+          onLanguageChange={onLanguageChange}
+        />
+      ) : null}
 
       {/* Floating Bottom Navigation Bar */}
       <BottomNavBar
@@ -313,51 +221,74 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <ScrollView contentContainerStyle={styles.drawerBody}>
-                {/* User Profile Info Card */}
+              <ScrollView contentContainerStyle={styles.drawerBody} showsVerticalScrollIndicator={false}>
+                {/* Complete Fisherman Profile Info Card */}
                 <View style={styles.profileSection}>
                   <View style={styles.profileAvatar}>
                     <Text style={styles.avatarText}>👤</Text>
                   </View>
-                  <Text style={styles.profileName}>{user?.name || 'Fisherman User'}</Text>
-                  <Text style={styles.profilePhone}>{user?.phone || '+91 9876543210'}</Text>
 
-                  {user?.address && (
+                  <View style={styles.verifiedBadgeDrawer}>
+                    <Text style={styles.verifiedBadgeDrawerTxt}>✓ {t('verifiedFisherman', currentLanguage)}</Text>
+                  </View>
+
+                  <Text style={styles.profileName}>{user?.name || 'Fisherman User'}</Text>
+                  <Text style={styles.profilePhone}>{user?.phone || '+91 98401 23456'}</Text>
+
+                  <TouchableOpacity
+                    style={styles.fullProfileDrawerBtn}
+                    onPress={() => {
+                      closeMenuDrawer();
+                      setActiveTab('profile');
+                    }}
+                  >
+                    <Text style={styles.fullProfileDrawerBtnTxt}>
+                      {t('viewEditProfile', currentLanguage)}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Official Fisherman Specs List */}
+                  <View style={{ width: '100%', marginTop: 12 }}>
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('emergencyContact', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValueHighlight}>{user?.emergencyPhone || '+91 94440 99999'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('vesselBoat', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.vesselName || 'Sea King IX'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('registrationNumber', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValueBadge}>{user?.vesselRegistration || 'TN-01-MM-8492'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('homeHarbor', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.homePort || 'Kasimedu Harbour, Chennai'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('licenseNumber', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.licenseNumber || 'IND-TN-2024-94021'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>{t('aadhaarId', currentLanguage)}:</Text>
+                      <Text style={styles.infoBoxValue}>{user?.aadhaarNumber || 'XXXX-XXXX-8492'}</Text>
+                    </View>
+
                     <View style={styles.infoBox}>
                       <Text style={styles.infoBoxLabel}>{t('address', currentLanguage)}:</Text>
-                      <Text style={styles.infoBoxValue}>{user.address}</Text>
+                      <Text style={styles.infoBoxValue}>{user?.address || 'Harbour Main Road'}</Text>
                     </View>
-                  )}
 
-                  {user?.pincode && (
                     <View style={styles.infoBox}>
                       <Text style={styles.infoBoxLabel}>{t('pincode', currentLanguage)}:</Text>
-                      <Text style={styles.infoBoxValue}>{user.pincode}</Text>
+                      <Text style={styles.infoBoxValue}>{user?.pincode || '600013'}</Text>
                     </View>
-                  )}
-
-                  {onOpenProfile && (
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: Colors.secondary,
-                        borderColor: Colors.secondaryDark,
-                        borderWidth: 1.5,
-                        borderRadius: 12,
-                        paddingVertical: 10,
-                        alignItems: 'center',
-                        marginTop: 10,
-                        width: '100%',
-                      }}
-                      onPress={() => {
-                        closeMenuDrawer();
-                        onOpenProfile();
-                      }}
-                    >
-                      <Text style={{ color: Colors.primaryDark, fontSize: 13, fontWeight: '900' }}>
-                        {t('viewEditProfile', currentLanguage)}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  </View>
                 </View>
 
                 {/* Settings / Language Info */}
@@ -365,19 +296,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <Text style={styles.menuSectionTitle}>{t('appSettings', currentLanguage)}</Text>
                   
                   <TouchableOpacity
-                    activeOpacity={0.7}
                     style={styles.menuItem}
+                    activeOpacity={0.7}
                     onPress={() => {
-                      closeMenuDrawer();
-                      if (onChangeLanguage) {
-                        onChangeLanguage();
-                      }
+                      setIsLangModalOpen(true);
                     }}
                   >
-                    <Text style={styles.menuItemLabel}>🌐 {t('language', currentLanguage)}</Text>
-                    <Text style={styles.menuItemValue}>
-                      {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'தமிழ்'} ➔
-                    </Text>
+                    <Text style={styles.menuItemLabel}>{t('language', currentLanguage)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.menuItemValue}>
+                        {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'Tamil'}
+                      </Text>
+                      <Text style={{ color: Colors.primary, fontSize: 16, fontWeight: '900' }}>›</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
 
@@ -394,6 +325,73 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Animated.View>
         </View>
       )}
+
+      {/* Interactive App Language Selection Modal */}
+      <Modal
+        visible={isLangModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsLangModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Select App Language</Text>
+                <Text style={styles.modalSubtitle}>Choose your preferred marine portal language</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setIsLangModalOpen(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.langListScroll} showsVerticalScrollIndicator={false}>
+              {supportedLanguages.map((langOption) => {
+                const isSelected = langOption.code === currentLanguage;
+                return (
+                  <TouchableOpacity
+                    key={langOption.code}
+                    style={[
+                      styles.langCard,
+                      isSelected && styles.langCardSelected,
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      setIsLangModalOpen(false);
+                      await setLanguage(langOption.code);
+                      if (onLanguageChange) {
+                        onLanguageChange(langOption.code);
+                      }
+                      Alert.alert(
+                        'Language Updated',
+                        `Samudra Kural app language set to ${langOption.nativeName} (${langOption.englishName}).`
+                      );
+                    }}
+                  >
+                    <View style={styles.langTextGroup}>
+                      <Text style={[styles.langNativeName, isSelected && styles.langTextSelected]}>
+                        {langOption.nativeName}
+                      </Text>
+                      <Text style={[styles.langEnglishName, isSelected && styles.langSubSelected]}>
+                        {langOption.englishName}
+                      </Text>
+                    </View>
+
+                    {isSelected && (
+                      <View style={styles.checkBadge}>
+                        <Text style={styles.checkBadgeTxt}>✓ ACTIVE</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -405,64 +403,64 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 16 : 20,
-    paddingBottom: 22,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 6 : 10,
+    paddingBottom: 12,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
   },
   headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
   titleContainer: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   appTitle: {
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: Colors.textLight,
     letterSpacing: 0.8,
+    marginBottom: 2,
   },
   welcomeText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#D4F2F0',
-    marginTop: 4,
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.secondary,
+    marginBottom: 1,
   },
   appSubtitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
     color: '#B0ECE8',
-    marginTop: 2,
+    fontWeight: '600',
   },
   hamburgerButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   hamburgerIcon: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontSize: 22,
+    color: Colors.textLight,
+    fontWeight: '900',
   },
   mainContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 76,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   scrollContent: {
     paddingBottom: 24,
@@ -613,19 +611,74 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    alignItems: 'center',
+    paddingVertical: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
   infoBoxLabel: {
     fontSize: 13,
+    fontWeight: '800',
     color: Colors.textSecondary,
-    fontWeight: '600',
+    flex: 1,
   },
   infoBoxValue: {
     fontSize: 13,
+    fontWeight: '800',
     color: Colors.text,
-    fontWeight: '700',
+    textAlign: 'right',
+    flex: 1.2,
+  },
+  verifiedBadgeDrawer: {
+    backgroundColor: 'rgba(0, 168, 150, 0.15)',
+    borderColor: Colors.primary,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  verifiedBadgeDrawerTxt: {
+    color: Colors.primaryDark,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  fullProfileDrawerBtn: {
+    backgroundColor: Colors.secondary,
+    borderColor: Colors.secondaryDark,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    marginTop: 6,
+    width: '100%',
+  },
+  fullProfileDrawerBtnTxt: {
+    color: Colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  infoBoxValueHighlight: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: Colors.error,
+    textAlign: 'right',
+  },
+  infoBoxValueBadge: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: Colors.primaryDark,
+    backgroundColor: Colors.secondary,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  infoBoxValueActive: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.success,
   },
   menuSection: {
     marginBottom: 20,
@@ -660,5 +713,106 @@ const styles = StyleSheet.create({
   },
   logoutWrapper: {
     marginTop: 10,
+  },
+  /* Language Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 30, 40, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    maxHeight: '82%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1.5,
+    borderBottomColor: Colors.border,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    color: Colors.primaryDark,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  modalSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  modalCloseText: {
+    color: Colors.textSecondary,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  langListScroll: {
+    marginTop: 8,
+  },
+  langCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.background,
+    borderColor: Colors.border,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  langCardSelected: {
+    backgroundColor: 'rgba(0, 95, 96, 0.1)',
+    borderColor: Colors.primary,
+    borderWidth: 2,
+  },
+  langTextGroup: {
+    flex: 1,
+  },
+  langNativeName: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  langEnglishName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  langTextSelected: {
+    color: Colors.primaryDark,
+  },
+  langSubSelected: {
+    color: Colors.primary,
+  },
+  checkBadge: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  checkBadgeTxt: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
   },
 });

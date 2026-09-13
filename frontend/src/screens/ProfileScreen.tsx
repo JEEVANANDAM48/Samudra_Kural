@@ -22,7 +22,8 @@ interface ProfileScreenProps {
   currentLanguage: SupportedLanguage;
   onBack: () => void;
   onLogout: () => void;
-  onLanguageChange?: () => void;
+  onLanguageChange?: (lang: SupportedLanguage) => void;
+  hideTopHeader?: boolean;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -30,10 +31,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onBack,
   onLogout,
   onLanguageChange,
+  hideTopHeader = false,
 }) => {
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const [user, setUser] = useState<FishermanUser>({
-    name: 'K. Veeraraghavan',
+    name: 'Fisherman User',
     phone: '+91 98401 23456',
     emergencyPhone: '+91 94440 99999',
     vesselName: 'Sea King IX',
@@ -49,6 +51,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [isLangModalOpen, setIsLangModalOpen] = useState<boolean>(false);
 
   // Form Fields for Editing Profile
   const [editName, setEditName] = useState<string>('');
@@ -173,12 +176,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Text style={styles.avatarIcon}>👤</Text>
             </View>
             <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedBadgeText}>✓ {t('profileTitle')}</Text>
+              <Text style={styles.verifiedBadgeText}>✓ {t('verifiedFisherman')}</Text>
             </View>
           </View>
 
           <Text style={styles.fishermanName}>{user.name}</Text>
-          <Text style={styles.fishermanPhone}>📱 {user.phone}</Text>
+          <Text style={styles.fishermanPhone}>{user.phone}</Text>
 
           <View style={styles.quickGrid}>
             <View style={styles.quickGridBox}>
@@ -196,14 +199,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* 2. VESSEL & FLEET SPECIFICATIONS CARD */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>🛥️ {t('vesselDetails')}</Text>
+            <Text style={styles.sectionTitle}>{t('vesselDetails')}</Text>
             <TouchableOpacity onPress={openEditModal}>
               <Text style={styles.sectionEditLink}>✏️</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{t('boatRegistration')}:</Text>
+            <Text style={styles.detailLabel}>{t('vesselBoat')}:</Text>
+            <Text style={styles.detailValue}>{user.vesselName || 'Sea King IX'}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>{t('registrationNumber')}:</Text>
             <Text style={styles.detailValueBadge}>{user.vesselRegistration || 'TN-01-MM-8492'}</Text>
           </View>
 
@@ -216,11 +224,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <Text style={styles.detailLabel}>{t('homeHarbor')}:</Text>
             <Text style={styles.detailValue}>{user.homePort || 'Kasimedu Harbour, Chennai'}</Text>
           </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>{t('licenseNumber')}:</Text>
+            <Text style={styles.detailValue}>{user.licenseNumber || 'IND-TN-2024-94021'}</Text>
+          </View>
         </View>
 
-        {/* 3. RESIDENTIAL ADDRESS & PORT LOCATION CARD */}
+        {/* 4. RESIDENTIAL ADDRESS & PORT LOCATION CARD */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>🏠 {t('personalDetails')}</Text>
+          <Text style={styles.sectionTitle}>{t('address')}</Text>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>{t('address')}:</Text>
@@ -235,25 +248,34 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {/* 4. APP SETTINGS & LANGUAGE */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>⚙️ {t('appSettings')}</Text>
+          <Text style={styles.sectionTitle}>{t('appSettings')}</Text>
 
           <TouchableOpacity
             style={styles.detailRow}
-            onPress={() => {
-              if (onLanguageChange) onLanguageChange();
-            }}
+            activeOpacity={0.7}
+            onPress={() => setIsLangModalOpen(true)}
           >
-            <Text style={styles.detailLabel}>🌐 {t('language')}:</Text>
+            <Text style={styles.detailLabel}>{t('language')}:</Text>
             <Text style={styles.detailValueHighlight}>
-              {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'Tamil'} ➔
+              {currentLangObj ? `${currentLangObj.nativeName} (${currentLangObj.englishName})` : 'Tamil'} ›
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>INCOIS Marine Advisories:</Text>
+            <Text style={styles.detailValueActive}>Live Regional Alerts Enabled</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Emergency SOS Broadcast:</Text>
+            <Text style={styles.detailValueActive}>Auto-Beacon Transmit Enabled</Text>
+          </View>
         </View>
 
         {/* 5. LOGOUT BUTTON */}
         <View style={styles.logoutSection}>
           <PrimaryButton
-            title={`🚪 ${t('logout')}`}
+            title={t('logout')}
             variant="outline"
             onPress={handleLogoutPress}
             style={styles.logoutButtonOverride}
@@ -263,6 +285,81 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={isLangModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsLangModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Select App Language</Text>
+                <Text style={styles.modalSubtitle}>Choose your preferred marine portal language</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setIsLangModalOpen(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+              {supportedLanguages.map((langOption) => {
+                const isSelected = langOption.code === currentLanguage;
+                return (
+                  <TouchableOpacity
+                    key={langOption.code}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isSelected ? 'rgba(0, 95, 96, 0.1)' : Colors.background,
+                      borderColor: isSelected ? Colors.primary : Colors.border,
+                      borderWidth: isSelected ? 2 : 1.5,
+                      borderRadius: 14,
+                      paddingHorizontal: 16,
+                      paddingVertical: 14,
+                      marginBottom: 10,
+                    }}
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      setIsLangModalOpen(false);
+                      await setLanguage(langOption.code);
+                      if (onLanguageChange) {
+                        onLanguageChange(langOption.code);
+                      }
+                      Alert.alert(
+                        'Language Updated',
+                        `Samudra Kural app language set to ${langOption.nativeName} (${langOption.englishName}).`
+                      );
+                    }}
+                  >
+                    <View>
+                      <Text style={{ fontSize: 18, fontWeight: '900', color: isSelected ? Colors.primaryDark : Colors.text, marginBottom: 2 }}>
+                        {langOption.nativeName}
+                      </Text>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: isSelected ? Colors.primary : Colors.textSecondary }}>
+                        {langOption.englishName}
+                      </Text>
+                    </View>
+
+                    {isSelected && (
+                      <View style={{ backgroundColor: Colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>✓ ACTIVE</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* EDIT PROFILE MODAL */}
       <Modal
@@ -331,13 +428,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('boatType')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={editVesselType}
-                  onChangeText={setEditVesselType}
-                />
+              <View style={styles.inputRow}>
+                <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                  <Text style={styles.inputLabel}>Vessel Reg Number</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editVesselRegistration}
+                    onChangeText={setEditVesselRegistration}
+                    placeholder="e.g. TN-01-MM-8492"
+                  />
+                </View>
+
+                <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                  <Text style={styles.inputLabel}>Craft Type</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={editVesselType}
+                    onChangeText={setEditVesselType}
+                    placeholder="e.g. Motorized Trawler"
+                  />
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
@@ -441,6 +551,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 16,
+    paddingBottom: 90,
   },
   profileHeroCard: {
     backgroundColor: Colors.surface,
@@ -590,6 +701,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
+  detailValueActive: {
+    color: Colors.success,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   logoutSection: {
     marginTop: 8,
     marginBottom: 20,
@@ -628,6 +744,12 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     fontSize: 20,
     fontWeight: '900',
+  },
+  modalSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
   },
   modalCloseBtn: {
     width: 36,

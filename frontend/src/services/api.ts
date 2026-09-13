@@ -29,7 +29,6 @@ function resolveApiBaseUrl(): string {
 // Base API URL configured for Expo environment with dynamic host detection
 export const API_BASE_URL = resolveApiBaseUrl();
 
-
 export class ApiError extends Error {
   status: number;
   data: any;
