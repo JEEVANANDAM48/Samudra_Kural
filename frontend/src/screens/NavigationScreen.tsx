@@ -31,6 +31,7 @@ import { SupportedLanguage, FishermanUser } from '../types';
 import { getUserSession, clearSession } from '../storage/storage';
 import * as Location from 'expo-location';
 import { BottomNavBar } from '../components/BottomNavBar';
+import { useLanguage } from '../i18n';
 
 interface NavigationScreenProps {
   currentLanguage: string;
@@ -103,6 +104,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   onLogout,
   onOpenProfile,
 }) => {
+  const { t, tDirection, tSeaState, language } = useLanguage();
   // Current Boat Location (Positioned offshore in Bay of Bengal sea)
   const [boatLocation, setBoatLocation] = useState({ lat: 13.0827, lon: 80.3800 });
   const [boatSpeedKnots, setBoatSpeedKnots] = useState<number>(8.5);
@@ -174,12 +176,12 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     const lonNum = parseFloat(customLon);
 
     if (isNaN(latNum) || isNaN(lonNum)) {
-      Alert.alert('Invalid Coordinates', 'Please enter valid numeric values for Latitude and Longitude.');
+      Alert.alert(t('genericError'), 'Please enter valid numeric values for Latitude and Longitude.');
       return;
     }
 
     if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
-      Alert.alert('Invalid Coordinate Range', 'Latitude must be between -90° and 90°, Longitude between -180° and 180°.');
+      Alert.alert(t('genericError'), 'Latitude must be between -90° and 90°, Longitude between -180° and 180°.');
       return;
     }
 
@@ -204,8 +206,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     setCustomLon('');
 
     Alert.alert(
-      'Custom Target Coordinates Set',
-      `Destination set to ${newSpot.name}\nLat: ${latNum.toFixed(4)}°N, Lon: ${lonNum.toFixed(4)}°E`
+      t('targetWaypoint'),
+      `Lat: ${latNum.toFixed(4)}°N, Lon: ${lonNum.toFixed(4)}°E`
     );
   };
 
@@ -347,8 +349,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     }).start();
   }, [navDetails.bearing_degrees]);
 
-
-
   const spinNeedle = rotateAnim.interpolate({
     inputRange: [0, 360],
     outputRange: ['0deg', '360deg'],
@@ -357,7 +357,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   const handleSwitchTargetToShore = () => {
     setActiveTarget(SHORE_BASE);
     setIsNavigating(true);
-    Alert.alert('Shore Return Initiated', 'Navigation course set to Chennai Fishing Harbour Shore Base.');
+    Alert.alert(t('returnToShoreBase'), 'Navigation course set to Chennai Fishing Harbour Shore Base.');
   };
 
   const handleSwitchTargetToPFZ = () => {
@@ -390,32 +390,32 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <Text style={styles.backButtonText}>☰</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>SamudraKural</Text>
-          <Text style={styles.headerSubtitle}>Real-time Marine GPS Navigation</Text>
+          <Text style={styles.headerTitle}>{t('appTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('navigationSubtitle')}</Text>
         </View>
         <View style={styles.liveBadge}>
           <View style={styles.liveDot} />
-          <Text style={styles.liveBadgeText}>LIVE GPS</Text>
+          <Text style={styles.liveBadgeText}>{t('liveGps')}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* 1. CENTERED HERO LATITUDE & LONGITUDE DISPLAY (PROMINENT & HIGH VISIBILITY) */}
+        {/* 1. CENTERED HERO LATITUDE & LONGITUDE DISPLAY */}
         <View style={styles.heroGpsCard}>
           <View style={styles.heroGpsBadge}>
             <View style={styles.heroGpsDot} />
-            <Text style={styles.heroGpsBadgeText}>LIVE GPS LOCK</Text>
+            <Text style={styles.heroGpsBadgeText}>{t('liveGpsLock')}</Text>
           </View>
 
           <Text style={styles.fishermanWelcomeText}>
-            Welcome, {fishermanName}!
+            {t('homeWelcome')}, {fishermanName}!
           </Text>
 
-          <Text style={styles.heroGpsTitle}>VESSEL CURRENT COORDINATES</Text>
+          <Text style={styles.heroGpsTitle}>{t('vesselCoordinates')}</Text>
 
           <View style={styles.heroGpsValueBox}>
             <View style={styles.coordColumn}>
-              <Text style={styles.coordLabel}>LATITUDE</Text>
+              <Text style={styles.coordLabel}>{t('latitude')}</Text>
               <Text style={styles.coordValue} numberOfLines={1} adjustsFontSizeToFit={true}>
                 {boatLocation.lat.toFixed(4)}° N
               </Text>
@@ -424,7 +424,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             <View style={styles.coordDivider} />
 
             <View style={styles.coordColumn}>
-              <Text style={styles.coordLabel}>LONGITUDE</Text>
+              <Text style={styles.coordLabel}>{t('longitude')}</Text>
               <Text style={styles.coordValue} numberOfLines={1} adjustsFontSizeToFit={true}>
                 {boatLocation.lon.toFixed(4)}° E
               </Text>
@@ -434,27 +434,27 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <Text style={styles.heroGpsSubText}>📍 {gpsPlaceName}</Text>
         </View>
 
-        {/* 2. OCEAN & VESSEL TELEMETRY GRID (LIVE INCOIS & OPEN-METEO DATA) */}
+        {/* 2. OCEAN & VESSEL TELEMETRY GRID */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>OCEAN & VESSEL TELEMETRY</Text>
+          <Text style={styles.sectionTitle}>{t('oceanAndVesselTelemetry')}</Text>
         </View>
 
         <View style={styles.telemetryGrid}>
           {/* Card 1: Wave Height */}
           <View style={styles.telemetryCard}>
             <Text style={styles.telemetryIcon}>🌊</Text>
-            <Text style={styles.telemetryValue}>{telemetry?.waveHeight || '0.8m'}</Text>
-            <Text style={styles.telemetryLabel}>Wave Height</Text>
-            <Text style={styles.telemetrySub}>Sea State: {telemetry?.seaState || 'Slight'}</Text>
+            <Text style={styles.telemetryValue}>{telemetry?.waveHeight || '0.8m - 1.4m'}</Text>
+            <Text style={styles.telemetryLabel}>{t('waveHeight')}</Text>
+            <Text style={styles.telemetrySub}>{t('seaState')}: {tSeaState(telemetry?.seaState || 'Moderate')}</Text>
           </View>
 
           {/* Card 2: Wind Speed */}
           <View style={styles.telemetryCard}>
             <Text style={styles.telemetryIcon}>💨</Text>
             <Text style={styles.telemetryValue}>{telemetry?.windSpeedKnots || '12 kts'}</Text>
-            <Text style={styles.telemetryLabel}>Wind Speed</Text>
+            <Text style={styles.telemetryLabel}>{t('windSpeed')}</Text>
             <Text style={styles.telemetrySub}>
-              {telemetry?.windDirectionDegrees ? `Direction: ${telemetry.windDirectionDegrees}°` : 'Surface Offshore'}
+              {telemetry?.windDirectionDegrees ? `${t('likelyDirection')}: ${telemetry.windDirectionDegrees}°` : tDirection('Northeast')}
             </Text>
           </View>
 
@@ -462,7 +462,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <View style={styles.telemetryCard}>
             <Text style={styles.telemetryIcon}>🛥️</Text>
             <Text style={styles.telemetryValue}>{boatSpeedKnots} knots</Text>
-            <Text style={styles.telemetryLabel}>Boat Speed (SOG)</Text>
+            <Text style={styles.telemetryLabel}>{t('boatSpeed')}</Text>
             <Text style={styles.telemetrySub}>({(boatSpeedKnots * 1.852).toFixed(1)} km/h)</Text>
           </View>
 
@@ -470,8 +470,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <View style={styles.telemetryCard}>
             <Text style={styles.telemetryIcon}>⏱️</Text>
             <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
-            <Text style={styles.telemetryLabel}>Distance & ETA</Text>
-            <Text style={styles.telemetrySub}>ETA {navDetails.formatted_eta}</Text>
+            <Text style={styles.telemetryLabel}>{t('distanceAndEta')}</Text>
+            <Text style={styles.telemetrySub}>{t('eta')} {navDetails.formatted_eta}</Text>
           </View>
         </View>
 
@@ -479,7 +479,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         {!activeTarget.is_shore && (
           <>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>TARGET ZONE COORDINATES</Text>
+              <Text style={styles.sectionTitle}>{t('targetZoneCoordinates')}</Text>
             </View>
 
             <View style={styles.telemetryGrid}>
@@ -487,23 +487,23 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
               <View style={styles.telemetryCard}>
                 <Text style={styles.telemetryIcon}>📍</Text>
                 <Text style={styles.telemetryValue}>{activeTarget.latitude.toFixed(4)}° N</Text>
-                <Text style={styles.telemetryLabel}>Target Latitude</Text>
-                <Text style={styles.telemetrySub}>Degrees North</Text>
+                <Text style={styles.telemetryLabel}>{t('targetLatitude')}</Text>
+                <Text style={styles.telemetrySub}>{t('degreesNorth')}</Text>
               </View>
 
               {/* Card 2: Target Longitude */}
               <View style={styles.telemetryCard}>
                 <Text style={styles.telemetryIcon}>📍</Text>
                 <Text style={styles.telemetryValue}>{activeTarget.longitude.toFixed(4)}° E</Text>
-                <Text style={styles.telemetryLabel}>Target Longitude</Text>
-                <Text style={styles.telemetrySub}>Degrees East</Text>
+                <Text style={styles.telemetryLabel}>{t('targetLongitude')}</Text>
+                <Text style={styles.telemetrySub}>{t('degreesEast')}</Text>
               </View>
 
               {/* Card 3: Distance to Target */}
               <View style={styles.telemetryCard}>
                 <Text style={styles.telemetryIcon}>📏</Text>
                 <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
-                <Text style={styles.telemetryLabel}>Distance to Target</Text>
+                <Text style={styles.telemetryLabel}>{t('distanceToTarget')}</Text>
                 <Text style={styles.telemetrySub}>({(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km)</Text>
               </View>
 
@@ -511,68 +511,55 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
               <View style={styles.telemetryCard}>
                 <Text style={styles.telemetryIcon}>⚓</Text>
                 <Text style={styles.telemetryValue}>{activeTarget.depth_meters ? `${activeTarget.depth_meters}m` : '26m'}</Text>
-                <Text style={styles.telemetryLabel}>Water Depth</Text>
-                <Text style={styles.telemetrySub}>Sea Floor Bathymetry</Text>
+                <Text style={styles.telemetryLabel}>{t('waterDepth')}</Text>
+                <Text style={styles.telemetrySub}>{t('seaFloorBathymetry')}</Text>
               </View>
             </View>
           </>
         )}
 
-        {/* 4. Active Destination Card (Moved Below Telemetry) */}
+        {/* 4. Active Destination Card */}
         <View style={styles.targetCard}>
           <View style={styles.targetHeaderRow}>
             <View style={styles.targetIconBadge}>
               <Text style={styles.targetIcon}>{activeTarget.is_shore ? '🏠' : '🐟'}</Text>
             </View>
             <View style={styles.targetTitleGroup}>
-              <Text style={styles.targetLabel}>CURRENT DESTINATION</Text>
+              <Text style={styles.targetLabel}>{t('currentDestination')}</Text>
               <Text style={styles.targetName}>{activeTarget.name}</Text>
               <Text style={styles.targetCoords}>
-                Target: {activeTarget.latitude.toFixed(4)}° N, {activeTarget.longitude.toFixed(4)}° E
+                {t('targetWaypoint')}: {activeTarget.latitude.toFixed(4)}° N, {activeTarget.longitude.toFixed(4)}° E
               </Text>
             </View>
           </View>
 
-          {/* Complete Destination Badges & Indicators */}
+          {/* Destination Badges */}
           <View style={styles.targetDetailsRow}>
             <View style={styles.stateBadge}>
               <Text style={styles.stateBadgeText}>{getStateLabel(activeTarget)}</Text>
             </View>
             {activeTarget.reliability_score && (
               <View style={styles.activeTag}>
-                <Text style={styles.activeTagText}>Score: {activeTarget.reliability_score}</Text>
+                <Text style={styles.activeTagText}>{t('reliability')}: {activeTarget.reliability_score}</Text>
               </View>
             )}
             {activeTarget.depth_meters !== undefined && (
               <View style={styles.detailPill}>
-                <Text style={styles.detailPillLabel}>Depth:</Text>
+                <Text style={styles.detailPillLabel}>{t('depth')}:</Text>
                 <Text style={styles.detailPillValue}>{activeTarget.depth_meters}m</Text>
               </View>
             )}
           </View>
 
-          {activeTarget.target_species && activeTarget.target_species.length > 0 && (
-            <View style={styles.speciesContainer}>
-              <Text style={styles.speciesLabel}>EXPECTED FISH SPECIES IN ZONE:</Text>
-              <View style={styles.speciesTagGroup}>
-                {activeTarget.target_species.map((sp, idx) => (
-                  <View key={idx} style={styles.speciesTag}>
-                    <Text style={styles.speciesTagText}>🐟 {sp}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Quick Target Switch Button */}
+          {/* Switch Button */}
           <View style={styles.switchButtonRow}>
             {activeTarget.is_shore ? (
               <TouchableOpacity style={styles.switchTargetBtn} onPress={handleSwitchTargetToPFZ}>
-                <Text style={styles.switchTargetBtnText}>🎣 Switch to Fishing Zone Target</Text>
+                <Text style={styles.switchTargetBtnText}>🎣 {t('switchToFishingZone')}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.switchShoreBtn} onPress={handleSwitchTargetToShore}>
-                <Text style={styles.switchShoreBtnText}>🏠 Return to Shore Base (Emergency/Home)</Text>
+                <Text style={styles.switchShoreBtnText}>🏠 {t('returnToShoreBase')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -584,14 +571,14 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             style={styles.addCustomMainBtn}
             onPress={() => setIsAddCustomVisible(true)}
           >
-            <Text style={styles.addCustomMainBtnText}>📍 Add Custom Coordinates for Fishing Zone</Text>
+            <Text style={styles.addCustomMainBtnText}>📍 {t('addCustomCoordinates')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.changeTargetMainBtn}
             onPress={() => setIsPickerVisible(true)}
           >
-            <Text style={styles.changeTargetMainBtnText}>🎯 Change Target Destination (Select Hotspot / Shore)</Text>
+            <Text style={styles.changeTargetMainBtnText}>🎯 {t('changeTargetDestination')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -599,7 +586,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             onPress={() => setIsNavigating(!isNavigating)}
           >
             <Text style={styles.actionBtnText}>
-              {isNavigating ? '⏸ Pause GPS Tracking' : '▶ Resume GPS Tracking'}
+              {isNavigating ? `⏸ ${t('pauseGps')}` : `▶ ${t('resumeGps')}`}
             </Text>
           </TouchableOpacity>
 
@@ -607,7 +594,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             style={styles.mapBtn}
             onPress={onOpenMap}
           >
-            <Text style={styles.mapBtnText}>🗺️ Open Ocean Map</Text>
+            <Text style={styles.mapBtnText}>🗺️ {t('openOceanMap')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -625,8 +612,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Select Target Destination</Text>
-                <Text style={styles.modalSubtitle}>Choose active INCOIS Fishing Zone or Shore Base</Text>
+                <Text style={styles.modalTitle}>{t('selectTargetDestination')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
@@ -649,8 +635,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                   <Text style={styles.targetItemIcon}>➕</Text>
                 </View>
                 <View style={styles.targetItemDetails}>
-                  <Text style={styles.targetItemName}>Enter Custom Latitude & Longitude</Text>
-                  <Text style={styles.targetItemSub}>Type custom GPS coordinates & place info</Text>
+                  <Text style={styles.targetItemName}>{t('enterCustomCoordinates')}</Text>
                 </View>
               </TouchableOpacity>
 
@@ -666,8 +651,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                   <Text style={styles.targetItemIcon}>🗺️</Text>
                 </View>
                 <View style={styles.targetItemDetails}>
-                  <Text style={styles.targetItemName}>Select from Ocean Map</Text>
-                  <Text style={styles.targetItemSub}>Tap any hotspot marker or custom coordinates on map</Text>
+                  <Text style={styles.targetItemName}>{t('selectFromOceanMap')}</Text>
                 </View>
               </TouchableOpacity>
 
@@ -691,8 +675,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                       setIsNavigating(true);
                       setIsPickerVisible(false);
                       Alert.alert(
-                        'Destination Course Set',
-                        `Navigation target set to ${target.name}\nDistance: ${itemNav.distance_nautical_miles} NM | ETA: ${itemNav.formatted_eta}`
+                        t('targetWaypoint'),
+                        `${target.name}\n${t('distance')}: ${itemNav.distance_nautical_miles} NM | ${t('eta')}: ${itemNav.formatted_eta}`
                       );
                     }}
                   >
@@ -707,11 +691,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                         <View style={styles.stateBadge}>
                           <Text style={styles.stateBadgeText}>📍 {getStateLabel(target)}</Text>
                         </View>
-                        {isSelected && (
-                          <View style={styles.activeTag}>
-                            <Text style={styles.activeTagText}>CURRENT</Text>
-                          </View>
-                        )}
                       </View>
                       <Text style={styles.targetItemSub}>
                         {target.latitude.toFixed(4)}°N, {target.longitude.toFixed(4)}°E • {itemNav.distance_nautical_miles} NM
@@ -725,7 +704,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         </View>
       </Modal>
 
-      {/* Modal: Add Custom Coordinates (Only Latitude & Longitude) */}
+      {/* Modal: Add Custom Coordinates */}
       <Modal
         visible={isAddCustomVisible}
         animationType="slide"
@@ -736,8 +715,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>📍 Enter Custom Coordinates</Text>
-                <Text style={styles.modalSubtitle}>Enter Latitude & Longitude to navigate</Text>
+                <Text style={styles.modalTitle}>📍 {t('enterCustomCoordinates')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
@@ -749,53 +727,34 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
             <ScrollView style={styles.customFormScroll} showsVerticalScrollIndicator={false}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Spot Name / Label (Optional)</Text>
+                <Text style={styles.inputLabel}>{t('latitude')} (°N)*</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="e.g. Fishing Spot #1"
-                  placeholderTextColor="#7F8C8D"
-                  value={customName}
-                  onChangeText={setCustomName}
+                  value={customLat}
+                  onChangeText={setCustomLat}
+                  placeholder="e.g. 13.0827"
+                  keyboardType="numeric"
                 />
               </View>
 
-              <View style={styles.rowInputs}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
-                  <Text style={styles.inputLabel}>Latitude (°N)*</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. 13.2500"
-                    placeholderTextColor="#7F8C8D"
-                    keyboardType="numeric"
-                    value={customLat}
-                    onChangeText={setCustomLat}
-                  />
-                </View>
-
-                <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
-                  <Text style={styles.inputLabel}>Longitude (°E)*</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. 80.5500"
-                    placeholderTextColor="#7F8C8D"
-                    keyboardType="numeric"
-                    value={customLon}
-                    onChangeText={setCustomLon}
-                  />
-                </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t('longitude')} (°E)*</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={customLon}
+                  onChangeText={setCustomLon}
+                  placeholder="e.g. 80.3500"
+                  keyboardType="numeric"
+                />
               </View>
 
-              <TouchableOpacity
-                style={styles.submitCustomBtn}
-                onPress={handleAddCustomCoordinate}
-              >
-                <Text style={styles.submitCustomBtnText}>🎯 Set Destination Target</Text>
+              <TouchableOpacity style={styles.saveCustomBtn} onPress={handleAddCustomCoordinate}>
+                <Text style={styles.saveCustomBtnText}>🧭 {t('startNavigation')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
-
       {/* 3. Fisherman Profile & App Settings Modal */}
       <Modal
         visible={isProfileModalOpen}
@@ -807,8 +766,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Fisherman Profile & Settings</Text>
-                <Text style={styles.modalSubtitle}>Account, Vessel & App Preferences</Text>
+                <Text style={styles.modalTitle}>{t('profileTitle')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
@@ -829,14 +787,14 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
                 {userSession?.address && (
                   <View style={styles.profileDetailRow}>
-                    <Text style={styles.profileDetailLabel}>Address:</Text>
+                    <Text style={styles.profileDetailLabel}>{t('address')}:</Text>
                     <Text style={styles.profileDetailValue}>{userSession.address}</Text>
                   </View>
                 )}
 
                 {userSession?.pincode && (
                   <View style={styles.profileDetailRow}>
-                    <Text style={styles.profileDetailLabel}>Pincode:</Text>
+                    <Text style={styles.profileDetailLabel}>{t('pincode')}:</Text>
                     <Text style={styles.profileDetailValue}>{userSession.pincode}</Text>
                   </View>
                 )}
@@ -844,18 +802,13 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Settings Section */}
               <View style={styles.settingsSection}>
-                <Text style={styles.settingsSectionTitle}>APP SETTINGS & STATUS</Text>
+                <Text style={styles.settingsSectionTitle}>{t('appSettings')}</Text>
                 
                 <View style={styles.settingsItem}>
-                  <Text style={styles.settingsItemLabel}>🌐 Preferred Language</Text>
+                  <Text style={styles.settingsItemLabel}>🌐 {t('language')}</Text>
                   <Text style={styles.settingsItemValue}>
-                    {currentLanguage === 'ta' ? 'தமிழ் (Tamil)' : currentLanguage === 'te' ? 'తెలుగు (Telugu)' : currentLanguage === 'ml' ? 'മലയാളം (Malayalam)' : 'English'}
+                    {language === 'ta' ? 'தமிழ் (Tamil)' : language === 'te' ? 'తెలుగు (Telugu)' : language === 'ml' ? 'മലയാളം (Malayalam)' : language === 'hi' ? 'हिन्दी (Hindi)' : language === 'kn' ? 'ಕನ್ನಡ (Kannada)' : language === 'mr' ? 'मराठी (Marathi)' : language === 'gu' ? 'ગુજરાતી (Gujarati)' : language === 'or' ? 'ଓଡ଼ିଆ (Odia)' : language === 'bn' ? 'বাংলা (Bengali)' : 'English'}
                   </Text>
-                </View>
-
-                <View style={[styles.settingsItem, { marginTop: 8 }]}>
-                  <Text style={styles.settingsItemLabel}>📡 GPS Hardware Status</Text>
-                  <Text style={styles.settingsItemValue}>Live Hardware Lock</Text>
                 </View>
               </View>
 
@@ -864,7 +817,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                 style={styles.logoutBtn}
                 onPress={handleLogoutPress}
               >
-                <Text style={styles.logoutBtnText}>🚪 Logout Account</Text>
+                <Text style={styles.logoutBtnText}>🚪 {t('logout')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -880,12 +833,12 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           } else if (tabId === 'home' && onBack) {
             onBack();
           } else if (tabId === 'bot') {
-            Alert.alert('Ask Bot (AI Chatbot)', 'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.');
+            Alert.alert(`${t('askBot')} (${t('askBotSub')})`, t('comingSoon'));
           } else if (tabId === 'sos') {
-            Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
+            Alert.alert(t('placeholderEmergency'), t('comingSoon'));
           }
         }}
-        currentLanguage={currentLanguage as SupportedLanguage}
+        currentLanguage={language}
       />
     </SafeAreaView>
   );
@@ -1671,6 +1624,19 @@ const styles = StyleSheet.create({
   logoutBtnText: {
     color: '#C0392B',
     fontSize: 16,
+    fontWeight: '900',
+  },
+  saveCustomBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  saveCustomBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '900',
   },
 });
