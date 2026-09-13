@@ -32,6 +32,7 @@ const { width } = Dimensions.get('window');
 
 interface FishingZonesScreenProps {
   currentLanguage?: string;
+  initialTarget?: HotspotInfo | null;
   onBack?: () => void;
   onNavigateToHotspot?: (hotspot: HotspotInfo) => void;
   onTabPress?: (tabId: string) => void;
@@ -39,6 +40,7 @@ interface FishingZonesScreenProps {
 
 export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   currentLanguage = 'ta',
+  initialTarget,
   onBack,
   onNavigateToHotspot,
   onTabPress,
@@ -49,7 +51,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   const [activeLayer, setActiveLayer] = useState<'chl' | 'sst' | 'bathymetry'>('chl');
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
-  const [selectedNavigationTarget, setSelectedNavigationTarget] = useState<HotspotInfo | null>(null);
+  const [selectedNavigationTarget, setSelectedNavigationTarget] = useState<HotspotInfo | null>(initialTarget || null);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -72,6 +74,12 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
     getDeviceLocation();
     return () => { isMounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (initialTarget) {
+      setSelectedNavigationTarget(initialTarget);
+    }
+  }, [initialTarget]);
 
   useEffect(() => {
     loadLocationPFZData();
@@ -119,16 +127,19 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
     // Scroll to top where map is located to display live route trajectory
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-
-    if (onNavigateToHotspot) {
-      onNavigateToHotspot(spot);
-    } else {
-      Alert.alert(
-        'Live Route Navigation Loaded',
-        `Route mapped from My Location to ${spot.name}\nLat: ${spot.latitude.toFixed(4)}°N, Lon: ${spot.longitude.toFixed(4)}°E`
-      );
-    }
   };
+
+  // Route metrics calculations
+  const routeDistanceKm = selectedNavigationTarget
+    ? calculateHaversineKm(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
+    : 0;
+  const routeDistanceNM = routeDistanceKm / 1.852;
+  const vesselSpeedKnots = 8.5;
+  const routeEtaMins = routeDistanceNM > 0 ? Math.round((routeDistanceNM / vesselSpeedKnots) * 60) : 0;
+  const routeBearing = selectedNavigationTarget
+    ? calculateBearingDeg(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
+    : 0;
+  const routeCardinal = degreesToCardinal(routeBearing);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -157,25 +168,72 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           </View>
         )}
 
-        {/* Active Route Banner if target selected */}
+        {/* 1. LIVE ROUTE & SPEED TELEMETRY PANEL (WHEN NAVIGATING TO A ZONE) */}
         {selectedNavigationTarget && (
-          <View style={styles.activeRouteBanner}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.activeRouteTitle}>🧭 ACTIVE ROUTE TO FISHING ZONE</Text>
-              <Text style={styles.activeRouteSub}>
-                Target: {selectedNavigationTarget.name} ({selectedNavigationTarget.latitude.toFixed(4)}°N, {selectedNavigationTarget.longitude.toFixed(4)}°E)
-              </Text>
+          <View style={styles.routeTelemetryCard}>
+            <View style={styles.routeHeaderRow}>
+              <View style={styles.routeLiveBadge}>
+                <View style={styles.routeLiveDot} />
+                <Text style={styles.routeLiveTxt}>LIVE OCEAN MAP ROUTE & NAVIGATION</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.stopRouteBtn}
+                onPress={() => setSelectedNavigationTarget(null)}
+              >
+                <Text style={styles.stopRouteTxt}>✕ Stop Navigation</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.clearRouteBtn}
-              onPress={() => setSelectedNavigationTarget(null)}
-            >
-              <Text style={styles.clearRouteTxt}>✕ Clear</Text>
-            </TouchableOpacity>
+
+            {/* From - To Box */}
+            <View style={styles.fromToContainer}>
+              <View style={styles.fromToItem}>
+                <Text style={styles.fromToLabel}>📍 FROM (MY GPS LOCATION)</Text>
+                <Text style={styles.fromToVal}>{userLocation.lat.toFixed(4)}° N, {userLocation.lon.toFixed(4)}° E</Text>
+              </View>
+
+              <Text style={styles.fromToArrow}>➔</Text>
+
+              <View style={styles.fromToItem}>
+                <Text style={styles.fromToLabel}>🎯 TO (SELECTED FISHING ZONE)</Text>
+                <Text style={styles.fromToVal} numberOfLines={1}>{selectedNavigationTarget.name}</Text>
+                <Text style={styles.fromToSub}>{selectedNavigationTarget.latitude.toFixed(4)}° N, {selectedNavigationTarget.longitude.toFixed(4)}° E</Text>
+              </View>
+            </View>
+
+            {/* Route Metrics Row: Distance, Speed, ETA, Bearing */}
+            <View style={styles.routeMetricsRow}>
+              <View style={styles.routeMetricItem}>
+                <Text style={styles.routeMetricIcon}>📏</Text>
+                <Text style={styles.routeMetricVal}>{routeDistanceKm.toFixed(1)} km</Text>
+                <Text style={styles.routeMetricSub}>({routeDistanceNM.toFixed(1)} NM)</Text>
+                <Text style={styles.routeMetricLabel}>Distance</Text>
+              </View>
+
+              <View style={styles.routeMetricItem}>
+                <Text style={styles.routeMetricIcon}>🛥️</Text>
+                <Text style={styles.routeMetricVal}>{vesselSpeedKnots} knots</Text>
+                <Text style={styles.routeMetricSub}>(15.7 km/h)</Text>
+                <Text style={styles.routeMetricLabel}>Vessel Speed</Text>
+              </View>
+
+              <View style={styles.routeMetricItem}>
+                <Text style={styles.routeMetricIcon}>⏱️</Text>
+                <Text style={styles.routeMetricVal}>{routeEtaMins} mins</Text>
+                <Text style={styles.routeMetricSub}>(~{(routeEtaMins / 60).toFixed(1)} hrs)</Text>
+                <Text style={styles.routeMetricLabel}>Est. Travel Time</Text>
+              </View>
+
+              <View style={styles.routeMetricItem}>
+                <Text style={styles.routeMetricIcon}>🧭</Text>
+                <Text style={styles.routeMetricVal}>{routeBearing.toFixed(0)}° {routeCardinal}</Text>
+                <Text style={styles.routeMetricSub}>Compass Course</Text>
+                <Text style={styles.routeMetricLabel}>Bearing</Text>
+              </View>
+            </View>
           </View>
         )}
 
-        {/* 1. MAP AT TOP: Layer Selector & Interactive Ocean Map */}
+        {/* 2. MAP SECTION: Layer Selector & Interactive Ocean Map */}
         <View style={styles.layerSelectorSection}>
           <Text style={styles.sectionTitle}>INCOIS OCEAN MAP (PINCH-TO-ZOOM)</Text>
 
@@ -221,7 +279,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           )}
         </View>
 
-        {/* 2. Advisory Overview Card & 2x2 Indicators Grid */}
+        {/* 3. Advisory Overview Card & 2x2 Indicators Grid */}
         {advisory && (
           <View style={styles.advisoryCard}>
             <View style={styles.advisoryHeader}>
@@ -269,7 +327,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           </View>
         )}
 
-        {/* 3. ACTIVE POTENTIAL FISHING ZONES LIST */}
+        {/* 4. ACTIVE POTENTIAL FISHING ZONES LIST */}
         {advisory && advisory.hotspots && advisory.hotspots.length > 0 && (
           <View style={styles.hotspotsSection}>
             <Text style={styles.sectionTitle}>ACTIVE FISHING ZONES ({advisory.hotspots.length})</Text>
@@ -341,7 +399,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                       onPress={() => handleStartNavigation(spot)}
                     >
                       <Text style={styles.navigateButtonText}>
-                        {isTargeted ? '✓ VIEW ROUTE ON MAP' : '🧭 NAVIGATE TO THIS ZONE'}
+                        {isTargeted ? '✓ MAP ROUTE ACTIVE' : '🧭 NAVIGATE & SHOW MAP ROUTE'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -472,7 +530,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                   onPress={() => handleStartNavigation(selectedHotspot)}
                 >
                   <Text style={styles.modalNavBtnTxt}>
-                    🧭 NAVIGATE & SHOW MAP ROUTE
+                    🧭 SHOW ROUTE ON OCEAN MAP
                   </Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -500,6 +558,36 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
     </SafeAreaView>
   );
 };
+
+function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function calculateBearingDeg(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const y = Math.sin(dLon) * Math.cos((lat2 * Math.PI) / 180);
+  const x =
+    Math.cos((lat1 * Math.PI) / 180) * Math.sin((lat2 * Math.PI) / 180) -
+    Math.sin((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.cos(dLon);
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return (brng + 360) % 360;
+}
+
+function degreesToCardinal(deg: number): string {
+  const cardinals = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'N'];
+  const index = Math.round((deg % 360) / 45);
+  return cardinals[index];
+}
 
 function directionTxtFormatted(direction: string, bearing?: number): string {
   if (bearing !== undefined) {
@@ -558,41 +646,139 @@ const styles = StyleSheet.create({
   container: {
     padding: 12,
   },
-  activeRouteBanner: {
+
+  /* Live Route Telemetry Card Styles */
+  routeTelemetryCard: {
+    backgroundColor: '#0D2526',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: Colors.secondary,
+    marginBottom: 14,
+    shadowColor: Colors.secondary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  routeHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#0D2526',
-    borderColor: Colors.secondary,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    padding: 12,
     marginBottom: 12,
   },
-  activeRouteTitle: {
+  routeLiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 245, 212, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.secondary,
+  },
+  routeLiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.secondary,
+    marginRight: 6,
+  },
+  routeLiveTxt: {
     color: Colors.secondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  activeRouteSub: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  clearRouteBtn: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  stopRouteBtn: {
+    backgroundColor: 'rgba(231, 76, 60, 0.2)',
+    borderColor: '#E74C3C',
+    borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginLeft: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
-  clearRouteTxt: {
-    color: '#FFFFFF',
+  stopRouteTxt: {
+    color: '#FF6B6B',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
   },
+  fromToContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  fromToItem: {
+    flex: 1,
+  },
+  fromToLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#8AC4C1',
+    letterSpacing: 0.5,
+    marginBottom: 3,
+  },
+  fromToVal: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  fromToSub: {
+    fontSize: 11,
+    color: Colors.secondary,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  fromToArrow: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: Colors.secondary,
+    marginHorizontal: 10,
+  },
+  routeMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  routeMetricItem: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    padding: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  routeMetricIcon: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  routeMetricVal: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  routeMetricSub: {
+    fontSize: 10,
+    color: Colors.secondary,
+    fontWeight: '700',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  routeMetricLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#8AC4C1',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+
   sectionTitle: {
     color: Colors.text,
     fontSize: 15,

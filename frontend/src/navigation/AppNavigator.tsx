@@ -78,7 +78,7 @@ export const AppNavigator: React.FC = () => {
 
   const handleStartNavigationToHotspot = (spot: HotspotInfo) => {
     setSelectedHotspot(spot);
-    setCurrentScreen('navigation');
+    setCurrentScreen('fishing_zones');
   };
 
   if (currentScreen === 'loading') {
@@ -137,6 +137,7 @@ export const AppNavigator: React.FC = () => {
       {currentScreen === 'fishing_zones' && (
         <FishingZonesScreen
           currentLanguage={language}
+          initialTarget={selectedHotspot}
           onBack={() => setCurrentScreen('home')}
           onNavigateToHotspot={handleStartNavigationToHotspot}
         />
