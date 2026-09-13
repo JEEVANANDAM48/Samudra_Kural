@@ -100,39 +100,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleTabPress = (tabId: string) => {
     setActiveTab(tabId);
-    const tabNames: Record<string, string> = {
-      nav: t('placeholderNav', currentLanguage),
-      fishing: t('placeholderFishing', currentLanguage),
-      bot: 'Ask Bot (AI Marine Chatbot)',
-      nets: t('placeholderNets', currentLanguage),
-      sos: 'Emergency SOS',
-    };
-
-    if (tabId === 'sos') {
-      // SOS tab presents dedicated Emergency SOS Screen
-      return;
-    }
-
-    if (tabId === 'bot') {
-      Alert.alert(
-        'Ask Bot (AI Chatbot)',
-        'Samudra Kural AI Voice & Text Marine Assistant will be available in the upcoming release.'
-      );
-    } else if (tabId === 'sos') {
-      coastalGuardService.triggerSOS(13.0827, 80.3800, 'Emergency Distress', 'Distress beacon signal transmitted from mobile GPS.', 4)
-        .then((sos) => {
-          Alert.alert(
-            'Emergency SOS Transmitted 🚨',
-            `Distress beacon (SOS #${sos.id}) transmitted to Samudra Kural Coastal Guard HQ & nearest patrol vessels.`
-          );
-        })
-        .catch(() => {
-          Alert.alert(
-            'Emergency SOS Transmitted 🚨',
-            'Distress beacon signal transmitted to Coast Guard and nearest vessels.'
-          );
-        });
-    }
   };
 
   const handleLogout = async () => {
@@ -173,6 +140,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* Main Content Area */}
       {activeTab === 'sos' ? (
         <SOSScreen currentLanguage={currentLanguage} />
+      ) : activeTab === 'nav' ? (
+        <NavigationScreen
+          currentLanguage={currentLanguage}
+          initialTarget={selectedHotspot}
+          onBack={() => setActiveTab('nav')}
+          onOpenMap={() => setActiveTab('fishing')}
+          onLogout={handleLogout}
+          onOpenProfile={onOpenProfile}
+          onTabPress={handleTabPress}
+          hideTopHeader={true}
+        />
+      ) : activeTab === 'fishing' ? (
+        <FishingZonesScreen
+          currentLanguage={currentLanguage}
+          initialTarget={selectedHotspot}
+          onBack={() => setActiveTab('nav')}
+          onNavigateToHotspot={(spot) => {
+            setSelectedHotspot(spot);
+            setActiveTab('nav');
+          }}
+          onTabPress={handleTabPress}
+          hideTopHeader={true}
+        />
       ) : activeTab === 'bot' ? (
         <BotScreen
           currentLanguage={currentLanguage}
@@ -184,80 +174,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onTabPress={handleTabPress}
           hideTopHeader={true}
         />
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.featureCard}>
-            <View style={styles.cardTop}>
-              <Text style={styles.featureIcon}>
-                {activeTab === 'nav'
-                  ? '🧭'
-                  : activeTab === 'fishing'
-                  ? '🎣'
-                  : activeTab === 'nets'
-                  ? '🕸️'
-                  : '🆘'}
-              </Text>
-              <Text style={styles.featureTitle}>
-                {activeTab === 'nav'
-                  ? t('placeholderNav', currentLanguage)
-                  : activeTab === 'fishing'
-                  ? t('placeholderFishing', currentLanguage)
-                  : activeTab === 'nets'
-                  ? t('placeholderNets', currentLanguage)
-                  : 'Emergency SOS'}
-              </Text>
-            </View>
-
-            <View style={styles.noticeBox}>
-              <Text style={styles.noticeTitle}>{t('appSubtitle', currentLanguage)}</Text>
-              <Text style={styles.noticeText}>
-                {t('comingSoon', currentLanguage)}. {t('pfzSubtitle', currentLanguage)}.
-              </Text>
-
-              {onOpenNavigation && (
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: Colors.primary,
-                    paddingVertical: 14,
-                    paddingHorizontal: 16,
-                    borderRadius: 12,
-                    marginTop: 14,
-                    alignItems: 'center',
-                    width: '100%',
-                  }}
-                  onPress={onOpenNavigation}
-                >
-                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>
-                    🧭 {t('navigationTitle', currentLanguage)}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {onOpenFishingZones && (
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: Colors.secondary,
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    borderRadius: 10,
-                    marginTop: 10,
-                    alignItems: 'center',
-                    width: '100%',
-                  }}
-                  onPress={onOpenFishingZones}
-                >
-                  <Text style={{ color: Colors.primaryDark, fontSize: 14, fontWeight: 'bold' }}>
-                    {t('openIncoisMap', currentLanguage)}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </ScrollView>
-      )}
+      ) : activeTab === 'nets' ? (
+        <MyNetsScreen />
+      ) : activeTab === 'profile' ? (
+        <ProfileScreen
+          currentLanguage={currentLanguage}
+          onBack={() => setActiveTab('nav')}
+          onLogout={handleLogout}
+          onLanguageChange={onLanguageChange}
+        />
+      ) : null}
 
       {/* Floating Bottom Navigation Bar */}
       <BottomNavBar
