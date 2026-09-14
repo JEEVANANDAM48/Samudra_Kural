@@ -23,7 +23,7 @@ function resolveApiBaseUrl(): string {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  return 'http://192.168.0.4:8000/api/v1';
+  return 'http://192.168.31.44:8000/api/v1';
 }
 
 // Base API URL configured for Expo environment with dynamic host detection
