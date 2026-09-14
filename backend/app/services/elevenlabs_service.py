@@ -154,7 +154,6 @@ class ElevenLabsService:
                     
                     # If transcript is empty and a language was specified, retry in auto-detect mode
                     if not transcript and "language_code" in data:
-                        logger.info("ElevenLabs STT was empty with specified language. Retrying in auto-detect mode...")
                         retry_data = {"model_id": "scribe_v1"}
                         retry_resp = await client.post(url, headers=headers, data=retry_data, files=files)
                         if retry_resp.status_code == 200:
@@ -162,14 +161,12 @@ class ElevenLabsService:
                             retry_transcript = retry_json.get("text", "").strip()
                             if retry_transcript:
                                 detected_lang = retry_json.get("language_code", detected_lang)
-                                logger.info(f"ElevenLabs Auto-detect STT success. Lang: {detected_lang}, Transcript: '{retry_transcript}'")
                                 return {
                                     "status": "success",
                                     "transcript": retry_transcript,
                                     "language": detected_lang
                                 }
 
-                    logger.info(f"ElevenLabs STT success. Lang: {detected_lang}, Transcript: '{transcript}'")
                     return {
                         "status": "success",
                         "transcript": transcript,

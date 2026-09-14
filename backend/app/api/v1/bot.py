@@ -80,7 +80,6 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
             filename=filename,
             language_code=payload.language or "unknown"
         )
-        print(f"[STT DEBUG] Sarvam STT result: {res}", flush=True)
         if res.get("status") == "success" and res.get("transcript"):
             return {
                 "success": True,
@@ -96,7 +95,6 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
             filename=filename,
             language_code=payload.language or "unknown"
         )
-        print(f"[STT DEBUG] ElevenLabs STT result: {el_res}", flush=True)
         if el_res.get("status") == "success" and el_res.get("transcript"):
             return {
                 "success": True,
