@@ -308,24 +308,28 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   };
 
   // Calculate live navigation metrics using Safe Maritime Obstacle-Avoiding Curve Engine
-  const safeNavRoute = calculateSafeMaritimeRoute(
-    boatLocation.lat,
-    boatLocation.lon,
-    activeTarget.latitude,
-    activeTarget.longitude,
-    boatSpeedKnots > 0 ? boatSpeedKnots : 8.5
-  );
+  const safeNavRoute = activeTarget
+    ? calculateSafeMaritimeRoute(
+        boatLocation.lat,
+        boatLocation.lon,
+        activeTarget.latitude,
+        activeTarget.longitude,
+        boatSpeedKnots > 0 ? boatSpeedKnots : 8.5
+      )
+    : null;
 
+  const navDetails: CalculatedNavigationData | null = safeNavRoute
+    ? {
+        distance_meters: safeNavRoute.totalDistanceMeters,
+        distance_km: safeNavRoute.totalDistanceKm,
+        distance_nautical_miles: safeNavRoute.totalDistanceNM,
+        bearing_degrees: safeNavRoute.bearingDegrees,
+        direction_cardinal: safeNavRoute.directionCardinal,
+        eta_minutes: safeNavRoute.etaMinutes,
+        formatted_eta: safeNavRoute.formattedEta,
+      }
+    : null;
 
-  const navDetails: CalculatedNavigationData = {
-    distance_meters: safeNavRoute.totalDistanceMeters,
-    distance_km: safeNavRoute.totalDistanceKm,
-    distance_nautical_miles: safeNavRoute.totalDistanceNM,
-    bearing_degrees: safeNavRoute.bearingDegrees,
-    direction_cardinal: safeNavRoute.directionCardinal,
-    eta_minutes: safeNavRoute.etaMinutes,
-    formatted_eta: safeNavRoute.formattedEta,
-  };
 
   // Animated compass needle rotation
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -813,83 +817,88 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         )}
 
         {/* 3.5 INTERACTIVE OCEAN & OBSTACLE-AVOIDANCE SPLINE MAP VIEW */}
-        <INCOISMapComponent
-          center={{ lat: boatLocation.lat, lon: boatLocation.lon }}
-          hotspots={[{
-            id: activeTarget.id,
-            name: activeTarget.name,
-            latitude: activeTarget.latitude,
-            longitude: activeTarget.longitude,
-            sst_celsius: activeTarget.sst_celsius || 27.5,
-            chlorophyll_mg_m3: activeTarget.chlorophyll_mg_m3 || 2.4,
-            depth_meters: activeTarget.depth_meters || 26,
-            target_species: activeTarget.target_species || ['Tuna', 'Sardines'],
-            valid_until: 'Today',
-            reliability_score: activeTarget.reliability_score || '100% High',
-            distance_meters: navDetails.distance_meters,
-          }]}
-          activeLayer="chl"
-          selectedNavigationTarget={{
-            id: activeTarget.id,
-            name: activeTarget.name,
-            latitude: activeTarget.latitude,
-            longitude: activeTarget.longitude,
-            sst_celsius: activeTarget.sst_celsius || 27.5,
-            chlorophyll_mg_m3: activeTarget.chlorophyll_mg_m3 || 2.4,
-            depth_meters: activeTarget.depth_meters || 26,
-            target_species: activeTarget.target_species || ['Tuna', 'Sardines'],
-            valid_until: 'Today',
-            reliability_score: activeTarget.reliability_score || '100% High',
-            distance_meters: navDetails.distance_meters,
-          }}
-        />
+        {activeTarget && navDetails && (
+          <>
+            <INCOISMapComponent
+              center={{ lat: boatLocation.lat, lon: boatLocation.lon }}
+              hotspots={[{
+                id: activeTarget.id,
+                name: activeTarget.name,
+                latitude: activeTarget.latitude,
+                longitude: activeTarget.longitude,
+                sst_celsius: activeTarget.sst_celsius || 27.5,
+                chlorophyll_mg_m3: activeTarget.chlorophyll_mg_m3 || 2.4,
+                depth_meters: activeTarget.depth_meters || 26,
+                target_species: activeTarget.target_species || ['Tuna', 'Sardines'],
+                valid_until: 'Today',
+                reliability_score: activeTarget.reliability_score || '100% High',
+                distance_meters: navDetails.distance_meters,
+              }]}
+              activeLayer="chl"
+              selectedNavigationTarget={{
+                id: activeTarget.id,
+                name: activeTarget.name,
+                latitude: activeTarget.latitude,
+                longitude: activeTarget.longitude,
+                sst_celsius: activeTarget.sst_celsius || 27.5,
+                chlorophyll_mg_m3: activeTarget.chlorophyll_mg_m3 || 2.4,
+                depth_meters: activeTarget.depth_meters || 26,
+                target_species: activeTarget.target_species || ['Tuna', 'Sardines'],
+                valid_until: 'Today',
+                reliability_score: activeTarget.reliability_score || '100% High',
+                distance_meters: navDetails.distance_meters,
+              }}
+            />
 
-        {/* 4. Active Destination Card */}
-        <View style={styles.targetCard}>
-          <View style={styles.targetHeaderRow}>
-            <View style={styles.targetIconBadge}>
-              <Text style={styles.targetIcon}>{activeTarget.is_shore ? '🏠' : '🐟'}</Text>
-            </View>
-            <View style={styles.targetTitleGroup}>
-              <Text style={styles.targetLabel}>{t('currentDestination')}</Text>
-              <Text style={styles.targetName}>{activeTarget.name}</Text>
-              <Text style={styles.targetCoords}>
-                {t('targetWaypoint')}: {activeTarget.latitude.toFixed(4)}° N, {activeTarget.longitude.toFixed(4)}° E
-              </Text>
-            </View>
-          </View>
-
-          {/* Destination Badges */}
-          <View style={styles.targetDetailsRow}>
-            <View style={styles.stateBadge}>
-              <Text style={styles.stateBadgeText}>{getStateLabel(activeTarget)}</Text>
-            </View>
-            {activeTarget.reliability_score && (
-              <View style={styles.activeTag}>
-                <Text style={styles.activeTagText}>{t('reliability')}: {activeTarget.reliability_score}</Text>
+            {/* 4. Active Destination Card */}
+            <View style={styles.targetCard}>
+              <View style={styles.targetHeaderRow}>
+                <View style={styles.targetIconBadge}>
+                  <Text style={styles.targetIcon}>{activeTarget.is_shore ? '🏠' : '🐟'}</Text>
+                </View>
+                <View style={styles.targetTitleGroup}>
+                  <Text style={styles.targetLabel}>{t('currentDestination')}</Text>
+                  <Text style={styles.targetName}>{activeTarget.name}</Text>
+                  <Text style={styles.targetCoords}>
+                    {t('targetWaypoint')}: {activeTarget.latitude.toFixed(4)}° N, {activeTarget.longitude.toFixed(4)}° E
+                  </Text>
+                </View>
               </View>
-            )}
-            {activeTarget.depth_meters !== undefined && (
-              <View style={styles.detailPill}>
-                <Text style={styles.detailPillLabel}>{t('depth')}:</Text>
-                <Text style={styles.detailPillValue}>{activeTarget.depth_meters}m</Text>
-              </View>
-            )}
-          </View>
 
-          {/* Switch Button */}
-          <View style={styles.switchButtonRow}>
-            {activeTarget.is_shore ? (
-              <TouchableOpacity style={styles.switchTargetBtn} onPress={handleSwitchTargetToPFZ}>
-                <Text style={styles.switchTargetBtnText}>Switch to Fishing Zone Target</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.switchShoreBtn} onPress={handleSwitchTargetToShore}>
-                <Text style={styles.switchShoreBtnText}>Return to Shore Base</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+              {/* Destination Badges */}
+              <View style={styles.targetDetailsRow}>
+                <View style={styles.stateBadge}>
+                  <Text style={styles.stateBadgeText}>{getStateLabel(activeTarget)}</Text>
+                </View>
+                {activeTarget.reliability_score && (
+                  <View style={styles.activeTag}>
+                    <Text style={styles.activeTagText}>{t('reliability')}: {activeTarget.reliability_score}</Text>
+                  </View>
+                )}
+                {activeTarget.depth_meters !== undefined && (
+                  <View style={styles.detailPill}>
+                    <Text style={styles.detailPillLabel}>{t('depth')}:</Text>
+                    <Text style={styles.detailPillValue}>{activeTarget.depth_meters}m</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Switch Button */}
+              <View style={styles.switchButtonRow}>
+                {activeTarget.is_shore ? (
+                  <TouchableOpacity style={styles.switchTargetBtn} onPress={handleSwitchTargetToPFZ}>
+                    <Text style={styles.switchTargetBtnText}>Switch to Fishing Zone Target</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.switchShoreBtn} onPress={handleSwitchTargetToShore}>
+                    <Text style={styles.switchShoreBtnText}>Return to Shore Base</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </>
+        )}
+
 
         {/* CONTROL ACTION BUTTONS */}
         <View style={styles.controlButtonsGroup}>

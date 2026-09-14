@@ -153,7 +153,8 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
   // Route metrics calculations using Obstacle-Avoiding Maritime Safe Route Engine
   const cruiseSpeedKnots = 8.5;
-  const effectiveSpeedKnots = (typeof liveSpeedKnots === 'number' && liveSpeedKnots > 0) ? liveSpeedKnots : cruiseSpeedKnots;
+  const vesselSpeedKnots = (typeof liveSpeedKnots === 'number' && liveSpeedKnots > 0) ? liveSpeedKnots : 0;
+  const effectiveSpeedKnots = vesselSpeedKnots > 0 ? vesselSpeedKnots : cruiseSpeedKnots;
   const safeRouteMetrics = selectedNavigationTarget
     ? calculateSafeMaritimeRoute(
         userLocation.lat,
@@ -163,6 +164,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         effectiveSpeedKnots
       )
     : null;
+
 
   const routeDistanceKm = safeRouteMetrics ? safeRouteMetrics.totalDistanceKm : 0;
   const routeDistanceNM = safeRouteMetrics ? safeRouteMetrics.totalDistanceNM : 0;
