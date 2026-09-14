@@ -412,6 +412,7 @@ export async function startRealAudioRecording(): Promise<void> {
         await ExpoAudio.setAudioModeAsync({
           allowsRecording: true,
           playsInSilentMode: true,
+          interruptionMode: 'doNotMix',
         });
       }
 
@@ -423,6 +424,7 @@ export async function startRealAudioRecording(): Promise<void> {
         android: {
           outputFormat: 'mpeg4',
           audioEncoder: 'aac',
+          audioSource: 'mic',
         },
         ios: {
           outputFormat: 'aac ',
@@ -439,7 +441,7 @@ export async function startRealAudioRecording(): Promise<void> {
         await recorder.prepareToRecordAsync(presetOptions);
         recorder.record();
         activeExpoAudioRecorder = recorder;
-        console.log('[Voice Recording] Native expo-audio recording started (Mono 16kHz) at:', new Date().toISOString());
+        console.log('[Voice Recording] Native expo-audio recording started (Mono 16kHz, source=mic) at:', new Date().toISOString());
         return;
       }
     } catch (err) {

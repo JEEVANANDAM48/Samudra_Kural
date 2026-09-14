@@ -68,16 +68,9 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
             raw_b64 = raw_b64.split(",", 1)[1]
         
         audio_bytes = base64.b64decode(raw_b64)
-        logger.info(f"[STT Received] Audio base64 length: {len(raw_b64)}, Decoded bytes: {len(audio_bytes)}, Format: {payload.format}, Lang: {payload.language}")
+        print(f"\n[STT DEBUG] Received payload: base64_len={len(raw_b64)}, audio_bytes={len(audio_bytes)}, format={payload.format}, lang={payload.language}", flush=True)
         if len(audio_bytes) == 0:
             return {"success": False, "status": "error", "message": "Decoded audio is empty", "transcript": ""}
-        
-        # Save scratch copy for audio verification
-        try:
-            with open("scratch/last_mobile_audio.m4a", "wb") as f:
-                f.write(audio_bytes)
-        except Exception:
-            pass
 
         filename = f"audio.{payload.format or 'm4a'}"
 
@@ -87,6 +80,7 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
             filename=filename,
             language_code=payload.language or "unknown"
         )
+        print(f"[STT DEBUG] Sarvam STT result: {res}", flush=True)
         if res.get("status") == "success" and res.get("transcript"):
             return {
                 "success": True,
@@ -102,7 +96,8 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
             filename=filename,
             language_code=payload.language or "unknown"
         )
-        if el_res.get("status") == "success":
+        print(f"[STT DEBUG] ElevenLabs STT result: {el_res}", flush=True)
+        if el_res.get("status") == "success" and el_res.get("transcript"):
             return {
                 "success": True,
                 "status": "success",
