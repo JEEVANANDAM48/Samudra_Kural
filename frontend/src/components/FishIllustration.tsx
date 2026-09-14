@@ -202,7 +202,7 @@ export const FishFour: React.FC<FishProps> = ({ size = 275 }) => {
           <Stop offset="0%" stopColor="#FFFFFF" />
           <Stop offset="50%" stopColor="#F0FAF6" />
           <Stop offset="80%" stopColor="#D2EBE3" />
-          <Stop offset="100%" stopColor="#A8D6C9" />
+          <Stop offset="100%" stopColor="#AFD6CB" />
         </LinearGradient>
       </Defs>
       <G>

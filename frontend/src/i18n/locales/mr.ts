@@ -14,7 +14,7 @@ export const mr: Record<TranslationKeys, string> = {
   placeholderFishing: "मासेमारी क्षेत्रे",
   placeholderSafety: "सागरी सुरक्षा",
   placeholderNets: "माझी जाळी",
-  placeholderEmergency: "आपत्कालीन मदत / SOS",
+  placeholderEmergency: "आपत्कालीन मदत",
   askBot: "बॉटला विचारा",
   askBotSub: "AI सागरी सहाय्यक",
   menuAndProfile: "मेनू आणि प्रोफाइल",

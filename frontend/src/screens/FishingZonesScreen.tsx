@@ -59,6 +59,9 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
   const [selectedNavigationTarget, setSelectedNavigationTarget] = useState<HotspotInfo | null>(initialTarget || null);
+  const [showAllZones, setShowAllZones] = useState<boolean>(false);
+
+  const [liveSpeedKnots, setLiveSpeedKnots] = useState<number>(0.0);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -72,10 +75,14 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           const lastLoc = await Location.getLastKnownPositionAsync();
           if (lastLoc && lastLoc.coords && isMounted) {
             setUserLocation({ lat: lastLoc.coords.latitude, lon: lastLoc.coords.longitude });
+            const speedKts = (lastLoc.coords.speed && lastLoc.coords.speed > 0.2) ? Number((lastLoc.coords.speed * 1.94384).toFixed(1)) : 0.0;
+            setLiveSpeedKnots(speedKts);
           }
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           if (loc && loc.coords && isMounted) {
             setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+            const speedKts = (loc.coords.speed && loc.coords.speed > 0.2) ? Number((loc.coords.speed * 1.94384).toFixed(1)) : 0.0;
+            setLiveSpeedKnots(speedKts);
           }
         }
       } catch (err) {
@@ -148,8 +155,10 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
     ? calculateHaversineKm(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
     : 0;
   const routeDistanceNM = routeDistanceKm / 1.852;
-  const vesselSpeedKnots = 8.5;
-  const routeEtaMins = routeDistanceNM > 0 ? Math.round((routeDistanceNM / vesselSpeedKnots) * 60) : 0;
+  const cruiseSpeedKnots = 8.5;
+  const vesselSpeedKnots = liveSpeedKnots;
+  const effectiveSpeedKnots = liveSpeedKnots > 0 ? liveSpeedKnots : cruiseSpeedKnots;
+  const routeEtaMins = routeDistanceNM > 0 ? Math.round((routeDistanceNM / effectiveSpeedKnots) * 60) : 0;
   const routeBearing = selectedNavigationTarget
     ? calculateBearingDeg(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
     : 0;
@@ -224,8 +233,8 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
               <View style={styles.routeMetricItem}>
                 <Text style={styles.routeMetricIcon}>🛥️</Text>
-                <Text style={styles.routeMetricVal}>{vesselSpeedKnots} knots</Text>
-                <Text style={styles.routeMetricSub}>(15.7 km/h)</Text>
+                <Text style={styles.routeMetricVal}>{vesselSpeedKnots > 0 ? `${vesselSpeedKnots} knots` : '0.0 knots'}</Text>
+                <Text style={styles.routeMetricSub}>{vesselSpeedKnots > 0 ? `(${(vesselSpeedKnots * 1.852).toFixed(1)} km/h)` : '(On Shore / Parked)'}</Text>
                 <Text style={styles.routeMetricLabel}>{t('vesselSpeed')}</Text>
               </View>
 
@@ -335,14 +344,14 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           )}
         </View>
 
-
-
-        {/* 4. ACTIVE POTENTIAL FISHING ZONES LIST */}
+        {/* 3. ACTIVE POTENTIAL FISHING ZONES LIST */}
         {advisory && advisory.hotspots && advisory.hotspots.length > 0 && (
           <View style={styles.hotspotsSection}>
-            <Text style={styles.sectionTitle}>{t('activeFishingZones')} ({advisory.hotspots.length})</Text>
+            <Text style={styles.sectionTitle}>
+              {t('activeFishingZones')} ({showAllZones ? advisory.hotspots.length : Math.min(12, advisory.hotspots.length)} of {advisory.hotspots.length})
+            </Text>
 
-            {advisory.hotspots.map((spot) => {
+            {(showAllZones ? advisory.hotspots : advisory.hotspots.slice(0, 12)).map((spot) => {
               const distanceKm = spot.distance_meters
                 ? (spot.distance_meters / 1000.0).toFixed(1)
                 : '12.4';
@@ -399,6 +408,20 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 </TouchableOpacity>
               );
             })}
+
+            {advisory.hotspots.length > 12 && (
+              <TouchableOpacity
+                style={styles.viewAllBtn}
+                activeOpacity={0.85}
+                onPress={() => setShowAllZones(!showAllZones)}
+              >
+                <Text style={styles.viewAllBtnTxt}>
+                  {showAllZones
+                    ? '▲ Show Less'
+                    : `🌊 View All (${advisory.hotspots.length} Active Centers) ➔`}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -1145,6 +1168,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.3,
+  },
+  viewAllBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  viewAllBtnTxt: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.4,
   },
   bottomSpacer: {
     height: 40,

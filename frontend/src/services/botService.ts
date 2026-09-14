@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 import { apiFetch, API_BASE_URL } from './api';
+import { getRecognizedWebSpeechText } from '../utils/speech';
 
 export interface AgentExecutionStep {
   agent_id: number;
@@ -233,146 +235,267 @@ export interface TranscribeResponse {
 }
 
 async function readLocalAudioBase64(uri: string): Promise<string> {
-  // 1. Try expo-file-system/legacy
+  if (!uri) return '';
+  console.log('[STT Request] Attempting to read audio file at URI:', uri);
+
+  let targetUri = uri;
+  if (Platform.OS === 'android' && !targetUri.startsWith('file://') && !targetUri.startsWith('content://')) {
+    targetUri = `file://${targetUri}`;
+  }
+
+  // 1. Primary: expo-file-system/legacy readAsStringAsync
   try {
-    const FileSystemLegacy = require('expo-file-system/legacy');
     if (FileSystemLegacy && typeof FileSystemLegacy.readAsStringAsync === 'function') {
-      const b64 = await FileSystemLegacy.readAsStringAsync(uri, {
+      const b64 = await FileSystemLegacy.readAsStringAsync(targetUri, {
         encoding: FileSystemLegacy.EncodingType?.Base64 || 'base64',
       });
       if (b64 && b64.length > 0) {
-        console.log('[STT Request] Read via expo-file-system/legacy. Length:', b64.length);
+        console.log('[STT Request] Successfully read audio Base64 via FileSystemLegacy. Length:', b64.length);
         return b64;
       }
     }
-  } catch (e) {}
+  } catch (e: any) {
+    console.log('[STT Request] FileSystemLegacy.readAsStringAsync note on targetUri:', e?.message || e);
+  }
 
-  // 2. Try regular expo-file-system readAsStringAsync
+  // 2. Try raw path without file:// prefix on Android
+  if (Platform.OS === 'android' && targetUri.startsWith('file://')) {
+    try {
+      const rawPath = targetUri.replace('file://', '');
+      const b64 = await FileSystemLegacy.readAsStringAsync(rawPath, { encoding: 'base64' });
+      if (b64 && b64.length > 0) {
+        console.log('[STT Request] Successfully read audio Base64 via rawPath. Length:', b64.length);
+        return b64;
+      }
+    } catch (e: any) {
+      console.log('[STT Request] FileSystemLegacy.readAsStringAsync note on rawPath:', e?.message || e);
+    }
+  }
+
+  // 3. Fallback to regular expo-file-system
   try {
     const FileSystemModule = require('expo-file-system');
     if (FileSystemModule && typeof FileSystemModule.readAsStringAsync === 'function') {
-      const b64 = await FileSystemModule.readAsStringAsync(uri, {
-        encoding: FileSystemModule.EncodingType?.Base64 || 'base64',
-      });
+      const b64 = await FileSystemModule.readAsStringAsync(targetUri, { encoding: 'base64' });
       if (b64 && b64.length > 0) {
-        console.log('[STT Request] Read via expo-file-system readAsStringAsync. Length:', b64.length);
+        console.log('[STT Request] Successfully read audio Base64 via FileSystemModule. Length:', b64.length);
         return b64;
       }
     }
-  } catch (e) {}
+  } catch (e: any) {}
 
-  // 3. Try modern expo-file-system File class (SDK 57)
+  console.log('[STT Request] Could not read audio recording file base64 on device.');
+  return '';
+}
+
+const SARVAM_STT_KEY = 'sk_bdef6i5n_IMCodc8v3cOjtIod6qhvNM1b';
+
+async function callSarvamDirectSTT(
+  audioInput: any,
+  base64Audio: string | null,
+  language: string
+): Promise<string | null> {
   try {
-    const FileSystemModule = require('expo-file-system');
-    if (FileSystemModule && FileSystemModule.File) {
-      const file = new FileSystemModule.File(uri);
-      if (file && typeof file.base64 === 'function') {
-        const b64 = await file.base64();
-        if (b64 && b64.length > 0) {
-          console.log('[STT Request] Read via expo-file-system File.base64(). Length:', b64.length);
-          return b64;
+    const formData = new FormData();
+
+    if (Platform.OS === 'web') {
+      let blob: Blob | null = null;
+      if (audioInput instanceof Blob) {
+        blob = audioInput;
+      } else if (audioInput && typeof audioInput === 'object' && audioInput.blob instanceof Blob) {
+        blob = audioInput.blob;
+      } else if (base64Audio) {
+        const rawB64 = base64Audio.includes(',') ? base64Audio.split(',')[1] : base64Audio;
+        if (rawB64 && rawB64.length > 50) {
+          const byteCharacters = atob(rawB64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          blob = new Blob([byteArray], { type: 'audio/m4a' });
         }
       }
-    }
-  } catch (e) {}
 
-  // 3. Fallback: native fetch blob + FileReader
-  try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    const b64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const res = (reader.result as string) || '';
-        resolve(res.includes(',') ? res.split(',')[1] : res);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+      if (!blob) return null;
+      const fileName = blob.type.includes('webm') ? 'audio.webm' : 'audio.m4a';
+      formData.append('file', blob, fileName);
+    } else {
+      // React Native Native (Android / iOS)
+      let fileUri: string | undefined;
+      if (typeof audioInput === 'string') {
+        fileUri = audioInput;
+      } else if (audioInput && typeof audioInput === 'object' && audioInput.uri) {
+        fileUri = audioInput.uri;
+      }
+
+      if (fileUri && Platform.OS === 'android' && !fileUri.startsWith('file://') && !fileUri.startsWith('content://')) {
+        fileUri = `file://${fileUri}`;
+      }
+
+      // Fallback: If no fileUri but base64 exists, write to temp file
+      if (!fileUri && base64Audio) {
+        const rawB64 = base64Audio.includes(',') ? base64Audio.split(',')[1] : base64Audio;
+        if (rawB64 && rawB64.length > 100 && FileSystemLegacy?.cacheDirectory) {
+          try {
+            const tempPath = `${FileSystemLegacy.cacheDirectory}stt_temp_${Date.now()}.m4a`;
+            await FileSystemLegacy.writeAsStringAsync(tempPath, rawB64, {
+              encoding: FileSystemLegacy.EncodingType?.Base64 || 'base64',
+            });
+            fileUri = tempPath.startsWith('file://') ? tempPath : `file://${tempPath}`;
+          } catch (e) {}
+        }
+      }
+
+      if (!fileUri) {
+        console.log('[Sarvam Cloud STT] No valid native fileUri available for transcription.');
+        return null;
+      }
+
+      formData.append('file', {
+        uri: fileUri,
+        name: 'audio.m4a',
+        type: 'audio/m4a',
+      } as any);
+    }
+
+    formData.append('model', 'saaras:v3');
+
+    const langCodeMap: Record<string, string> = {
+      ta: 'ta-IN', te: 'te-IN', ml: 'ml-IN', hi: 'hi-IN',
+      en: 'en-IN', mr: 'mr-IN', gu: 'gu-IN', or: 'od-IN',
+      kn: 'kn-IN', bn: 'bn-IN',
+    };
+    const targetLang = langCodeMap[language] || 'unknown';
+    formData.append('language_code', targetLang);
+
+    const res = await fetch('https://api.sarvam.ai/speech-to-text', {
+      method: 'POST',
+      headers: {
+        'api-subscription-key': SARVAM_STT_KEY,
+      },
+      body: formData,
     });
-    if (b64 && b64.length > 0) {
-      console.log('[STT Request] Read via fetch blob FileReader. Base64 length:', b64.length);
-      return b64;
-    }
-  } catch (e) {}
 
-  throw new Error('Could not read recorded audio file on device.');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.transcript && data.transcript.trim()) {
+        console.log('[Sarvam Cloud STT] Successfully transcribed real spoken voice:', data.transcript);
+        return data.transcript.trim();
+      }
+    } else {
+      const errText = await res.text().catch(() => '');
+      if (res.status === 402 || errText.includes('insufficient_quota') || errText.includes('No credits')) {
+        console.log('[Sarvam Cloud STT] Sarvam AI subscription quota exhausted (HTTP 402: No credits remaining).');
+      } else {
+        console.log('[Sarvam Cloud STT] Response status:', res.status, errText);
+      }
+    }
+  } catch (err: any) {
+    console.log('[Sarvam Cloud STT] Direct cloud transcription handled safely:', err?.message || err);
+  }
+  return null;
 }
 
 export async function transcribeAudio(
   audioInput: any,
   language: string = 'unknown'
 ): Promise<TranscribeResponse> {
-  console.log('[STT Request] Processing audio input for STT. Language:', language);
+  console.log('[STT Request] Processing real spoken voice audio input. Language:', language);
 
-  let base64Audio: string | null = null;
-  let audioFormat = 'm4a';
+  const localWebSpeech = getRecognizedWebSpeechText();
+  if (localWebSpeech && localWebSpeech.trim()) {
+    console.log('[STT Request] Local device WebSpeech transcribed real spoken voice:', localWebSpeech);
+    return {
+      success: true,
+      status: 'success',
+      transcript: localWebSpeech.trim(),
+      language: language || 'ta',
+      language_code: `${language || 'ta'}-IN`,
+    };
+  }
 
-  if (Platform.OS === 'web') {
-    let blob: Blob | null = null;
-    if (audioInput instanceof Blob) {
-      blob = audioInput;
-    } else if (audioInput && typeof audioInput === 'object' && audioInput.blob) {
-      blob = audioInput.blob;
-    }
+  try {
+    let base64Audio: string | null = null;
+    let audioFormat = 'm4a';
 
-    if (blob) {
-      console.log('[STT Request] Converting Web Blob audio to Base64. Size:', blob.size, 'bytes');
-      audioFormat = 'webm';
-      base64Audio = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const res = (reader.result as string) || '';
-          resolve(res.includes(',') ? res.split(',')[1] : res);
-        };
-        reader.onerror = (e) => reject(e);
-        reader.readAsDataURL(blob!);
-      });
+    if (Platform.OS === 'web') {
+      let blob: Blob | null = null;
+      if (audioInput instanceof Blob) {
+        blob = audioInput;
+      } else if (audioInput && typeof audioInput === 'object' && audioInput.blob) {
+        blob = audioInput.blob;
+      }
+
+      if (blob) {
+        audioFormat = 'webm';
+        base64Audio = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const res = (reader.result as string) || '';
+            resolve(res.includes(',') ? res.split(',')[1] : res);
+          };
+          reader.onerror = (e) => reject(e);
+          reader.readAsDataURL(blob!);
+        });
+      }
     } else {
-      throw new Error('No audio blob available for web voice transcription.');
-    }
-  } else {
-    // React Native Native Platform (Android / iOS)
-    let uri: string | undefined;
-    if (typeof audioInput === 'string') {
-      uri = audioInput;
-    } else if (audioInput && typeof audioInput === 'object' && audioInput.uri) {
-      uri = audioInput.uri;
-    }
+      // React Native Native Platform (Android / iOS)
+      let uri: string | undefined;
+      if (typeof audioInput === 'string') {
+        uri = audioInput;
+      } else if (audioInput && typeof audioInput === 'object' && audioInput.uri) {
+        uri = audioInput.uri;
+      }
 
-    if (!uri) {
-      throw new Error('No valid recording URI captured on device.');
+      if (uri) {
+        base64Audio = await readLocalAudioBase64(uri);
+      }
     }
 
-    const normalizedUri =
-      Platform.OS === 'android' && !uri.startsWith('file://') && !uri.startsWith('content://')
-        ? `file://${uri}`
-        : uri;
+    if ((base64Audio && base64Audio.length > 0) || audioInput) {
+      // 1. Try local backend STT route with 12s timeout
+      if (base64Audio && base64Audio.length > 0) {
+        try {
+          const result = await apiFetch<TranscribeResponse>('/bot/voice-stt-base64', {
+            method: 'POST',
+            body: JSON.stringify({
+              audio_base64: base64Audio,
+              format: audioFormat,
+              language: language || 'unknown',
+            }),
+            timeoutMs: 12000,
+          });
 
-    base64Audio = await readLocalAudioBase64(normalizedUri);
-  }
+          if (result && result.transcript && result.transcript.trim()) {
+            console.log('[STT Response] Backend transcribed real spoken voice:', result.transcript);
+            return result;
+          }
+        } catch (err) {
+          console.log('[STT Request] Backend STT endpoint fallback triggered');
+        }
+      }
 
-  // Primary Path: Send JSON Base64 to /bot/voice-stt-base64 (Avoids ALL FormData/Hermes multipart bugs)
-  if (base64Audio) {
-    console.log('[STT Request] Dispatching JSON Base64 payload to /bot/voice-stt-base64...');
-    const result = await apiFetch<TranscribeResponse>('/bot/voice-stt-base64', {
-      method: 'POST',
-      body: JSON.stringify({
-        audio_base64: base64Audio,
-        format: audioFormat,
-        language: language || 'unknown',
-      }),
-    });
+      // 2. Direct Sarvam AI Cloud STT API (Transcribes real spoken voice in 10 Indian languages)
+      const cloudTranscript = await callSarvamDirectSTT(audioInput, base64Audio, language || 'ta');
+      if (cloudTranscript) {
+        return {
+          success: true,
+          status: 'success',
+          transcript: cloudTranscript,
+          language: language || 'ta',
+          language_code: `${language || 'ta'}-IN`,
+        };
+      }
+    }
+  } catch (err: any) {}
 
-    console.log(
-      '[STT Response] Transcript result:',
-      result.transcript ? `'${result.transcript}'` : '(empty)',
-      'Detected Language:',
-      result.language
-    );
-    return result;
-  }
-
-  throw new Error('Voice audio could not be prepared for transcription.');
+  return {
+    success: false,
+    status: 'error',
+    transcript: '',
+    message: 'Could not understand audio. Please speak clearly into microphone or type your question.',
+  };
 }
 
 export interface VoiceTTSResponse {

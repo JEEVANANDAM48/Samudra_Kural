@@ -12,13 +12,6 @@ interface NetCardProps {
 export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
   const { t, tNetType } = useLanguage();
 
-  const confidenceColor =
-    net.confidence === 'HIGH'
-      ? Colors.success
-      : net.confidence === 'LOW'
-      ? '#D35400'
-      : '#B7950B';
-
   const movementText =
     net.estimated_movement_km !== undefined && net.estimated_movement_km !== null
       ? `~${net.estimated_movement_km} km`
@@ -35,19 +28,11 @@ export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
       ? 'lost'
       : 'archived';
 
-  const confidenceKey =
-    net.confidence === 'HIGH'
-      ? 'confidenceHigh'
-      : net.confidence === 'LOW'
-      ? 'confidenceLow'
-      : 'confidenceMedium';
-
   return (
     <View style={styles.card}>
       {/* Top Header Row */}
       <View style={styles.topRow}>
         <View style={styles.titleArea}>
-          <Text style={styles.netIcon}>🕸️</Text>
           <View>
             <Text style={styles.netName}>{net.name}</Text>
             <Text style={styles.netType}>{tNetType(net.net_type_display || net.net_type)}</Text>
@@ -74,21 +59,11 @@ export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
         </View>
       </View>
 
-      {/* Search Area Banner */}
-      <View style={styles.searchAreaBox}>
-        <Text style={styles.searchAreaLabel}>{t('probableSearchArea')}</Text>
-        <Text style={styles.searchAreaValue}>{searchAreaText}</Text>
-      </View>
-
-      {/* Confidence & Action Row */}
-      <View style={styles.footerRow}>
-        <View style={styles.confidenceWrapper}>
-          <Text style={styles.confidenceLabel}>{t('confidence')}:</Text>
-          <View style={[styles.confidencePill, { backgroundColor: confidenceColor + '20', borderColor: confidenceColor }]}>
-            <Text style={[styles.confidenceText, { color: confidenceColor }]}>
-              {t(confidenceKey)}
-            </Text>
-          </View>
+      {/* Probable Search Area & Likely Direction Side-by-Side Row */}
+      <View style={styles.bottomRow}>
+        <View style={styles.searchAreaBox}>
+          <Text style={styles.searchAreaLabel}>{t('probableSearchArea')}</Text>
+          <Text style={styles.searchAreaValue} numberOfLines={2}>{searchAreaText}</Text>
         </View>
 
         <TouchableOpacity
@@ -129,10 +104,6 @@ const styles = StyleSheet.create({
   titleArea: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  netIcon: {
-    fontSize: 28,
-    marginRight: 10,
   },
   netName: {
     fontSize: 18,
@@ -185,59 +156,43 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.primaryDark,
   },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 2,
+  },
   searchAreaBox: {
+    flex: 1,
     backgroundColor: Colors.secondary,
-    padding: 12,
+    padding: 10,
     borderRadius: 12,
-    marginBottom: 14,
   },
   searchAreaLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: Colors.primaryDark,
     marginBottom: 2,
     textTransform: 'uppercase',
   },
   searchAreaValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: Colors.text,
   },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  confidenceWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  confidenceLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    marginRight: 6,
-  },
-  confidencePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  confidenceText: {
-    fontSize: 11,
-    fontWeight: '900',
-  },
   viewDriftButton: {
     backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   viewDriftText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
 });

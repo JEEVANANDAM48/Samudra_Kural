@@ -14,7 +14,7 @@ export const te: Record<TranslationKeys, string> = {
   placeholderFishing: "చేపల వేట మండలాలు",
   placeholderSafety: "సముద్ర భద్రత",
   placeholderNets: "నా వలలు",
-  placeholderEmergency: "అత్యవసర సహాయం / SOS",
+  placeholderEmergency: "అత్యవసర సహాయం",
   askBot: "సహాయ బాట్",
   askBotSub: "AI సముద్ర సహాయకుడు",
   menuAndProfile: "మెనూ & ప్రొఫైల్",

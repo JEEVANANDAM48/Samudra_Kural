@@ -16,13 +16,14 @@ import { NetCard } from '../components/NetCard';
 import { AddNetModal } from '../components/AddNetModal';
 import { FindNetModal } from '../components/FindNetModal';
 import { NetDriftDetailModal } from '../components/NetDriftDetailModal';
-import { fetchActiveNets, createFishingNet } from '../services/netService';
+import { fetchActiveNets, createFishingNet, getCachedNets } from '../services/netService';
 import { useLanguage } from '../i18n';
 
 export const MyNetsScreen: React.FC = () => {
   const { t } = useLanguage();
-  const [nets, setNets] = useState<FishingNet[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const initialCached = getCachedNets();
+  const [nets, setNets] = useState<FishingNet[]>(initialCached);
+  const [loading, setLoading] = useState<boolean>(initialCached.length === 0);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [addModalVisible, setAddModalVisible] = useState<boolean>(false);
   
@@ -38,7 +39,9 @@ export const MyNetsScreen: React.FC = () => {
   const loadNets = async () => {
     try {
       const data = await fetchActiveNets();
-      setNets(data);
+      if (data && data.length > 0) {
+        setNets(data);
+      }
     } catch (err: any) {
       console.log('Error fetching active nets:', err.message);
     } finally {
@@ -105,7 +108,7 @@ export const MyNetsScreen: React.FC = () => {
         >
           {nets.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🕸️</Text>
+              <Text style={styles.emptyIcon}>⚓</Text>
               <Text style={styles.emptyTitle}>{t('noNetsTitle')}</Text>
               <Text style={styles.emptyDesc}>{t('noNetsDesc')}</Text>
               <TouchableOpacity

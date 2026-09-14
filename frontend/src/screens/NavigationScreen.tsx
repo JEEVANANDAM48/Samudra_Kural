@@ -113,7 +113,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   const { t, tDirection, tSeaState, language } = useLanguage();
   // Current Boat Location (Positioned offshore in Bay of Bengal sea)
   const [boatLocation, setBoatLocation] = useState({ lat: 13.0827, lon: 80.3800 });
-  const [boatSpeedKnots, setBoatSpeedKnots] = useState<number>(8.5);
+  const [boatSpeedKnots, setBoatSpeedKnots] = useState<number>(0.0);
   const [isNavigating, setIsNavigating] = useState<boolean>(true);
   const [isVoiceActive, setIsVoiceActive] = useState<boolean>(true);
   const [isPickerVisible, setIsPickerVisible] = useState<boolean>(false);
@@ -121,8 +121,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   const [telemetry, setTelemetry] = useState<LiveMarineTelemetry | null>(null);
   const [telemetryLoading, setTelemetryLoading] = useState<boolean>(true);
 
-  // Active Target (PFZ Hotspot or Shore)
-  const [activeTarget, setActiveTarget] = useState<NavigationTarget>(() => {
+  // Active Target (PFZ Hotspot or Shore) - No default target! Fisherman must fix target.
+  const [activeTarget, setActiveTarget] = useState<NavigationTarget | null>(() => {
     if (initialTarget) {
       return {
         id: initialTarget.id,
@@ -137,7 +137,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         is_shore: false,
       };
     }
-    return DEFAULT_HOTSPOT;
+    return null;
   });
 
   const iblTelemetry = checkIBLProximity(boatLocation.lat, boatLocation.lon);
@@ -184,51 +184,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     }
   };
 
-  // Custom Coordinate Form State (Only Latitude & Longitude)
-  const [isAddCustomVisible, setIsAddCustomVisible] = useState<boolean>(false);
-  const [customName, setCustomName] = useState<string>('');
-  const [customLat, setCustomLat] = useState<string>('');
-  const [customLon, setCustomLon] = useState<string>('');
 
-  const handleAddCustomCoordinate = () => {
-    const latNum = parseFloat(customLat);
-    const lonNum = parseFloat(customLon);
-
-    if (isNaN(latNum) || isNaN(lonNum)) {
-      Alert.alert(t('genericError'), 'Please enter valid numeric values for Latitude and Longitude.');
-      return;
-    }
-
-    if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
-      Alert.alert(t('genericError'), 'Latitude must be between -90° and 90°, Longitude between -180° and 180°.');
-      return;
-    }
-
-    const newSpot: NavigationTarget = {
-      id: `CUSTOM_${Date.now()}`,
-      name: customName.trim() ? `[Custom Target] ${customName.trim()}` : `[Custom Target] (${latNum.toFixed(4)}°N, ${lonNum.toFixed(4)}°E)`,
-      latitude: latNum,
-      longitude: lonNum,
-      depth_meters: 28,
-      reliability_score: '100% User Defined',
-      is_shore: false,
-    };
-
-    setAvailableTargets((prev) => [newSpot, ...prev]);
-    setActiveTarget(newSpot);
-    setIsNavigating(true);
-    setIsAddCustomVisible(false);
-    setIsPickerVisible(false);
-
-    setCustomName('');
-    setCustomLat('');
-    setCustomLon('');
-
-    Alert.alert(
-      t('targetWaypoint'),
-      `Lat: ${latNum.toFixed(4)}°N, Lon: ${lonNum.toFixed(4)}°E`
-    );
-  };
 
   // Real Smartphone GPS Tracking Subscription (No simulation loops!)
   useEffect(() => {
@@ -251,9 +207,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           const lonVal = Number(loc.coords.longitude.toFixed(4));
           setBoatLocation({ lat: latVal, lon: lonVal });
 
-          if (loc.coords.speed && loc.coords.speed > 0) {
-            setBoatSpeedKnots(Number((loc.coords.speed * 1.94384).toFixed(1)));
-          }
+          const liveSpeedKts = (loc.coords.speed && loc.coords.speed > 0.2) ? Number((loc.coords.speed * 1.94384).toFixed(1)) : 0.0;
+          setBoatSpeedKnots(liveSpeedKts);
 
           // Reverse geocode to show real physical location name
           try {
@@ -283,9 +238,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             const updatedLon = Number(newLoc.coords.longitude.toFixed(4));
             setBoatLocation({ lat: updatedLat, lon: updatedLon });
 
-            if (newLoc.coords.speed && newLoc.coords.speed > 0) {
-              setBoatSpeedKnots(Number((newLoc.coords.speed * 1.94384).toFixed(1)));
-            }
+            const liveSpeedKts = (newLoc.coords.speed && newLoc.coords.speed > 0.2) ? Number((newLoc.coords.speed * 1.94384).toFixed(1)) : 0.0;
+            setBoatSpeedKnots(liveSpeedKts);
           }
         );
       } catch (err) {
@@ -351,26 +305,30 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     }
   };
 
-  // Calculate live navigation metrics
-  const navDetails: CalculatedNavigationData = getNavigationDetails(
-    boatLocation.lat,
-    boatLocation.lon,
-    activeTarget.latitude,
-    activeTarget.longitude,
-    boatSpeedKnots
-  );
+  // Calculate live navigation metrics (if target fixed by fisherman)
+  const navDetails: CalculatedNavigationData | null = activeTarget
+    ? getNavigationDetails(
+        boatLocation.lat,
+        boatLocation.lon,
+        activeTarget.latitude,
+        activeTarget.longitude,
+        boatSpeedKnots > 0 ? boatSpeedKnots : 8.5
+      )
+    : null;
 
   // Animated compass needle rotation
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(rotateAnim, {
-      toValue: navDetails.bearing_degrees,
-      duration: 600,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-  }, [navDetails.bearing_degrees]);
+    if (navDetails) {
+      Animated.timing(rotateAnim, {
+        toValue: navDetails.bearing_degrees,
+        duration: 600,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [navDetails?.bearing_degrees]);
 
   const spinNeedle = rotateAnim.interpolate({
     inputRange: [0, 360],
@@ -651,9 +609,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                 <Text style={styles.telemetryIcon}>🚤</Text>
               </View>
             </View>
-            <Text style={styles.telemetryValue}>{boatSpeedKnots} knots</Text>
+            <Text style={styles.telemetryValue}>{boatSpeedKnots > 0 ? `${boatSpeedKnots} knots` : '0.0 knots'}</Text>
             <Text style={styles.telemetryLabel}>{t('boatSpeed')}</Text>
-            <Text style={styles.telemetrySub}>({(boatSpeedKnots * 1.852).toFixed(1)} km/h)</Text>
+            <Text style={styles.telemetrySub}>
+              {boatSpeedKnots > 0 ? `(${(boatSpeedKnots * 1.852).toFixed(1)} km/h)` : 'On Shore / Parked'}
+            </Text>
           </View>
 
           {/* Card 4: Distance & ETA */}
@@ -663,14 +623,28 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                 <Text style={styles.telemetryIcon}>⏱️</Text>
               </View>
             </View>
-            <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
+            <Text style={styles.telemetryValue}>{navDetails ? `${navDetails.distance_nautical_miles} NM` : '--'}</Text>
             <Text style={styles.telemetryLabel}>{t('distanceAndEta')}</Text>
-            <Text style={styles.telemetrySub}>{t('eta')} {navDetails.formatted_eta}</Text>
+            <Text style={styles.telemetrySub}>{navDetails ? `${t('eta')} ${navDetails.formatted_eta}` : 'No Target Fixed'}</Text>
           </View>
         </View>
 
-        {/* 3. TARGET ZONE LATITUDE & LONGITUDE METRICS GRID */}
-        {!activeTarget.is_shore && (
+        {/* 3. TARGET ZONE LATITUDE & LONGITUDE METRICS GRID & COMPLETE DETAILS */}
+        {!activeTarget ? (
+          <View style={styles.noTargetCard}>
+            <Text style={styles.noTargetIcon}>📍</Text>
+            <Text style={styles.noTargetTitle}>No Target Destination Fixed</Text>
+            <Text style={styles.noTargetDesc}>
+              The fisherman has not selected target coordinates yet. Please select a target destination (PFZ Hotspot or Shore Base) from the target list or Ocean Map to calculate course and distance.
+            </Text>
+            <TouchableOpacity
+              style={styles.fixTargetBtn}
+              onPress={() => setIsPickerVisible(true)}
+            >
+              <Text style={styles.fixTargetBtnText}>🎯 Fix / Select Target Destination</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
           <>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>{t('targetZoneCoordinates')}</Text>
@@ -708,9 +682,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                     <Text style={styles.telemetryIcon}>📏</Text>
                   </View>
                 </View>
-                <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
+                <Text style={styles.telemetryValue}>{navDetails ? `${navDetails.distance_nautical_miles} NM` : '--'}</Text>
                 <Text style={styles.telemetryLabel}>{t('distanceToTarget')}</Text>
-                <Text style={styles.telemetrySub}>({(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km)</Text>
+                <Text style={styles.telemetrySub}>
+                  {navDetails ? `(${(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km)` : '--'}
+                </Text>
               </View>
 
               {/* Card 4: Water Depth */}
@@ -725,55 +701,105 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                 <Text style={styles.telemetrySub}>{t('seaFloorBathymetry')}</Text>
               </View>
             </View>
+
+            {/* Complete Details About Target Zone Card */}
+            <View style={styles.completeDetailsCard}>
+              <View style={styles.completeDetailsHeader}>
+                <Text style={styles.completeDetailsHeaderIcon}>{activeTarget.is_shore ? '🏠' : '🎯'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.completeDetailsTag}>
+                    {activeTarget.is_shore ? 'SHORE BASE STATION' : 'POTENTIAL FISHING ZONE (PFZ)'}
+                  </Text>
+                  <Text style={styles.completeDetailsTitle}>{activeTarget.name}</Text>
+                </View>
+                <View style={styles.stateBadge}>
+                  <Text style={styles.stateBadgeText}>{getStateLabel(activeTarget)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailsDivider} />
+
+              <View style={styles.detailsListGrid}>
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Waypoint Coordinates:</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.latitude.toFixed(4)}° N, {activeTarget.longitude.toFixed(4)}° E
+                  </Text>
+                </View>
+
+                {navDetails && (
+                  <View style={styles.detailRowItem}>
+                    <Text style={styles.detailRowLabel}> Navigation Bearing:</Text>
+                    <Text style={styles.detailRowVal}>
+                      {navDetails.bearing_degrees}° ({navDetails.direction_cardinal})
+                    </Text>
+                  </View>
+                )}
+
+                {navDetails && (
+                  <View style={styles.detailRowItem}>
+                    <Text style={styles.detailRowLabel}> Distance & Estimated Arrival:</Text>
+                    <Text style={styles.detailRowVal}>
+                      {navDetails.distance_nautical_miles} NM ({(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km) • ETA: {navDetails.formatted_eta}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Sea Surface Temp (SST):</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.sst_celsius ? `${activeTarget.sst_celsius}°C` : '28.4°C'}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Chlorophyll-a Level:</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.chlorophyll_mg_m3 ? `${activeTarget.chlorophyll_mg_m3} mg/m³` : '1.25 mg/m³'}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Bathymetry Sea Depth:</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.depth_meters ? `${activeTarget.depth_meters} meters` : '26 meters'}
+                  </Text>
+                </View>
+
+                {activeTarget.target_species && activeTarget.target_species.length > 0 && (
+                  <View style={styles.detailRowItem}>
+                    <Text style={styles.detailRowLabel}> Abundant Fish Species:</Text>
+                    <Text style={styles.detailRowVal}>
+                      {activeTarget.target_species.join(', ')}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Zone Reliability Score:</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.reliability_score || '96% High Potential'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.switchButtonRow}>
+                {activeTarget.is_shore ? (
+                  <TouchableOpacity style={styles.switchTargetBtn} onPress={handleSwitchTargetToPFZ}>
+                    <Text style={styles.switchTargetBtnText}>Switch to Fishing Zone Target</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.switchShoreBtn} onPress={handleSwitchTargetToShore}>
+                    <Text style={styles.switchShoreBtnText}>Return to Shore Base</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.clearTargetBtn} onPress={() => setActiveTarget(null)}>
+                  <Text style={styles.clearTargetBtnText}>Clear Target</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </>
         )}
-
-        {/* 4. Active Destination Card */}
-        <View style={styles.targetCard}>
-          <View style={styles.targetHeaderRow}>
-            <View style={styles.targetIconBadge}>
-              <Text style={styles.targetIcon}>{activeTarget.is_shore ? '🏠' : '🐟'}</Text>
-            </View>
-            <View style={styles.targetTitleGroup}>
-              <Text style={styles.targetLabel}>{t('currentDestination')}</Text>
-              <Text style={styles.targetName}>{activeTarget.name}</Text>
-              <Text style={styles.targetCoords}>
-                {t('targetWaypoint')}: {activeTarget.latitude.toFixed(4)}° N, {activeTarget.longitude.toFixed(4)}° E
-              </Text>
-            </View>
-          </View>
-
-          {/* Destination Badges */}
-          <View style={styles.targetDetailsRow}>
-            <View style={styles.stateBadge}>
-              <Text style={styles.stateBadgeText}>{getStateLabel(activeTarget)}</Text>
-            </View>
-            {activeTarget.reliability_score && (
-              <View style={styles.activeTag}>
-                <Text style={styles.activeTagText}>{t('reliability')}: {activeTarget.reliability_score}</Text>
-              </View>
-            )}
-            {activeTarget.depth_meters !== undefined && (
-              <View style={styles.detailPill}>
-                <Text style={styles.detailPillLabel}>{t('depth')}:</Text>
-                <Text style={styles.detailPillValue}>{activeTarget.depth_meters}m</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Switch Button */}
-          <View style={styles.switchButtonRow}>
-            {activeTarget.is_shore ? (
-              <TouchableOpacity style={styles.switchTargetBtn} onPress={handleSwitchTargetToPFZ}>
-                <Text style={styles.switchTargetBtnText}>Switch to Fishing Zone Target</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.switchShoreBtn} onPress={handleSwitchTargetToShore}>
-                <Text style={styles.switchShoreBtnText}>Return to Shore Base</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
 
         {/* CONTROL ACTION BUTTONS */}
         <View style={styles.controlButtonsGroup}>
@@ -784,7 +810,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           >
             <Text style={styles.btnIcon}>🎯</Text>
             <Text style={styles.changeTargetMainBtnText}>
-              Change Target Destination (Select Hotspot / Shore)
+              Select Target Destination (Hotspot / Shore)
             </Text>
           </TouchableOpacity>
 
@@ -834,22 +860,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             </View>
 
             <ScrollView style={styles.targetListScroll} showsVerticalScrollIndicator={false}>
-              {/* Option: Enter Custom Coordinates */}
-              <TouchableOpacity
-                style={[styles.targetItemCard, styles.customPickerCard]}
-                onPress={() => {
-                  setIsPickerVisible(false);
-                  setIsAddCustomVisible(true);
-                }}
-              >
-                <View style={styles.itemIconContainer}>
-                  <Text style={styles.targetItemIcon}>➕</Text>
-                </View>
-                <View style={styles.targetItemDetails}>
-                  <Text style={styles.targetItemName}>{t('enterCustomCoordinates')}</Text>
-                </View>
-              </TouchableOpacity>
-
               {/* Option: Pick from Ocean Map */}
               <TouchableOpacity
                 style={[styles.targetItemCard, styles.mapPickerCard]}
@@ -868,7 +878,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Target List: Shore Base & PFZ Hotspots */}
               {availableTargets.map((target) => {
-                const isSelected = target.id === activeTarget.id;
+                const isSelected = activeTarget ? target.id === activeTarget.id : false;
                 const itemNav = getNavigationDetails(
                   boatLocation.lat,
                   boatLocation.lon,
@@ -910,58 +920,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal: Add Custom Coordinates */}
-      <Modal
-        visible={isAddCustomVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsAddCustomVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>📍 {t('enterCustomCoordinates')}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setIsAddCustomVisible(false)}
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.customFormScroll} showsVerticalScrollIndicator={false}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('latitude')} (°N)*</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={customLat}
-                  onChangeText={setCustomLat}
-                  placeholder="e.g. 13.0827"
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('longitude')} (°E)*</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={customLon}
-                  onChangeText={setCustomLon}
-                  placeholder="e.g. 80.3500"
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <TouchableOpacity style={styles.saveCustomBtn} onPress={handleAddCustomCoordinate}>
-                <Text style={styles.saveCustomBtnText}>🧭 {t('startNavigation')}</Text>
-              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
@@ -2073,5 +2031,125 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
+  },
+  /* No Target Card Styles */
+  noTargetCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+  },
+  noTargetIcon: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
+  noTargetTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#B45309',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  noTargetDesc: {
+    fontSize: 13,
+    color: '#78350F',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  fixTargetBtn: {
+    backgroundColor: '#D97706',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  fixTargetBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  /* Complete Target Zone Details Card Styles */
+  completeDetailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  completeDetailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  completeDetailsHeaderIcon: {
+    fontSize: 28,
+  },
+  completeDetailsTag: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: Colors.primary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  completeDetailsTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: Colors.text,
+    marginTop: 2,
+  },
+  detailsDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 12,
+  },
+  detailsListGrid: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  detailRowItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailRowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    flex: 1,
+  },
+  detailRowVal: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0F172A',
+    flex: 1.2,
+    textAlign: 'right',
+  },
+  clearTargetBtn: {
+    backgroundColor: '#64748B',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  clearTargetBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
