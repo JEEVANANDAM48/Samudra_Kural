@@ -80,9 +80,9 @@ export const MyNetsScreen: React.FC = () => {
     <View style={styles.container}>
       {/* Top Action Bar */}
       <View style={styles.actionBar}>
-        <View>
-          <Text style={styles.pageTitle}>{t('myNetsTitle')}</Text>
-          <Text style={styles.pageSubtitle}>{t('myNetsSubtitle')}</Text>
+        <View style={styles.titleWrapper}>
+          <Text style={styles.pageTitle} numberOfLines={1}>{t('myNetsTitle')}</Text>
+          <Text style={styles.pageSubtitle} numberOfLines={1}>{t('myNetsSubtitle')}</Text>
         </View>
 
         <TouchableOpacity
@@ -90,7 +90,7 @@ export const MyNetsScreen: React.FC = () => {
           activeOpacity={0.8}
           onPress={() => setAddModalVisible(true)}
         >
-          <Text style={styles.addNetBtnText}>{t('addNewNet')}</Text>
+          <Text style={styles.addNetBtnText} numberOfLines={1}>{t('addNewNet')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -161,15 +161,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingTop: 18,
-    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingHorizontal: 14,
   },
   actionBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    marginBottom: 16,
+    paddingHorizontal: 2,
+    marginBottom: 14,
+    gap: 8,
+  },
+  titleWrapper: {
+    flex: 1,
+    marginRight: 6,
   },
   pageTitle: {
     fontSize: 22,
@@ -178,27 +183,29 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   pageSubtitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     color: Colors.textSecondary,
     marginTop: 2,
   },
   addNetBtn: {
     backgroundColor: Colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
     elevation: 3,
   },
   addNetBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   loadingArea: {
     paddingVertical: 60,
@@ -212,7 +219,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   scrollList: {
-    paddingBottom: 90,
+    paddingBottom: 120,
   },
   emptyState: {
     backgroundColor: '#FFFFFF',
