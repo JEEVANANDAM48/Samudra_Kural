@@ -5,7 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Robust root directory resolution regardless of where Uvicorn/Python is invoked
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-ENV_FILE_PATH = PROJECT_ROOT / ".env"
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+ENV_FILE_PATH = BACKEND_ROOT / ".env" if (BACKEND_ROOT / ".env").exists() else (PROJECT_ROOT / ".env" if (PROJECT_ROOT / ".env").exists() else PROJECT_ROOT / ".env.example")
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Samudra Kural Backend"
