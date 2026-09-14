@@ -19,6 +19,7 @@ import {
   NavigationTarget,
   getNavigationDetails,
   CalculatedNavigationData,
+  calculateSafeMaritimeRoute,
 } from '../services/navigationService';
 import {
   fetchSectorAdvisory,
@@ -33,6 +34,7 @@ import * as Location from 'expo-location';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { useLanguage } from '../i18n';
 import { checkIBLProximity } from '../services/iblService';
+import { INCOISMapComponent } from '../components/INCOISMapComponent';
 import { speakNativeText } from '../utils/speech';
 
 interface NavigationScreenProps {
@@ -351,14 +353,24 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     }
   };
 
-  // Calculate live navigation metrics
-  const navDetails: CalculatedNavigationData = getNavigationDetails(
+  // Calculate live navigation metrics using Safe Maritime Obstacle-Avoiding Curve Engine
+  const safeNavRoute = calculateSafeMaritimeRoute(
     boatLocation.lat,
     boatLocation.lon,
     activeTarget.latitude,
     activeTarget.longitude,
     boatSpeedKnots
   );
+
+  const navDetails: CalculatedNavigationData = {
+    distance_meters: safeNavRoute.totalDistanceMeters,
+    distance_km: safeNavRoute.totalDistanceKm,
+    distance_nautical_miles: safeNavRoute.totalDistanceNM,
+    bearing_degrees: safeNavRoute.bearingDegrees,
+    direction_cardinal: safeNavRoute.directionCardinal,
+    eta_minutes: safeNavRoute.etaMinutes,
+    formatted_eta: safeNavRoute.formattedEta,
+  };
 
   // Animated compass needle rotation
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -590,6 +602,38 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             </View>
           </>
         )}
+
+        {/* 3.5 INTERACTIVE OCEAN & OBSTACLE-AVOIDANCE SPLINE MAP VIEW */}
+        <INCOISMapComponent
+          center={{ lat: boatLocation.lat, lon: boatLocation.lon }}
+          hotspots={[{
+            id: activeTarget.id,
+            name: activeTarget.name,
+            latitude: activeTarget.latitude,
+            longitude: activeTarget.longitude,
+            sst_celsius: activeTarget.sst_celsius || 27.5,
+            chlorophyll_mg_m3: activeTarget.chlorophyll_mg_m3 || 2.4,
+            depth_meters: activeTarget.depth_meters || 26,
+            target_species: activeTarget.target_species || ['Tuna', 'Sardines'],
+            valid_until: 'Today',
+            reliability_score: activeTarget.reliability_score || '100% High',
+            distance_meters: navDetails.distance_meters,
+          }]}
+          activeLayer="chl"
+          selectedNavigationTarget={{
+            id: activeTarget.id,
+            name: activeTarget.name,
+            latitude: activeTarget.latitude,
+            longitude: activeTarget.longitude,
+            sst_celsius: activeTarget.sst_celsius || 27.5,
+            chlorophyll_mg_m3: activeTarget.chlorophyll_mg_m3 || 2.4,
+            depth_meters: activeTarget.depth_meters || 26,
+            target_species: activeTarget.target_species || ['Tuna', 'Sardines'],
+            valid_until: 'Today',
+            reliability_score: activeTarget.reliability_score || '100% High',
+            distance_meters: navDetails.distance_meters,
+          }}
+        />
 
         {/* 4. Active Destination Card */}
         <View style={styles.targetCard}>

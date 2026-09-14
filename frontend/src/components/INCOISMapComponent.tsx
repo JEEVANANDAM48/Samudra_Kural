@@ -3,7 +3,7 @@ import { View, StyleSheet, Dimensions, Platform, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Clipboard from 'expo-clipboard';
 import { HotspotInfo } from '../services/pfzService';
-import { calculateSafeMaritimeRoute } from '../services/navigationService';
+import { calculateSafeMaritimeRoute, COASTAL_HAZARD_ZONES } from '../services/navigationService';
 import { Colors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -41,6 +41,7 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
     const hotspotsJSON = JSON.stringify(hotspots);
     const targetJSON = selectedNavigationTarget ? JSON.stringify(selectedNavigationTarget) : 'null';
     const safeRouteJSON = safeRoute ? JSON.stringify(safeRoute) : 'null';
+    const hazardZonesJSON = JSON.stringify(COASTAL_HAZARD_ZONES);
 
     return `
       <!DOCTYPE html>
@@ -71,12 +72,12 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
           }
           .popup-title {
             font-weight: 900 !important;
-            font-size: 17px !important;
+            font-size: 16px !important;
             color: #00F5D4 !important;
             margin-bottom: 6px !important;
           }
           .popup-info {
-            font-size: 14px !important;
+            font-size: 13px !important;
             color: #FFFFFF !important;
             line-height: 1.6 !important;
           }
@@ -91,13 +92,13 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
           .popup-score {
             color: #FFD166 !important;
             font-weight: 900 !important;
-            font-size: 15px !important;
+            font-size: 14px !important;
           }
           .copy-btn {
             background: #00F5D4 !important;
             color: #0D2526 !important;
             font-weight: 900 !important;
-            font-size: 13px !important;
+            font-size: 12px !important;
             border: none !important;
             padding: 8px 12px !important;
             border-radius: 8px !important;
@@ -106,9 +107,6 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             width: 100% !important;
             text-align: center !important;
             box-shadow: 0 2px 6px rgba(0,245,212,0.4) !important;
-          }
-          .copy-btn:active {
-            opacity: 0.8;
           }
           .pfz-pin {
             width: 32px;
@@ -124,55 +122,81 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             cursor: pointer;
           }
           .user-pin {
-            width: 34px;
-            height: 34px;
-            background: radial-gradient(circle, #FF4757 35%, #C0392B 90%);
-            border: 2.5px solid #FFFFFF;
+            width: 36px;
+            height: 36px;
+            background: radial-gradient(circle, #00F5D4 35%, #0077B6 90%);
+            border: 3px solid #FFFFFF;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 18px;
-            box-shadow: 0 0 16px rgba(255, 71, 87, 0.9), 0 2px 6px rgba(0,0,0,0.6);
+            box-shadow: 0 0 18px rgba(0, 245, 212, 0.9), 0 2px 6px rgba(0,0,0,0.6);
           }
           .target-pin {
             width: 36px;
             height: 36px;
-            background: radial-gradient(circle, #FFD166 35%, #D4AC0D 90%);
+            background: radial-gradient(circle, #FF4757 35%, #C0392B 90%);
             border: 3px solid #FFFFFF;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 19px;
-            box-shadow: 0 0 18px rgba(255, 209, 102, 1.0), 0 2px 8px rgba(0,0,0,0.7);
-          }
-          .waypoint-pin {
-            width: 28px;
-            height: 28px;
-            background: radial-gradient(circle, #00F5D4 35%, #0077B6 90%);
-            border: 2px solid #FFFFFF;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            box-shadow: 0 0 10px rgba(0, 245, 212, 0.8);
+            box-shadow: 0 0 18px rgba(255, 71, 87, 1.0), 0 2px 8px rgba(0,0,0,0.7);
           }
           .legend-box {
             position: absolute;
             bottom: 16px;
             right: 12px;
             z-index: 1000;
+            background: rgba(13, 37, 38, 0.92);
+            border: 1.5px solid #00F5D4;
+            border-radius: 12px;
+            padding: 10px 14px;
+            color: #FFFFFF;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: sans-serif;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            line-height: 1.8;
+          }
+          .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .legend-color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+          }
+          .map-mode-bar {
+            position: absolute;
+            bottom: 16px;
+            left: 12px;
+            z-index: 1000;
+            display: flex;
+            gap: 6px;
             background: rgba(0, 31, 45, 0.92);
             border: 1.5px solid #00A896;
             border-radius: 10px;
-            padding: 10px 14px;
-            color: #FFFFFF;
-            font-size: 12px;
-            font-weight: 700;
-            font-family: sans-serif;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            padding: 4px;
+          }
+          .mode-btn {
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 800;
+            color: #A0ECED;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+          }
+          .mode-btn.active {
+            background: #00F5D4;
+            color: #0D2526;
           }
           .nav-route-banner {
             position: absolute;
@@ -214,10 +238,6 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             box-shadow: 0 3px 8px rgba(0,0,0,0.4);
             cursor: pointer;
             user-select: none;
-            -webkit-user-select: none;
-          }
-          .zoom-btn:active {
-            background: #00A896;
           }
         </style>
       </head>
@@ -227,10 +247,10 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
         ${
           selectedNavigationTarget && safeRoute
             ? `<div class="nav-route-banner">
-                🛡️ <span style="color:#00F5D4;">OBSTACLE & ROCK AVOIDED MARITIME ROUTE</span><br>
+                🛡️ <span style="color:#00F5D4;">OBSTACLE & UNDERSEA ROCK AVOIDED ROUTE</span><br>
                 📍 <b>Target:</b> ${selectedNavigationTarget.name}<br>
                 📏 <b>Distance:</b> ${safeRoute.totalDistanceNM} NM (${safeRoute.totalDistanceKm} km) | ⏱️ <b>ETA:</b> ${safeRoute.formattedEta}<br>
-                🧭 <b>Course:</b> ${safeRoute.bearingDegrees}° ${safeRoute.directionCardinal} ${safeRoute.hasObstacleAvoidance ? '• <span style="color:#FFD166;">[Deep Water Fairway]</span>' : ''}
+                🧭 <b>Course:</b> ${safeRoute.bearingDegrees}° ${safeRoute.directionCardinal} • <span style="color:#FFD166;">[Smooth Nautical Spline]</span>
               </div>`
             : ''
         }
@@ -239,17 +259,21 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
           <div class="zoom-btn" onclick="map.zoomIn()">+</div>
           <div class="zoom-btn" onclick="map.zoomOut()">−</div>
         </div>
-        <div class="legend-box">
-          <b>INCOIS Layer:</b> ${
-            activeLayer === 'chl'
-              ? '🌱 Chlorophyll-a'
-              : activeLayer === 'sst'
-              ? '🌡️ SST Temp Fronts'
-              : activeLayer === 'bathymetry'
-              ? '⚓ Gebco Bathymetry'
-              : '🚨 International Maritime Boundary (IBL)'
-          }
+
+        <div class="map-mode-bar">
+          <button id="btn-sat" class="mode-btn active" onclick="switchLayer('satellite')">Satellite</button>
+          <button id="btn-std" class="mode-btn" onclick="switchLayer('standard')">Standard</button>
+          <button id="btn-nau" class="mode-btn" onclick="switchLayer('nautical')">Nautical</button>
         </div>
+
+        <div class="legend-box">
+          <div class="legend-item"><span class="legend-color-dot" style="background:#00F5D4;"></span> 🟢 Your Vessel</div>
+          <div class="legend-item"><span style="color:#00F5D4; font-weight:bold;">----</span> Safe Nautical Spline Route</div>
+          <div class="legend-item"><span class="legend-color-dot" style="background:#FF4757;"></span> 🔴 Destination Target</div>
+          <div class="legend-item"><span class="legend-color-dot" style="background:#FF9F43;"></span> 🟧 Restricted Area</div>
+          <div class="legend-item"><span class="legend-color-dot" style="background:#FF4757;"></span> 🟥 Hazard (Shallow Rocks)</div>
+        </div>
+
         <script>
           var map = L.map('map', {
             zoomControl: false,
@@ -258,95 +282,41 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             scrollWheelZoom: true,
             boxZoom: true,
             dragging: true,
-            tap: true,
-            tapTolerance: 15,
-            inertia: true,
-            inertiaDeceleration: 2500,
             attributionControl: false
           }).setView([${center.lat}, ${center.lon}], 9.5);
 
-          // High-Resolution ESRI World Ocean Satellite Base Layer
-          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 18,
-            minZoom: 3
-          }).addTo(map);
+          // Tile Layers
+          var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 });
+          var stdLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+          var nauLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/BathymteryImage/wms', {
+            layers: 'BathymteryImage:gebcobathymtery',
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.0',
+            opacity: 0.85
+          });
 
-          // INCOIS GeoServer WMS Tile Layers
-          var activeWMSLayer;
-          ${
-            activeLayer === 'chl'
-              ? `
-                activeWMSLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms', {
-                  layers: 'PFZ-TUNA-SST-CHL:chl',
-                  format: 'image/png',
-                  transparent: true,
-                  version: '1.1.0',
-                  opacity: 0.75
-                }).addTo(map);
-              `
-              : activeLayer === 'sst'
-              ? `
-                activeWMSLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/PFZ-TUNA-SST-CHL/wms', {
-                  layers: 'PFZ-TUNA-SST-CHL:sst',
-                  format: 'image/png',
-                  transparent: true,
-                  version: '1.1.0',
-                  opacity: 0.70
-                }).addTo(map);
-              `
-              : `
-                activeWMSLayer = L.tileLayer.wms('https://incois.gov.in/geoserver/BathymteryImage/wms', {
-                  layers: 'BathymteryImage:gebcobathymtery',
-                  format: 'image/png',
-                  transparent: true,
-                  version: '1.1.0',
-                  opacity: 0.65
-                }).addTo(map);
-              `
+          var currentBaseLayer = satLayer;
+          satLayer.addTo(map);
+
+          function switchLayer(mode) {
+            map.removeLayer(currentBaseLayer);
+            document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+            if (mode === 'standard') {
+              stdLayer.addTo(map);
+              currentBaseLayer = stdLayer;
+              document.getElementById('btn-std').classList.add('active');
+            } else if (mode === 'nautical') {
+              satLayer.addTo(map);
+              nauLayer.addTo(map);
+              currentBaseLayer = satLayer;
+              document.getElementById('btn-nau').classList.add('active');
+            } else {
+              satLayer.addTo(map);
+              currentBaseLayer = satLayer;
+              document.getElementById('btn-sat').classList.add('active');
+            }
           }
-
-          // International Maritime Boundary Line (IBL) Coordinates & Hazard Layer
-          var iblCoords = [
-            [11.2667, 80.2000],
-            [10.8333, 79.9167],
-            [10.3833, 79.8667],
-            [10.0833, 79.5000],
-            [9.6667, 79.5333],
-            [9.3833, 79.5333],
-            [9.1000, 79.5333],
-            [8.8000, 79.1167],
-            [8.3667, 78.6333]
-          ];
-
-          ${
-            activeLayer === 'ibl'
-              ? `
-                var iblGlow = L.polyline(iblCoords, {
-                  color: '#FF0033',
-                  weight: 8,
-                  opacity: 0.5
-                }).addTo(map);
-
-                var iblPolyline = L.polyline(iblCoords, {
-                  color: '#FF2A2A',
-                  weight: 5,
-                  dashArray: '10, 6',
-                  opacity: 1.0
-                }).addTo(map);
-
-                map.fitBounds(L.polyline(iblCoords).getBounds(), { padding: [40, 40] });
-              `
-              : `
-                var iblPolyline = L.polyline(iblCoords, {
-                  color: '#FF2A2A',
-                  weight: 3.5,
-                  dashArray: '8, 6',
-                  opacity: 0.95
-                }).addTo(map);
-              `
-          }
-
-          iblPolyline.bindPopup("<div class='custom-popup'><div class='popup-title'>🚨 INDIA - SRI LANKA IBL</div><div class='popup-info'>International Maritime Boundary Line.<br>Eastward sector is strictly restricted.</div></div>");
 
           function sendWebMessage(obj) {
             if (window.ReactNativeWebView) {
@@ -358,31 +328,45 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             sendWebMessage({ type: 'COPY_COORDS', lat: lat, lon: lon });
           }
 
-          // 1. Render User GPS Location Pin
+          // 1. Render Undersea Hazard & Shallow Rock Risk Zones
+          var hazardZones = ${hazardZonesJSON};
+          hazardZones.forEach(function(haz) {
+            var strokeColor = haz.type === 'restricted_area' ? '#FF9F43' : '#FF4757';
+            var fillColor = haz.type === 'restricted_area' ? 'rgba(255, 159, 67, 0.25)' : 'rgba(255, 71, 87, 0.28)';
+
+            var circle = L.circle(haz.center, {
+              color: strokeColor,
+              dashArray: '6, 6',
+              weight: 2,
+              fillColor: fillColor,
+              fillOpacity: 0.35,
+              radius: haz.radiusMeters
+            }).addTo(map);
+
+            var iconTxt = haz.type === 'restricted_area' ? '🟧' : '🪨';
+            circle.bindPopup('<div class="custom-popup"><div class="popup-title">' + iconTxt + ' ' + haz.name + '</div><div class="popup-info"><span class="popup-label">Hazard Type:</span> ' + (haz.type === 'restricted_area' ? 'Restricted Zone' : 'Shallow Submerged Rocks') + '<br><span class="popup-label">Min Depth:</span> ' + haz.minDepthMeters + 'm<br><span class="popup-label">Status:</span> 🛡️ Safely Bypassed by Curved Nav Path</div></div>');
+          });
+
+          // 2. Render User GPS Location Pin (Vessel Icon)
           var userIcon = L.divIcon({
             className: 'user-pin-wrapper',
             html: '<div class="user-pin">🚤</div>',
-            iconSize: [34, 34],
-            iconAnchor: [17, 17]
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
           });
           var userMarker = L.marker([${center.lat}, ${center.lon}], { icon: userIcon }).addTo(map);
-          userMarker.bindPopup('<div class="custom-popup"><div class="popup-title">🚤 MY LOCATION (GPS)</div><div class="popup-info"><span class="popup-label">Latitude:</span> <span class="popup-value">${center.lat.toFixed(4)}° N</span><br><span class="popup-label">Longitude:</span> <span class="popup-value">${center.lon.toFixed(4)}° E</span></div><button class="copy-btn" onclick="copyGpsCoords(${center.lat}, ${center.lon})">📋 Copy My GPS (${center.lat.toFixed(4)}, ${center.lon.toFixed(4)})</button></div>');
+          userMarker.bindPopup('<div class="custom-popup"><div class="popup-title">🚤 YOUR VESSEL (GPS)</div><div class="popup-info">Lat: ${center.lat.toFixed(4)}° N, Lon: ${center.lon.toFixed(4)}° E</div></div>');
 
-          // 2. Render Hotspots Custom Markers & INCOIS PFZ Vector Boundary Lines
+          // 3. Render Hotspots Custom Markers & Target Pin
           var hotspots = ${hotspotsJSON};
           var navTarget = ${targetJSON};
           var safeRouteData = ${safeRouteJSON};
           var markerGroup = L.featureGroup();
-          var sectorGroups = {};
 
           hotspots.forEach(function(spot) {
-            var secId = spot.id.split('-')[0];
-            if (!sectorGroups[secId]) sectorGroups[secId] = [];
-            sectorGroups[secId].push([spot.latitude, spot.longitude]);
-
             var isSelectedTarget = navTarget && navTarget.id === spot.id;
             var pinClass = isSelectedTarget ? 'target-pin' : 'pfz-pin';
-            var pinIcon = isSelectedTarget ? '🎯' : '🐟';
+            var pinIcon = isSelectedTarget ? '🔴' : '🐟';
 
             var icon = L.divIcon({
               className: 'pfz-pin-wrapper',
@@ -394,81 +378,39 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             var marker = L.marker([spot.latitude, spot.longitude], { icon: icon });
             markerGroup.addLayer(marker);
 
-            var popupContent = '<div class="custom-popup">' +
-              '<div class="popup-title">' + pinIcon + ' ' + spot.name + '</div>' +
-              '<div class="popup-info">' +
-                '<span class="popup-label">📍 Latitude:</span> <span class="popup-value">' + spot.latitude + '° N</span><br>' +
-                '<span class="popup-label">📍 Longitude:</span> <span class="popup-value">' + spot.longitude + '° E</span><br>' +
-                '<span class="popup-label">⚓ Depth:</span> <span class="popup-value">' + spot.depth_meters + 'm</span><br>' +
-                '<span class="popup-label">⏱️ Validity:</span> <span class="popup-value">' + spot.valid_until + '</span><br>' +
-                '<span class="popup-label">🎯 Reliability:</span> <span class="popup-score">' + spot.reliability_score + '</span>' +
-              '</div>' +
-              '<button class="copy-btn" onclick="copyGpsCoords(' + spot.latitude + ', ' + spot.longitude + ')">📋 Copy GPS (' + spot.latitude + ', ' + spot.longitude + ')</button>' +
-            '</div>';
-
-            marker.bindPopup(popupContent);
-
-            marker.on('click', function() {
-              sendWebMessage({ type: 'HOTSPOT_SELECT', data: spot });
-            });
+            marker.bindPopup('<div class="custom-popup"><div class="popup-title">' + spot.name + '</div><div class="popup-info">Lat: ' + spot.latitude + '° N, Lon: ' + spot.longitude + '° E<br>Depth: ' + spot.depth_meters + 'm</div></div>');
+            marker.on('click', function() { sendWebMessage({ type: 'HOTSPOT_SELECT', data: spot }); });
           });
 
           markerGroup.addTo(map);
 
-          // 3. Render Safe Obstacle-Avoiding Maritime Polyline & Waypoints
+          // 4. Render Smooth Curved Bezier Nautical Polyline & Spline Trajectory
           if (safeRouteData && safeRouteData.waypoints && safeRouteData.waypoints.length > 0) {
-            // Background Glow Line
+            // Background Glow Spline
             var routeGlow = L.polyline(safeRouteData.waypoints, {
               color: '#00F5D4',
-              weight: 8,
-              opacity: 0.45
+              weight: 9,
+              opacity: 0.40,
+              lineCap: 'round',
+              lineJoin: 'round'
             }).addTo(map);
 
-            // Front Nautical Dashed Line
+            // Front Curved Dashed Polyline
             var routeLine = L.polyline(safeRouteData.waypoints, {
               color: '#00F5D4',
-              weight: 4,
+              weight: 4.5,
               dashArray: '8, 8',
-              opacity: 0.95
+              opacity: 0.95,
+              lineCap: 'round',
+              lineJoin: 'round'
             }).addTo(map);
 
-            routeLine.bindPopup('<div class="custom-popup"><div class="popup-title">🛡️ Safe Maritime Navigation Channel</div><div class="popup-info">Obstacle & Rock Avoided Route<br>Distance: ' + safeRouteData.totalDistanceNM + ' NM | ETA: ' + safeRouteData.formattedEta + '</div></div>');
+            routeLine.bindPopup('<div class="custom-popup"><div class="popup-title">🛡️ Obstacle-Free Nautical Spline</div><div class="popup-info">Distance: ' + safeRouteData.totalDistanceNM + ' NM | ETA: ' + safeRouteData.formattedEta + '</div></div>');
 
-            // Render intermediate Waypoint Pins (Harbour exit, Coastal bypass points)
-            if (safeRouteData.detailedWaypoints) {
-              safeRouteData.detailedWaypoints.forEach(function(wp) {
-                if (wp.type === 'harbor_exit' || wp.type === 'rock_avoidance') {
-                  var wpSymbol = wp.type === 'harbor_exit' ? '⚓' : '🪨';
-                  var wpIcon = L.divIcon({
-                    className: 'wp-pin-wrapper',
-                    html: '<div class="waypoint-pin">' + wpSymbol + '</div>',
-                    iconSize: [28, 28],
-                    iconAnchor: [14, 14]
-                  });
-                  var wpMarker = L.marker([wp.latitude, wp.longitude], { icon: wpIcon }).addTo(map);
-                  wpMarker.bindPopup('<div class="custom-popup"><div class="popup-title">' + wpSymbol + ' ' + wp.name + '</div><div class="popup-info">Safe Nautical Waypoint<br>Lat: ' + wp.latitude.toFixed(4) + '°N, Lon: ' + wp.longitude.toFixed(4) + '°E</div></div>');
-                }
-              });
-            }
-
-            // Auto-fit bounds to show full safe route on map!
+            // Auto-fit bounds to show full safe curved route on map!
             var routeBounds = L.latLngBounds(safeRouteData.waypoints);
-            map.fitBounds(routeBounds, { padding: [50, 50] });
+            map.fitBounds(routeBounds, { padding: [45, 45] });
           }
-
-          // Draw INCOIS PFZ Convergence Vector Lines for all sectors
-          Object.keys(sectorGroups).forEach(function(secId) {
-            var coords = sectorGroups[secId];
-            if (coords.length > 1) {
-              coords.sort(function(a, b) { return a[0] - b[0]; });
-              var polyline = L.polyline(coords, {
-                color: '#3498DB',
-                weight: 1.5,
-                dashArray: '4, 4',
-                opacity: 0.60
-              }).addTo(map);
-            }
-          });
         </script>
       </body>
       </html>

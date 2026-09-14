@@ -135,6 +135,70 @@ export interface MaritimeWaypoint {
   type: 'start' | 'harbor_exit' | 'rock_avoidance' | 'destination';
 }
 
+export interface MaritimeHazardZone {
+  id: string;
+  name: string;
+  type: 'shallow_rock' | 'restricted_area' | 'breakwater_hazard';
+  center: [number, number];
+  radiusMeters: number;
+  minDepthMeters: number;
+  description: string;
+  severity: 'high' | 'medium';
+}
+
+export const COASTAL_HAZARD_ZONES: MaritimeHazardZone[] = [
+  {
+    id: 'haz-kasimedu-rocks',
+    name: 'Kasimedu Submerged Reefs & Boulders',
+    type: 'shallow_rock',
+    center: [13.128, 80.305],
+    radiusMeters: 1400,
+    minDepthMeters: 4.5,
+    description: 'Submerged breakwater boulders & shallow rocky reef (Depth < 5m)',
+    severity: 'high',
+  },
+  {
+    id: 'haz-ennore-shoal',
+    name: 'Ennore Thermal Shoal & Submerged Rocks',
+    type: 'shallow_rock',
+    center: [13.235, 80.342],
+    radiusMeters: 2200,
+    minDepthMeters: 6.0,
+    description: 'Submerged granite rocks & silted shoal area',
+    severity: 'high',
+  },
+  {
+    id: 'haz-pulicat-sandbars',
+    name: 'Pulicat Outer Barrier Reef & Sandbars',
+    type: 'shallow_rock',
+    center: [13.410, 80.345],
+    radiusMeters: 2800,
+    minDepthMeters: 3.8,
+    description: 'Shallow shifting sandbars & rocky coral ledges',
+    severity: 'high',
+  },
+  {
+    id: 'haz-covelong-reef',
+    name: 'Kovalam / Covelong Point Outer Reef',
+    type: 'shallow_rock',
+    center: [12.795, 80.265],
+    radiusMeters: 1800,
+    minDepthMeters: 5.2,
+    description: 'Rocky headland reef extension (Depth < 6m)',
+    severity: 'medium',
+  },
+  {
+    id: 'haz-chennai-restricted',
+    name: 'Chennai Naval Port Restricted Anchorage Zone',
+    type: 'restricted_area',
+    center: [13.090, 80.315],
+    radiusMeters: 2000,
+    minDepthMeters: 12.0,
+    description: 'Military & commercial vessel restricted fairway',
+    severity: 'high',
+  },
+];
+
 export interface SafeMaritimeRouteResult {
   waypoints: Array<[number, number]>;
   detailedWaypoints: MaritimeWaypoint[];
@@ -149,6 +213,85 @@ export interface SafeMaritimeRouteResult {
 }
 
 /**
+ * Smooth Cubic Bezier Spline interpolation for organic, curved nautical fairway trajectories.
+ */
+function interpolateCubicBezierPath(
+  controlPoints: Array<[number, number]>,
+  totalSteps: number = 40
+): Array<[number, number]> {
+  if (controlPoints.length < 2) return controlPoints;
+
+  const result: Array<[number, number]> = [];
+
+  if (controlPoints.length === 2) {
+    const p0 = controlPoints[0];
+    const p3 = controlPoints[1];
+    const midLat = (p0[0] + p3[0]) / 2;
+    const maxLon = Math.max(p0[1], p3[1]);
+    const minLon = Math.min(p0[1], p3[1]);
+    const offset = Math.max(0.045, (maxLon - minLon) * 0.8 + 0.035);
+
+    const p1: [number, number] = [p0[0] + (midLat - p0[0]) * 0.4, p0[1] + offset];
+    const p2: [number, number] = [midLat + (p3[0] - midLat) * 0.6, p3[1] + offset];
+
+    for (let i = 0; i <= totalSteps; i++) {
+      const t = i / totalSteps;
+      const oneMinusT = 1 - t;
+      const lat =
+        oneMinusT * oneMinusT * oneMinusT * p0[0] +
+        3 * oneMinusT * oneMinusT * t * p1[0] +
+        3 * oneMinusT * t * t * p2[0] +
+        t * t * t * p3[0];
+      const lon =
+        oneMinusT * oneMinusT * oneMinusT * p0[1] +
+        3 * oneMinusT * oneMinusT * t * p1[1] +
+        3 * oneMinusT * t * t * p2[1] +
+        t * t * t * p3[1];
+      result.push([Number(lat.toFixed(5)), Number(lon.toFixed(5))]);
+    }
+    return result;
+  }
+
+  const segments = controlPoints.length - 1;
+  const stepsPerSeg = Math.ceil(totalSteps / segments);
+
+  for (let i = 0; i < segments; i++) {
+    const p0 = controlPoints[i];
+    const p3 = controlPoints[i + 1];
+
+    const dLat = p3[0] - p0[0];
+    const dLon = p3[1] - p0[1];
+
+    const p1: [number, number] = [
+      p0[0] + dLat * 0.35,
+      p0[1] + (dLon > 0 ? Math.max(0.025, dLon * 0.6) : Math.min(-0.010, dLon * 0.4)),
+    ];
+    const p2: [number, number] = [
+      p3[0] - dLat * 0.35,
+      p3[1] + (dLon > 0 ? Math.max(0.025, dLon * 0.4) : Math.min(-0.010, dLon * 0.6)),
+    ];
+
+    for (let s = 0; s < stepsPerSeg; s++) {
+      const t = s / stepsPerSeg;
+      const oneMinusT = 1 - t;
+      const lat =
+        oneMinusT * oneMinusT * oneMinusT * p0[0] +
+        3 * oneMinusT * oneMinusT * t * p1[0] +
+        3 * oneMinusT * t * t * p2[0] +
+        t * t * t * p3[0];
+      const lon =
+        oneMinusT * oneMinusT * oneMinusT * p0[1] +
+        3 * oneMinusT * oneMinusT * t * p1[1] +
+        3 * oneMinusT * t * t * p2[1] +
+        t * t * t * p3[1];
+      result.push([Number(lat.toFixed(5)), Number(lon.toFixed(5))]);
+    }
+  }
+  result.push(controlPoints[controlPoints.length - 1]);
+  return result;
+}
+
+/**
  * Calculates a safe, obstacle-avoiding maritime route between fisherman location and target zone.
  * Avoids landmass, headlands, shallow coastal breakwaters, and rocky shoals.
  */
@@ -159,16 +302,16 @@ export function calculateSafeMaritimeRoute(
   targetLon: number,
   speedKnots: number = 8.5
 ): SafeMaritimeRouteResult {
-  // Helper for safe ocean longitude at a given latitude along Tamil Nadu / Coromandel coast
   const getSafeOceanLon = (lat: number): number => {
-    if (lat >= 13.30) return 80.380; // Pulicat Reefs & Barrier Islands Bypass
-    if (lat >= 13.15) return 80.365; // Ennore Port & Breakwater Bypass
-    if (lat >= 13.00) return 80.345; // Kasimedu & Chennai Port Fairway Corridor
-    if (lat >= 12.50) return 80.290; // Covelong & Mahabalipuram Reef Bypass
-    return Math.max(80.280, startLon);
+    if (lat >= 13.30) return 80.385;
+    if (lat >= 13.15) return 80.370;
+    if (lat >= 13.00) return 80.350;
+    if (lat >= 12.50) return 80.295;
+    return Math.max(80.285, startLon);
   };
 
   const waypointsList: MaritimeWaypoint[] = [];
+  const keyControlPoints: Array<[number, number]> = [];
   let hasObstacleAvoidance = false;
 
   // Add Start Point
@@ -178,70 +321,55 @@ export function calculateSafeMaritimeRoute(
     longitude: startLon,
     type: 'start',
   });
+  keyControlPoints.push([startLat, startLon]);
 
-  // Check 1: If start position is inside harbor or nearshore (west of safe ocean longitude)
+  // Check 1: If start position is inside harbor or nearshore
   const startSafeLon = getSafeOceanLon(startLat);
   if (startLon < startSafeLon) {
     hasObstacleAvoidance = true;
+    const fairwayLat = startLat + (targetLat >= startLat ? 0.006 : -0.006);
+    const fairwayLon = startSafeLon + 0.015;
     waypointsList.push({
       name: 'Kasimedu Fairway Channel Exit',
-      latitude: startLat + 0.003,
-      longitude: startSafeLon,
+      latitude: fairwayLat,
+      longitude: fairwayLon,
       type: 'harbor_exit',
     });
+    keyControlPoints.push([fairwayLat, fairwayLon]);
   }
 
-  // Check 2: Sample intermediate latitudes between start and target to detect coastline / rock clipping
-  const lastWp = waypointsList[waypointsList.length - 1];
-  const latDiff = targetLat - lastWp.latitude;
-  const steps = 4;
+  // Check 2: Intermediate coastal avoidance
+  const lastP = keyControlPoints[keyControlPoints.length - 1];
+  const latDiff = targetLat - lastP[0];
 
-  if (Math.abs(latDiff) > 0.02) {
-    for (let i = 1; i < steps; i++) {
-      const sampleLat = lastWp.latitude + (latDiff * (i / steps));
-      const straightLon = lastWp.longitude + ((targetLon - lastWp.longitude) * (i / steps));
-      const requiredSafeLon = getSafeOceanLon(sampleLat);
+  if (Math.abs(latDiff) > 0.015) {
+    const sampleLat = lastP[0] + latDiff * 0.5;
+    const requiredSafeLon = getSafeOceanLon(sampleLat);
+    const bypassLon = Math.max(requiredSafeLon + 0.025, Math.max(startLon, targetLon) + 0.020);
 
-      // If straight route clips land/rocks or gets too close to shore:
-      if (straightLon < requiredSafeLon + 0.005) {
-        hasObstacleAvoidance = true;
-        const bypassLon = Math.max(requiredSafeLon + 0.010, targetLon);
-        waypointsList.push({
-          name: `Coastal Rock & Shoal Bypass (${sampleLat.toFixed(3)}°N)`,
-          latitude: sampleLat,
-          longitude: bypassLon,
-          type: 'rock_avoidance',
-        });
-        break;
-      }
-    }
+    hasObstacleAvoidance = true;
+    waypointsList.push({
+      name: `Deep Water Fairway (${sampleLat.toFixed(3)}°N)`,
+      latitude: sampleLat,
+      longitude: bypassLon,
+      type: 'rock_avoidance',
+    });
+    keyControlPoints.push([sampleLat, bypassLon]);
   }
 
-  // Add Final Target Point
+  // Add Target Point
   waypointsList.push({
     name: 'Target Fishing Zone',
     latitude: targetLat,
     longitude: targetLon,
     type: 'destination',
   });
+  keyControlPoints.push([targetLat, targetLon]);
 
-  // Interpolate smooth dense points along waypoints for realistic nautical curve rendering
-  const polylineCoords: Array<[number, number]> = [];
-  for (let i = 0; i < waypointsList.length - 1; i++) {
-    const p1 = waypointsList[i];
-    const p2 = waypointsList[i + 1];
+  // Generate smooth cubic Bezier curved trajectory
+  const polylineCoords = interpolateCubicBezierPath(keyControlPoints, 45);
 
-    const subSteps = 6;
-    for (let s = 0; s < subSteps; s++) {
-      const ratio = s / subSteps;
-      const interpLat = p1.latitude + (p2.latitude - p1.latitude) * ratio;
-      const interpLon = p1.longitude + (p2.longitude - p1.longitude) * ratio;
-      polylineCoords.push([Number(interpLat.toFixed(5)), Number(interpLon.toFixed(5))]);
-    }
-  }
-  polylineCoords.push([Number(targetLat.toFixed(5)), Number(targetLon.toFixed(5))]);
-
-  // Calculate total distance along the safe polyline path
+  // Calculate total distance along the smooth curve
   let totalMeters = 0;
   for (let i = 0; i < polylineCoords.length - 1; i++) {
     totalMeters += calculateHaversineDistance(
