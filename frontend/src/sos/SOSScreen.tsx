@@ -383,8 +383,8 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         <Text style={styles.boatsDisclaimer}>
           Vessels in proximity (Registered alert grid):
         </Text>
-        {nearbyBoats.slice(0, 4).map((boat) => (
-          <View key={boat.id} style={styles.boatRow}>
+        {nearbyBoats.slice(0, 4).map((boat, index) => (
+          <View key={`${boat.id}_${index}`} style={styles.boatRow}>
             <View style={styles.boatMainCol}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <Text style={styles.boatIcon}>⛵</Text>
@@ -455,21 +455,29 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </Text>
       </View>
 
-      {/* 2. Main 3-Second Hold SOS Button (PLACED AT TOP ABOVE SYSTEM STATUS) */}
+      {/* 2. Main 3-Second Hold SOS Button (BEFORE SOS ACTIVATION) */}
       {(sosStatus === 'idle' ||
         sosStatus === 'getting_location' ||
         sosStatus === 'checking_connection' ||
         sosStatus === 'sending' ||
         sosStatus === 'cancelled' ||
         sosStatus === 'error') && (
-        <SOSButton
-          onHoldSuccess={handleSOSTriggered}
-          disabled={
-            sosStatus === 'getting_location' ||
-            sosStatus === 'checking_connection' ||
-            sosStatus === 'sending'
-          }
-        />
+        <>
+          <SOSButton
+            onHoldSuccess={handleSOSTriggered}
+            disabled={
+              sosStatus === 'getting_location' ||
+              sosStatus === 'checking_connection' ||
+              sosStatus === 'sending'
+            }
+          />
+
+          {/* Optional Emergency Category Selector (PLACED RIGHT BELOW SOS BUTTON) */}
+          <SOSEmergencyTypeSelector
+            selectedType={emergencyType}
+            onSelectType={(type) => setEmergencyType(type)}
+          />
+        </>
       )}
 
       {/* Status Message / Progress Feedback */}
@@ -542,16 +550,7 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </View>
       )}
 
-      {/* 3. System Status Card */}
-      <SOSStatusCard
-        gpsAvailable={gpsAvailable}
-        communicationStatus={communicationStatus}
-        batteryLevel={realBatteryLevel}
-        sosId={activeSOSPacket?.id || pendingSOSPacket?.id}
-        isPending={sosStatus === 'pending'}
-      />
-
-      {/* 4. ACTIVE SOS VIEW */}
+      {/* 3. ACTIVE SOS VIEW (PLACED MOVED UP ABOVE SYSTEM STATUS CARD) */}
       {sosStatus === 'active' && activeSOSPacket && (
         <View style={styles.activeContainer}>
           <View style={[styles.activeBanner, activeMission?.status === 'COMPLETED' && { backgroundColor: '#1E824C', borderColor: '#145A32' }]}>
@@ -665,7 +664,7 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </View>
       )}
 
-      {/* 5. PENDING SOS VIEW (OFFLINE) */}
+      {/* 4. PENDING SOS VIEW (OFFLINE) */}
       {sosStatus === 'pending' && (
         <View style={styles.pendingContainer}>
           <View style={styles.pendingBanner}>
@@ -696,7 +695,16 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </View>
       )}
 
-      {/* 6. IDLE & IN-PROGRESS POSITION AND CATEGORY CARDS */}
+      {/* 5. System Status Card (MOVED DOWN BELOW EMERGENCY SOS IS ACTIVE CARD IN ACTIVE STATE) */}
+      <SOSStatusCard
+        gpsAvailable={gpsAvailable}
+        communicationStatus={communicationStatus}
+        batteryLevel={realBatteryLevel}
+        sosId={activeSOSPacket?.id || pendingSOSPacket?.id}
+        isPending={sosStatus === 'pending'}
+      />
+
+      {/* 6. IDLE & IN-PROGRESS POSITION CARDS */}
       {(sosStatus === 'idle' ||
         sosStatus === 'getting_location' ||
         sosStatus === 'checking_connection' ||
@@ -716,12 +724,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
 
           {/* Live Nearby Registered Boats */}
           {renderNearbyBoatsCard()}
-
-          {/* Optional Emergency Category Selector */}
-          <SOSEmergencyTypeSelector
-            selectedType={emergencyType}
-            onSelectType={(type) => setEmergencyType(type)}
-          />
         </View>
       )}
 
