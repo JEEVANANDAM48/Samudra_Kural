@@ -29,11 +29,15 @@ export const CGMissionDetailsScreen: React.FC<CGMissionDetailsScreenProps> = ({
   const [logNote, setLogNote] = useState<string>('');
 
   useEffect(() => {
-    fetchMission();
+    fetchMission(false);
+    const timer = setInterval(() => {
+      fetchMission(true);
+    }, 3000);
+    return () => clearInterval(timer);
   }, [missionId]);
 
-  const fetchMission = async () => {
-    setLoading(true);
+  const fetchMission = async (isSilent: boolean = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const data = await coastalGuardService.getMissionDetail(missionId);
       setMission(data);

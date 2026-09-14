@@ -28,11 +28,15 @@ export const CGRescueMissionsScreen: React.FC<CGRescueMissionsScreenProps> = ({
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'COMPLETED' | 'CANCELLED'>('ACTIVE');
 
   useEffect(() => {
-    fetchMissions();
+    fetchMissions(false);
+    const timer = setInterval(() => {
+      fetchMissions(true);
+    }, 3000);
+    return () => clearInterval(timer);
   }, [activeTab]);
 
-  const fetchMissions = async () => {
-    setLoading(true);
+  const fetchMissions = async (isSilent: boolean = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const data = await coastalGuardService.getMissions(activeTab);
       setMissions(data);

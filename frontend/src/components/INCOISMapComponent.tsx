@@ -11,7 +11,7 @@ const MAP_HEIGHT = 580;
 interface INCOISMapComponentProps {
   center: { lat: number; lon: number };
   hotspots: HotspotInfo[];
-  activeLayer: 'chl' | 'sst' | 'bathymetry';
+  activeLayer: 'chl' | 'sst' | 'bathymetry' | 'ibl';
   selectedNavigationTarget?: HotspotInfo | null;
   onNavigateToHotspot?: (hotspot: HotspotInfo) => void;
   onSelectHotspot?: (hotspot: HotspotInfo) => void;
@@ -220,7 +220,9 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
               ? '🌱 Chlorophyll-a'
               : activeLayer === 'sst'
               ? '🌡️ SST Temp Fronts'
-              : '⚓ Gebco Bathymetry'
+              : activeLayer === 'bathymetry'
+              ? '⚓ Gebco Bathymetry'
+              : '🚨 International Maritime Boundary (IBL)'
           }
         </div>
         <script>
@@ -291,14 +293,36 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             [8.3667, 78.6333]
           ];
 
-          var iblPolyline = L.polyline(iblCoords, {
-            color: '#FF2A2A',
-            weight: 3.5,
-            dashArray: '8, 6',
-            opacity: 0.95
-          }).addTo(map);
+          ${
+            activeLayer === 'ibl'
+              ? `
+                var iblGlow = L.polyline(iblCoords, {
+                  color: '#FF0033',
+                  weight: 8,
+                  opacity: 0.5
+                }).addTo(map);
 
-          iblPolyline.bindPopup("<div class='custom-popup'><div class='popup-title'>🚨 INDIA - SRI LANKA IBL</div><div class='popup-info'>International Maritime Boundary Line.<br>Crossing eastward is strictly restricted.</div></div>");
+                var iblPolyline = L.polyline(iblCoords, {
+                  color: '#FF2A2A',
+                  weight: 5,
+                  dashArray: '10, 6',
+                  opacity: 1.0
+                }).addTo(map);
+
+                // Fit bounds to show full International Maritime Boundary Line when selected
+                map.fitBounds(L.polyline(iblCoords).getBounds(), { padding: [40, 40] });
+              `
+              : `
+                var iblPolyline = L.polyline(iblCoords, {
+                  color: '#FF2A2A',
+                  weight: 3.5,
+                  dashArray: '8, 6',
+                  opacity: 0.95
+                }).addTo(map);
+              `
+          }
+
+          iblPolyline.bindPopup("<div class='custom-popup'><div class='popup-title'>🚨 INDIA - SRI LANKA IBL</div><div class='popup-info'>International Maritime Boundary Line.<br>Eastward sector is strictly restricted.</div></div>");
 
           function sendWebMessage(obj) {
             if (window.ReactNativeWebView) {

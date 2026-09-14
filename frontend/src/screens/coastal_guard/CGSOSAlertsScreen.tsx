@@ -20,23 +20,59 @@ interface CGSOSAlertsScreenProps {
   hideTopHeader?: boolean;
 }
 
+const INITIAL_SOS_ALERTS: SOSAlertItem[] = [
+  {
+    id: 1,
+    fisherman: { name: 'Karthik Raja', phone: '+91 98401 23456', home_port: 'Chennai Harbour' },
+    boat: { name: 'Sea Star', registration: 'IND-TN-02-MM-4412', vessel_type: 'Mechanized Trawler' },
+    latitude: 13.1250,
+    longitude: 80.4120,
+    emergency_type: 'Engine Failure',
+    description: 'Main diesel engine failed 14km offshore. Drifting NE with 4 crew members.',
+    people_affected: 4,
+    priority: 'CRITICAL',
+    status: 'NEW',
+    distance_to_nearest_port_km: 14.2,
+    created_at: new Date(Date.now() - 10 * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    fisherman: { name: 'Murugan Swamy', phone: '+91 97890 54321', home_port: 'Kattupalli Port' },
+    boat: { name: 'Kadal Kanni', registration: 'IND-TN-02-MM-1890', vessel_type: 'Gillnetter' },
+    latitude: 13.2980,
+    longitude: 80.3540,
+    emergency_type: 'Medical',
+    description: 'Crew member hand injury from winch gear. Medevac requested.',
+    people_affected: 1,
+    priority: 'CRITICAL',
+    status: 'ACKNOWLEDGED',
+    distance_to_nearest_port_km: 18.6,
+    created_at: new Date(Date.now() - 45 * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export const CGSOSAlertsScreen: React.FC<CGSOSAlertsScreenProps> = ({
   onSelectAlert,
   onBack,
   hideTopHeader = false,
 }) => {
-  const [alerts, setAlerts] = useState<SOSAlertItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [alerts, setAlerts] = useState<SOSAlertItem[]>(INITIAL_SOS_ALERTS);
+  const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     fetchAlerts();
+    const timer = setInterval(() => {
+      fetchAlerts();
+    }, 3000);
+    return () => clearInterval(timer);
   }, [activeFilter, searchQuery]);
 
   const fetchAlerts = async () => {
-    setLoading(true);
     try {
       const data = await coastalGuardService.getSOSAlerts(
         activeFilter,

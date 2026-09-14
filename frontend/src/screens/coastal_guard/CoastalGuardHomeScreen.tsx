@@ -27,6 +27,8 @@ import { coastalGuardService, SOSAlertItem } from '../../services/coastalGuardSe
 import { getCGOfficerSession, CGOfficerUser } from '../../storage/storage';
 import { CoastalGuardOfficer } from '../../types';
 
+import { speakNativeText, playEmergencyBuzzerSound } from '../../utils/speech';
+
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
 
@@ -48,6 +50,7 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
   const [officer, setOfficer] = useState<any | null>(null);
   const [latestEmergency, setLatestEmergency] = useState<SOSAlertItem | null>(null);
   const [activeSOSCount, setActiveSOSCount] = useState<number>(0);
+  const announcedSOSIdsRef = useRef<Set<number>>(new Set());
 
   const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
 
@@ -71,9 +74,18 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
       const activeAlerts = allAlerts.filter(a => a.status !== 'RESOLVED' && a.status !== 'CANCELLED');
       setActiveSOSCount(activeAlerts.length);
 
-      const unacknowledged = activeAlerts.find(a => a.status === 'NEW');
-      if (unacknowledged) {
-        setLatestEmergency(unacknowledged);
+      const emergency = activeAlerts.find(a => a.status === 'NEW') || activeAlerts[0];
+      if (emergency) {
+        setLatestEmergency(emergency);
+        // Play loud emergency siren buzzer sound + voice alert for active emergency if not announced yet
+        if (!announcedSOSIdsRef.current.has(emergency.id)) {
+          announcedSOSIdsRef.current.add(emergency.id);
+          playEmergencyBuzzerSound();
+          setTimeout(() => {
+            const alertMessage = `Emergency SOS Alert! ${emergency.emergency_type} distress signal received from ${emergency.fisherman?.name || 'Fisherman'}. Vessel ${emergency.boat?.name || 'Sea King'}. Immediate rescue required.`;
+            speakNativeText(alertMessage, 'en');
+          }, 1400);
+        }
       } else {
         setLatestEmergency(null);
       }
@@ -120,6 +132,14 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
     setActiveSubScreen('main');
   };
 
+  const [navTick, setNavTick] = useState<number>(0);
+
+  const handleTabChange = (tab: CGTab) => {
+    setActiveTab(tab);
+    setActiveSubScreen('main');
+    setNavTick((t) => t + 1);
+  };
+
   const isMainScreen = activeSubScreen === 'main';
   const officerDisplayName = officer
     ? `${officer.rank ? officer.rank + ' ' : ''}${officer.name}`
@@ -154,7 +174,7 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
         </View>
       )}
 
-      {/* Real-time Emergency Broadcast Notification Banner for ALL Coastal Guard Officers */}
+      {/* Real-time Emergency Broadcast Notification Banner with Siren Sound Button */}
       {isMainScreen && latestEmergency && (
         <TouchableOpacity
           activeOpacity={0.9}
@@ -173,6 +193,20 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
               📍 {latestEmergency.latitude.toFixed(4)}° N, {latestEmergency.longitude.toFixed(4)}° E
             </Text>
           </View>
+          <TouchableOpacity
+            style={styles.sirenSoundBtn}
+            activeOpacity={0.7}
+            onPress={(e) => {
+              e.stopPropagation();
+              playEmergencyBuzzerSound();
+              setTimeout(() => {
+                const alertMsg = `Emergency Alert: ${latestEmergency.emergency_type} signal from ${latestEmergency.fisherman?.name || 'Fisherman'}.`;
+                speakNativeText(alertMsg, 'en');
+              }, 1200);
+            }}
+          >
+            <Text style={styles.sirenSoundBtnTxt}>🔊 SIREN</Text>
+          </TouchableOpacity>
           <View style={styles.sosNotificationActionBtn}>
             <Text style={styles.sosNotificationActionTxt}>VIEW ➔</Text>
           </View>
@@ -211,21 +245,23 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
           />
         )}
 
-        {/* 2. MAIN TAB SCREENS (with hideTopHeader={true}) */}
+        {/* 2. MAIN TAB SCREENS with Instant Auto-Reload Navigation Keys */}
         {isMainScreen && activeTab === 'dashboard' && (
           <CGDashboardScreen
+            key={`dashboard_tab_${navTick}`}
             hideTopHeader={true}
-            onNavigateToSOSList={() => setActiveTab('alerts')}
+            onNavigateToSOSList={() => handleTabChange('alerts')}
             onNavigateToSOSDetail={handleOpenSOSDetail}
-            onNavigateToMissions={() => setActiveTab('missions')}
+            onNavigateToMissions={() => handleTabChange('missions')}
             onNavigateToMarineMap={() => setActiveSubScreen('marine_map')}
-            onNavigateToMarineData={() => setActiveTab('marine')}
-            onOpenProfile={() => setActiveTab('profile')}
+            onNavigateToMarineData={() => handleTabChange('marine')}
+            onOpenProfile={() => handleTabChange('profile')}
           />
         )}
 
         {isMainScreen && activeTab === 'alerts' && (
           <CGSOSAlertsScreen
+            key={`alerts_tab_${navTick}`}
             hideTopHeader={true}
             onSelectAlert={handleOpenSOSDetail}
           />
@@ -233,6 +269,7 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
 
         {isMainScreen && activeTab === 'missions' && (
           <CGRescueMissionsScreen
+            key={`missions_tab_${navTick}`}
             hideTopHeader={true}
             onSelectMission={handleOpenMissionDetail}
           />
@@ -240,12 +277,14 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
 
         {isMainScreen && activeTab === 'marine' && (
           <CGMarineConditionsScreen
+            key={`marine_tab_${navTick}`}
             hideTopHeader={true}
           />
         )}
 
         {isMainScreen && activeTab === 'profile' && (
           <CGProfileScreen
+            key={`profile_tab_${navTick}`}
             hideTopHeader={true}
             onLogout={onLogout}
             onSwitchToFishermanView={onSwitchToFishermanView}
@@ -257,10 +296,7 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
       {isMainScreen && (
         <CoastalGuardNavBar
           activeTab={activeTab}
-          onTabPress={(tab) => {
-            setActiveTab(tab);
-            setActiveSubScreen('main');
-          }}
+          onTabPress={handleTabChange}
           activeSOSCount={activeSOSCount || 2}
         />
       )}
@@ -283,9 +319,9 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
             ]}
           >
             <SafeAreaView style={{ flex: 1 }}>
-              {/* Drawer Header */}
+              {/* Drawer Header matching screenshot */}
               <View style={styles.drawerHeader}>
-                <Text style={styles.drawerHeaderTitle}>Officer Menu & Profile</Text>
+                <Text style={styles.drawerHeaderTitle}>Menu & Profile</Text>
                 <TouchableOpacity
                   onPress={closeMenuDrawer}
                   style={styles.closeButton}
@@ -295,18 +331,31 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
               </View>
 
               <ScrollView contentContainerStyle={styles.drawerBody} showsVerticalScrollIndicator={false}>
-                {/* Profile Section */}
+                {/* Pale Blue Bordered Profile Info Card matching screenshot */}
                 <View style={styles.profileSection}>
-                  <View style={styles.profileAvatar}>
-                    <Text style={styles.avatarText}>👮</Text>
+                  {/* Avatar Container with Settings Gear */}
+                  <View style={styles.avatarRowWrapper}>
+                    <View style={styles.profileAvatar}>
+                      <Text style={styles.avatarText}>👤</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.settingsGearBtn}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        closeMenuDrawer();
+                        setActiveTab('profile');
+                      }}
+                    >
+                      <Text style={styles.settingsGearIcon}>⚙️</Text>
+                    </TouchableOpacity>
                   </View>
 
                   <View style={styles.verifiedBadgeDrawer}>
-                    <Text style={styles.verifiedBadgeDrawerTxt}>✓ Authorized Coastal Guard</Text>
+                    <Text style={styles.verifiedBadgeDrawerTxt}>✓ VERIFIED COASTAL GUARD</Text>
                   </View>
 
-                  <Text style={styles.profileName}>{officer?.name || officer?.rank || 'Commander (ICG)'}</Text>
-                  <Text style={styles.profilePhone}>ID: {officer?.serviceId || officer?.officerId || 'CG-8841-TN'}</Text>
+                  <Text style={styles.profileName}>{officer?.name || officer?.rank || 'Coastal Guard Officer'}</Text>
+                  <Text style={styles.profilePhone}>{officer?.phone || officer?.serviceId || ''}</Text>
 
                   <TouchableOpacity
                     style={styles.fullProfileDrawerBtn}
@@ -316,56 +365,82 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
                     }}
                   >
                     <Text style={styles.fullProfileDrawerBtnTxt}>
-                      View Officer Command Profile
+                      👤 View & Edit Officer Profile
                     </Text>
                   </TouchableOpacity>
 
-                  {/* Official Coastal Guard Officer Specs List */}
+                  {/* Official Specs List with registered officer data */}
                   <View style={{ width: '100%', marginTop: 12 }}>
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Official Phone:</Text>
-                      <Text style={styles.infoBoxValueHighlight}>{officer?.phone || '+91 94440 99999'}</Text>
+                      <Text style={styles.infoBoxLabel}>Emergency Contact:</Text>
+                      <Text style={styles.infoBoxValueHighlight}>{officer?.emergencyContact || officer?.phone || '+91 94440 99999'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Command Station:</Text>
-                      <Text style={styles.infoBoxValue}>{officer?.station || 'Chennai HQ Base'}</Text>
+                      <Text style={styles.infoBoxLabel}>Vessel / Boat:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.vessel || officer?.station || 'ICGS Patrol Craft'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Service Badge ID:</Text>
-                      <Text style={styles.infoBoxValueBadge}>{officer?.serviceId || officer?.officerId || 'CG-8841-TN'}</Text>
+                      <Text style={styles.infoBoxLabel}>Registration Number:</Text>
+                      <Text style={styles.infoBoxValueBadge}>{officer?.serviceId || officer?.badgeNumber || 'CG-OFFICER'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Officer Rank:</Text>
-                      <Text style={styles.infoBoxValue}>{officer?.rank || 'Commandant (ICG)'}</Text>
+                      <Text style={styles.infoBoxLabel}>Home Port / Base:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.station || 'Coast Guard HQ'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Patrol Zone:</Text>
-                      <Text style={styles.infoBoxValue}>{officer?.jurisdiction || 'Tamil Nadu Coastal Zone'}</Text>
+                      <Text style={styles.infoBoxLabel}>License Number:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.licenseNumber || 'ICG-SERVICE'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Gov Email:</Text>
-                      <Text style={styles.infoBoxValue}>{officer?.email || 'officer@indiancoastguard.gov.in'}</Text>
+                      <Text style={styles.infoBoxLabel}>Aadhaar / ID:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.aadhaarNumber || 'XXXX-XXXX-8492'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>Address:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.address || 'Coast Guard HQ'}</Text>
+                    </View>
+
+                    <View style={styles.infoBox}>
+                      <Text style={styles.infoBoxLabel}>Pincode:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.pincode || '600013'}</Text>
                     </View>
                   </View>
                 </View>
 
-                {/* Drawer Actions - Matches Fisherman HomeScreen pattern */}
-                <View style={styles.logoutWrapper}>
-                  <PrimaryButton
-                    title="Officer Logout"
-                    variant="danger"
-                    onPress={() => {
-                      closeMenuDrawer();
-                      onLogout();
-                    }}
-                  />
+                {/* APP SETTINGS Section matching screenshot */}
+                <View style={styles.menuSection}>
+                  <Text style={styles.menuSectionTitle}>APP SETTINGS</Text>
+
+                  <TouchableOpacity
+                    style={styles.settingsRowCard}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.settingsRowLabel}>Language</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.settingsRowValue}>English (English)</Text>
+                      <Text style={{ color: Colors.cgPrimary, fontSize: 16, fontWeight: '900' }}>›</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               </ScrollView>
+
+              {/* Sidebar Pinned Bottom Logout Footer */}
+              <View style={styles.sidebarLogoutFooter}>
+                <PrimaryButton
+                  title="Logout"
+                  variant="danger"
+                  onPress={() => {
+                    closeMenuDrawer();
+                    onLogout();
+                  }}
+                />
+              </View>
             </SafeAreaView>
           </Animated.View>
         </View>
@@ -492,61 +567,88 @@ const styles = StyleSheet.create({
   },
   profileSection: {
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    padding: 18,
+    backgroundColor: '#F0F9FF',
+    padding: 16,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: '#7DD3FC',
     marginBottom: 16,
+    position: 'relative',
+  },
+  avatarRowWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    position: 'relative',
   },
   profileAvatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: Colors.cgPrimary,
-    marginBottom: 10,
+    borderColor: '#0284C7',
+  },
+  settingsGearBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsGearIcon: {
+    fontSize: 18,
   },
   avatarText: {
     fontSize: 32,
   },
   verifiedBadgeDrawer: {
-    backgroundColor: '#DBEAFE',
-    paddingHorizontal: 10,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 14,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
   verifiedBadgeDrawerTxt: {
-    color: Colors.cgPrimary,
-    fontSize: 11,
-    fontWeight: 'bold',
+    color: '#0284C7',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   profileName: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: '#0F172A',
     marginBottom: 2,
   },
   profilePhone: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: '#64748B',
     fontWeight: '600',
+    marginBottom: 8,
   },
   fullProfileDrawerBtn: {
-    backgroundColor: Colors.cgPrimary,
+    backgroundColor: '#E0F2FE',
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 10,
-    marginTop: 12,
+    borderRadius: 12,
+    marginTop: 6,
     width: '100%',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
   fullProfileDrawerBtnTxt: {
-    color: '#FFFFFF',
+    color: '#0369A1',
     fontWeight: 'bold',
     fontSize: 13,
   },
@@ -554,18 +656,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: '#E2E8F0',
   },
   infoBoxLabel: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: '#64748B',
     fontWeight: '600',
   },
   infoBoxValue: {
     fontSize: 12,
-    color: Colors.text,
+    color: '#0F172A',
     fontWeight: '700',
   },
   infoBoxValueBadge: {
@@ -573,14 +675,48 @@ const styles = StyleSheet.create({
     color: '#0284C7',
     backgroundColor: '#E0F2FE',
     fontWeight: 'bold',
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
   infoBoxValueHighlight: {
     fontSize: 12,
-    color: Colors.cgCritical,
+    color: '#DC2626',
     fontWeight: 'bold',
+  },
+  menuSection: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  menuSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  settingsRowCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#7DD3FC',
+  },
+  settingsRowLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  settingsRowValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0284C7',
   },
   drawerActions: {
     gap: 10,
@@ -606,6 +742,13 @@ const styles = StyleSheet.create({
   logoutWrapper: {
     marginTop: 8,
     marginBottom: 16,
+  },
+  sidebarLogoutFooter: {
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
   sosNotificationBanner: {
     backgroundColor: '#DC2626',
@@ -655,5 +798,19 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: 'bold',
     fontSize: 11,
+  },
+  sirenSoundBtn: {
+    backgroundColor: '#FEF08A',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: '#EAB308',
+  },
+  sirenSoundBtnTxt: {
+    color: '#854D0E',
+    fontWeight: '900',
+    fontSize: 10,
   },
 });

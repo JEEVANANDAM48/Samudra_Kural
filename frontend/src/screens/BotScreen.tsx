@@ -395,24 +395,6 @@ export const BotScreen: React.FC<BotScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
 
       {/* Header Banner */}
-      <View style={styles.header}>
-        <View style={styles.headerLeftRow}>
-          {onBack && (
-            <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-              <Text style={styles.backBtnTxt}>←</Text>
-            </TouchableOpacity>
-          )}
-          <Image
-            source={require('../../assets/chatbot-logo.png')}
-            style={styles.headerLogo}
-            resizeMode="cover"
-          />
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>{t('askBot')}</Text>
-            <Text style={styles.headerSubtitle}>Real-Time Satellite & Marine Intelligence</Text>
-          </View>
-        </View>
-      </View>
       {!hideTopHeader && (
         <View style={styles.header}>
           <View style={styles.headerLeftRow}>
@@ -427,7 +409,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
               resizeMode="cover"
             />
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>Ask Bot (ORCA 12-AI)</Text>
+              <Text style={styles.headerTitle}>{t('askBot')}</Text>
               <Text style={styles.headerSubtitle}>Real-Time Satellite & Marine Intelligence</Text>
             </View>
           </View>
@@ -665,7 +647,10 @@ export const BotScreen: React.FC<BotScreenProps> = ({
       </View>
 
       {/* Bottom Voice & Text Input Bar */}
-      <View style={styles.inputContainer}>
+      <View style={[
+        styles.inputContainer,
+        hideTopHeader && styles.inputContainerEmbedded
+      ]}>
         {/* Microphone Button */}
         <TouchableOpacity
           style={[
@@ -705,20 +690,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Floating Bottom Navigation Bar */}
-      <BottomNavBar
-        activeTab="bot"
-        onTabPress={(tabId) => {
-          if (onTabPress) {
-            onTabPress(tabId);
-          } else if (tabId === 'home' || tabId === 'nets') {
-            if (onBack) onBack();
-          } else if (tabId === 'sos') {
-            Alert.alert(t('emergencySosTitle'), t('emergencySosMsg'));
-          }
-        }}
-        currentLanguage={lang as SupportedLanguage}
-      />
+      {/* Floating Bottom Navigation Bar (Only rendered when standalone) */}
       {!hideTopHeader && (
         <BottomNavBar
           activeTab="bot"
@@ -728,7 +700,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
             } else if (tabId === 'home' || tabId === 'nets') {
               if (onBack) onBack();
             } else if (tabId === 'sos') {
-              Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
+              Alert.alert(t('emergencySosTitle'), t('emergencySosMsg'));
             }
           }}
           currentLanguage={lang as SupportedLanguage}
@@ -1119,11 +1091,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.surface,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 14 : 10,
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    paddingBottom: Platform.OS === 'ios' ? 88 : 80,
+  },
+  inputContainerEmbedded: {
+    paddingBottom: Platform.OS === 'ios' ? 86 : 76,
   },
   micBtn: {
     width: 44,

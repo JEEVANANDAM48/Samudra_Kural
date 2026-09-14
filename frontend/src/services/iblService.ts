@@ -125,10 +125,10 @@ export function checkIBLProximity(vesselLat: number, vesselLon: number): IBLProx
 
   if (isEastOfIBL || distanceNm < 0.3) {
     status = 'CROSSED';
-    warningMessage = 'CRITICAL: International Boundary Crossed! Turn back immediately!';
+    warningMessage = 'CRITICAL: Beyond International Boundary! Turn back immediately!';
   } else if (distanceNm <= 2.0) {
     status = 'CRITICAL';
-    warningMessage = `CRITICAL WARNING: Imminent Boundary Crossing! (${distanceNm} NM away)`;
+    warningMessage = `CRITICAL WARNING: Imminent International Boundary! (${distanceNm} NM away)`;
   } else if (distanceNm <= 5.0) {
     status = 'WARNING';
     warningMessage = `CAUTION: Approaching International Boundary Line (${distanceNm} NM away)`;

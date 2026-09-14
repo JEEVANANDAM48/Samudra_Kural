@@ -43,6 +43,7 @@ import { getUserSession } from '../storage/storage';
 import { getNearestRescueStation } from '../data/mockRescueStations';
 import { findNearbyRegisteredBoats } from '../data/mockBoats';
 import { coastalGuardService, RescueMissionItem } from '../services/coastalGuardService';
+import { playEmergencyBuzzerSound } from '../utils/speech';
 
 import { SOSButton } from './components/SOSButton';
 import { SOSStatusCard } from './components/SOSStatusCard';
@@ -207,6 +208,7 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
   // Main Hold-to-Send trigger flow
   const handleSOSTriggered = async () => {
     try {
+      playEmergencyBuzzerSound();
       setSosStatus('getting_location');
       setStatusMessage('Getting GPS coordinates...');
 
@@ -440,14 +442,12 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             </View>
           </View>
 
-          <Text style={styles.missionSubtext}>
-            Coastal Guard Emergency Command HQ has assigned and dispatched a rescue team to your GPS position.
-          </Text>
-
           <View style={styles.missionGrid}>
             <View style={styles.missionGridRow}>
               <Text style={styles.missionLabel}>Commanding Officer:</Text>
-              <Text style={styles.missionValueHighlight}>{activeMission.officer_name || 'Cmdr. Rajesh Kumar (ICG)'}</Text>
+              <Text style={styles.missionValueHighlight}>
+                {activeMission.officer_name || 'Cmdr. Rajesh Kumar (ICG)'}
+              </Text>
             </View>
 
             <View style={styles.missionGridRow}>
@@ -456,21 +456,15 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             </View>
 
             <View style={styles.missionGridRow}>
-              <Text style={styles.missionLabel}>Assigned Squad / Unit:</Text>
-              <Text style={styles.missionValue}>{activeMission.rescue_team}</Text>
-            </View>
-
-            <View style={styles.missionGridRow}>
               <Text style={styles.missionLabel}>Estimated Arrival (ETA):</Text>
               <Text style={styles.missionEtaValue}>⏱️ {activeMission.eta_minutes} Minutes</Text>
             </View>
 
-            {activeMission.notes ? (
-              <View style={styles.missionNotesBox}>
-                <Text style={styles.missionNotesTitle}>📋 Dispatch Directives & Notes:</Text>
-                <Text style={styles.missionNotesTxt}>{activeMission.notes}</Text>
-              </View>
-            ) : null}
+            {/* Origin / Dispatching Base Coordinates */}
+            <View style={styles.missionCoordContainer}>
+              <Text style={styles.missionCoordLabel}>📍 Arriving From Base Coordinates:</Text>
+              <Text style={styles.missionCoordValue}>13.3100° N, 80.3400° E</Text>
+            </View>
           </View>
         </View>
       )}
@@ -513,19 +507,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             timestamp={activeSOSPacket.timestamp}
             isUnavailable={activeSOSPacket.latitude === null}
           />
-
-          {/* Rescue Coordination Centre Routing Card */}
-          <View style={styles.rescueCard}>
-            <Text style={styles.rescueTitle}>RESCUE COORDINATION ROUTING</Text>
-            <Text style={styles.rescueStationName}>{rescueInfo.station.name}</Text>
-            <Text style={styles.rescueSubtext}>
-              Emergency alert routed to rescue coordination centre ({rescueInfo.station.region}).
-            </Text>
-            <View style={styles.contactRow}>
-              <Text style={styles.contactLabel}>VHF Channel: </Text>
-              <Text style={styles.contactValue}>{rescueInfo.station.vhfChannel}</Text>
-            </View>
-          </View>
 
           {/* Nearby Boats Section */}
           {nearbyBoats.length > 0 && (
@@ -908,54 +889,49 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   missionDispatchCard: {
-    backgroundColor: '#0D2526',
+    backgroundColor: '#E0F2F1', // Pale teal background
     borderRadius: 18,
     padding: 16,
     borderWidth: 2,
-    borderColor: '#38BDF8',
+    borderColor: '#00796B', // Elegant deep teal border
     marginBottom: 16,
-    shadowColor: '#38BDF8',
+    shadowColor: '#004D40',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
   missionDispatchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(56, 189, 248, 0.3)',
-    paddingBottom: 8,
+    marginBottom: 12,
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#B2DFDB',
+    paddingBottom: 10,
   },
   missionDispatchTitle: {
     fontSize: 13,
     fontWeight: '900',
-    color: '#38BDF8',
+    color: '#004D40',
     letterSpacing: 0.5,
   },
   missionStatusBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    borderColor: '#38BDF8',
+    backgroundColor: '#004D40',
+    borderColor: '#00796B',
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 8,
   },
   missionStatusBadgeTxt: {
-    color: '#E0F2FE',
+    color: '#E0F2F1',
     fontSize: 10,
     fontWeight: '900',
-  },
-  missionSubtext: {
-    color: '#93C5FD',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 12,
+    textTransform: 'uppercase',
   },
   missionGrid: {
-    gap: 8,
+    gap: 10,
   },
   missionGridRow: {
     flexDirection: 'row',
@@ -963,52 +939,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   missionLabel: {
-    color: '#94A3B8',
+    color: '#00695C',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   missionValue: {
-    color: '#FFFFFF',
+    color: '#004D40',
     fontSize: 12,
     fontWeight: '700',
   },
   missionValueHighlight: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  missionValueBadge: {
-    color: '#0284C7',
-    backgroundColor: '#E0F2FE',
-    fontWeight: '900',
-    fontSize: 11,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  missionEtaValue: {
-    color: '#FEF08A',
+    color: '#004D40',
     fontSize: 13,
     fontWeight: '900',
   },
-  missionNotesBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 10,
-    padding: 10,
+  missionValueBadge: {
+    color: '#004D40',
+    backgroundColor: '#B2DFDB',
+    fontWeight: '900',
+    fontSize: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  missionEtaValue: {
+    color: '#004D40',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  missionCoordContainer: {
+    backgroundColor: '#B2DFDB',
+    borderRadius: 12,
+    padding: 12,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: '#80CBC4',
+    alignItems: 'center',
   },
-  missionNotesTitle: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  missionNotesTxt: {
-    color: '#E2E8F0',
+  missionCoordLabel: {
+    color: '#004D40',
     fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500',
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  missionCoordValue: {
+    color: '#004D40',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
 });

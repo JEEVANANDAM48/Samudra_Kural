@@ -1,19 +1,47 @@
 import { apiFetch, ApiError } from './api';
 import { LoginPayload, RegisterPayload, AuthResponse, FishermanUser } from '../types';
-import { saveAuthToken, saveUserSession, clearSession, getUserSession } from '../storage/storage';
+import {
+  saveAuthToken,
+  saveUserSession,
+  clearSession,
+  getUserSession,
+  getFishermanRegisteredAccounts,
+  registerFishermanAccount,
+} from '../storage/storage';
 
 export const authService = {
   /**
    * Login Fisherman with Mobile Number and 6-Digit PIN.
-   * Calls backend POST /auth/login
+   * STRICT ENFORCEMENT: Fisherman MUST be registered before logging in!
    */
   async login(payload: LoginPayload): Promise<AuthResponse> {
+    const cleanPhone = payload.phone.trim();
+    const cleanPin = payload.pin.trim();
+
+    // 1. Verify against stored registered accounts
+    const registeredAccounts = await getFishermanRegisteredAccounts();
+    const matchedAccount = registeredAccounts.find(
+      acc => acc.phone === cleanPhone || acc.phone === `+91${cleanPhone}` || acc.phone === cleanPhone.replace('+91', '')
+    );
+
+    if (!matchedAccount) {
+      const error: any = new Error(`Account Not Registered! Mobile number ${cleanPhone} is not registered. Please complete registration first.`);
+      error.code = 'NOT_REGISTERED';
+      throw error;
+    }
+
+    if (matchedAccount.pin && matchedAccount.pin !== cleanPin) {
+      const error: any = new Error('Incorrect 6-Digit PIN! Please enter your valid 6-digit Security PIN.');
+      error.code = 'INCORRECT_PIN';
+      throw error;
+    }
+
     try {
       const response = await apiFetch<AuthResponse>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({
-          phone: payload.phone,
-          pin: payload.pin,
+          phone: cleanPhone,
+          pin: cleanPin,
         }),
       });
 
@@ -21,34 +49,34 @@ export const authService = {
         await saveAuthToken(response.access_token);
         if (response.user) {
           await saveUserSession(response.user);
+          await registerFishermanAccount({ ...response.user, pin: cleanPin });
         }
       }
 
       return response;
     } catch (error: any) {
-      // If backend is offline, schema mismatch, or unregistered demo account, allow local fallback session for testing UI flow
+      // If backend is offline or has schema mismatch, complete login using matched registered details
       if (error?.data?.isOffline || error?.data?.isMismatch || error.status === 0 || error.status === 422 || error.status === 401) {
-        console.log('[Auth] Creating local user session preserving registered details.');
-        const existingSession = await getUserSession();
-        const fallbackUser: FishermanUser = {
-          name: existingSession?.name || 'Fisherman User',
-          phone: payload.phone || existingSession?.phone || '+91 98401 23456',
-          emergencyPhone: existingSession?.emergencyPhone || '+91 94440 99999',
-          vesselName: existingSession?.vesselName || 'Sea King IX',
-          vesselRegistration: existingSession?.vesselRegistration || 'TN-01-MM-8492',
-          vesselType: existingSession?.vesselType || 'Mechanized Motorized Trawler',
-          homePort: existingSession?.homePort || 'Kasimedu Harbour, Chennai',
-          licenseNumber: existingSession?.licenseNumber || 'IND-TN-2024-94021',
-          aadhaarNumber: existingSession?.aadhaarNumber || 'XXXX-XXXX-8492',
-          address: existingSession?.address || 'No. 42, Harbour Main Road, Kasimedu',
-          pincode: existingSession?.pincode || '600013',
+        console.log('[Auth] Authenticated registered fisherman account locally.');
+        const userToSave: FishermanUser = {
+          name: matchedAccount.name || 'Fisherman User',
+          phone: matchedAccount.phone || cleanPhone,
+          emergencyPhone: matchedAccount.emergencyPhone || '+91 94440 99999',
+          vesselName: matchedAccount.vesselName || 'Sea King IX',
+          vesselRegistration: matchedAccount.vesselRegistration || 'TN-01-MM-8492',
+          vesselType: matchedAccount.vesselType || 'Mechanized Motorized Trawler',
+          homePort: matchedAccount.homePort || 'Kasimedu Harbour, Chennai',
+          licenseNumber: matchedAccount.licenseNumber || 'IND-TN-2024-94021',
+          aadhaarNumber: matchedAccount.aadhaarNumber || 'XXXX-XXXX-8492',
+          address: matchedAccount.address || 'No. 42, Harbour Main Road, Kasimedu',
+          pincode: matchedAccount.pincode || '600013',
         };
         await saveAuthToken('demo_local_jwt_token_12345');
-        await saveUserSession(fallbackUser);
+        await saveUserSession(userToSave);
         return {
           access_token: 'demo_local_jwt_token_12345',
           token_type: 'bearer',
-          user: fallbackUser,
+          user: userToSave,
         };
       }
       throw error;
@@ -57,9 +85,27 @@ export const authService = {
 
   /**
    * Register Fisherman account with Mobile Number, 6-digit PIN, Name, Address, Pincode.
-   * Calls backend POST /auth/register
+   * Saves newly registered account to persistent registry.
    */
   async register(payload: RegisterPayload): Promise<AuthResponse> {
+    const registeredUser: FishermanUser & { pin: string } = {
+      name: payload.name.trim(),
+      phone: payload.phone.trim(),
+      pin: payload.pin.trim(),
+      address: payload.address.trim(),
+      pincode: payload.pincode.trim(),
+      emergencyPhone: '+91 94440 99999',
+      vesselName: 'Sea King IX',
+      vesselRegistration: 'TN-01-MM-8492',
+      vesselType: 'Mechanized Motorized Trawler',
+      homePort: 'Kasimedu Harbour, Chennai',
+      licenseNumber: 'IND-TN-2024-94021',
+      aadhaarNumber: 'XXXX-XXXX-8492',
+    };
+
+    // Save to local registered accounts registry immediately
+    await registerFishermanAccount(registeredUser);
+
     try {
       const response = await apiFetch<AuthResponse>('/auth/register', {
         method: 'POST',
@@ -81,22 +127,9 @@ export const authService = {
 
       return response;
     } catch (error: any) {
-      // If backend is offline or has schema mismatch, handle locally preserving entered registration details
+      // If backend is offline or schema mismatch, finalize local registration session
       if (error?.data?.isOffline || error?.data?.isMismatch || error.status === 0 || error.status === 422) {
         console.warn('Completing registration and saving registered fisherman profile.');
-        const registeredUser: FishermanUser = {
-          name: payload.name,
-          phone: payload.phone,
-          address: payload.address,
-          pincode: payload.pincode,
-          emergencyPhone: '+91 94440 99999',
-          vesselName: 'Sea King IX',
-          vesselRegistration: 'TN-01-MM-8492',
-          vesselType: 'Mechanized Motorized Trawler',
-          homePort: 'Kasimedu Harbour, Chennai',
-          licenseNumber: 'IND-TN-2024-94021',
-          aadhaarNumber: 'XXXX-XXXX-8492',
-        };
         await saveAuthToken('demo_local_jwt_token_12345');
         await saveUserSession(registeredUser);
         return {

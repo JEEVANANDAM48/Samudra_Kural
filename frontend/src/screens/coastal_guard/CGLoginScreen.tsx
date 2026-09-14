@@ -53,38 +53,24 @@ export const CGLoginScreen: React.FC<CGLoginScreenProps> = ({
       const registeredAccounts = await getCGRegisteredAccounts();
       
       // Match against registered officer accounts
-      let matchedOfficer = registeredAccounts.find(
-        (acc: CoastalGuardOfficer) =>
-          (acc.serviceId?.toUpperCase() === cleanId || acc.phone === cleanId || acc.email?.toLowerCase() === cleanId.toLowerCase()) &&
-          acc.pin === cleanPin
+      const matchedAccount = registeredAccounts.find(
+        (acc: any) =>
+          acc.serviceId?.toUpperCase() === cleanId || acc.phone === cleanId || acc.email?.toLowerCase() === cleanId.toLowerCase()
       );
 
-      if (!matchedOfficer && registeredAccounts.length > 0) {
-        // Check if matching ID exists but PIN was wrong
-        const idMatches = registeredAccounts.some(
-          (acc: CoastalGuardOfficer) => acc.serviceId?.toUpperCase() === cleanId || acc.phone === cleanId
-        );
-        if (idMatches) {
-          setLoading(false);
-          setErrorMsg('Invalid Security PIN for this Officer ID.');
-          return;
-        }
+      if (!matchedAccount) {
+        setLoading(false);
+        setErrorMsg(`Officer Account Not Registered! Service ID or Mobile ${cleanId} is not registered. Please complete registration first.`);
+        return;
       }
 
-      // If no registered account matched, create clean officer object for entered credentials
-      if (!matchedOfficer) {
-        matchedOfficer = {
-          serviceId: cleanId,
-          name: cleanId.startsWith('ICG') ? 'Officer ' + cleanId : 'Commandant Officer',
-          rank: 'Commandant (ICG)',
-          station: 'Chennai Command HQ Station',
-          phone: cleanId.length === 10 ? cleanId : '+91 94440 99999',
-          email: 'officer@indiancoastguard.gov.in',
-          jurisdiction: 'Tamil Nadu Coastal Zone',
-          pin: cleanPin,
-        };
+      if (matchedAccount.pin && matchedAccount.pin !== cleanPin) {
+        setLoading(false);
+        setErrorMsg('Incorrect Security PIN! Please enter your valid 6-digit PIN.');
+        return;
       }
 
+      const matchedOfficer = matchedAccount;
       await saveCGOfficerSession(matchedOfficer);
 
       setTimeout(() => {

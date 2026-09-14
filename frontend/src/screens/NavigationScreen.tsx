@@ -304,11 +304,15 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
   useEffect(() => {
     loadTargetList();
-    loadTelemetryData();
+    loadTelemetryData(false);
+    const timer = setInterval(() => {
+      loadTelemetryData(true);
+    }, 4000);
+    return () => clearInterval(timer);
   }, [boatLocation.lat, boatLocation.lon]);
 
-  const loadTelemetryData = async () => {
-    setTelemetryLoading(true);
+  const loadTelemetryData = async (isSilent: boolean = false) => {
+    if (!isSilent && !telemetry) setTelemetryLoading(true);
     try {
       const data = await fetchLiveMarineTelemetry(boatLocation.lat, boatLocation.lon);
       setTelemetry(data);
@@ -480,7 +484,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             ]}>
               <Text style={styles.iblStatusTxt}>
                 {iblTelemetry.status === 'CROSSED'
-                  ? 'CROSSED 🚨'
+                  ? 'RESTRICTED ZONE 🚨'
                   : iblTelemetry.status === 'CRITICAL'
                   ? 'CRITICAL 🚨'
                   : iblTelemetry.status === 'WARNING'

@@ -461,7 +461,7 @@ export const coastalGuardService = {
       if (priorityFilter) queryParams.push(`priority=${encodeURIComponent(priorityFilter)}`);
       if (search) queryParams.push(`search=${encodeURIComponent(search)}`);
       const queryStr = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-      alerts = await apiFetch<SOSAlertItem[]>(`/coastal-guard/sos${queryStr}`);
+      alerts = await apiFetch<SOSAlertItem[]>(`/coastal-guard/sos${queryStr}`, { timeoutMs: 1500 });
     } catch (e) {
       console.log('[CG Service] Using local persistent SOS list');
       alerts = await this.getLocalAlerts();
@@ -742,7 +742,7 @@ export const coastalGuardService = {
   // Fetch Marine Conditions & Deterministic Risk Engine Assessment
   async getMarineConditions(): Promise<MarineConditionsData> {
     try {
-      return await apiFetch<MarineConditionsData>('/coastal-guard/marine-conditions');
+      return await apiFetch<MarineConditionsData>('/coastal-guard/marine-conditions', { timeoutMs: 400 });
     } catch (e) {
       let windSpeedKmh = 24.5;
       let windDirDeg = 45;
@@ -757,10 +757,14 @@ export const coastalGuardService = {
       let isLive = false;
 
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
+
         const [marineRes, weatherRes] = await Promise.all([
-          fetch('https://marine-api.open-meteo.com/v1/marine?latitude=13.0827&longitude=80.3800&current=wave_height,wave_period,ocean_current_velocity,ocean_current_direction'),
-          fetch('https://api.open-meteo.com/v1/forecast?latitude=13.0827&longitude=80.3800&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,visibility')
+          fetch('https://marine-api.open-meteo.com/v1/marine?latitude=13.0827&longitude=80.3800&current=wave_height,wave_period,ocean_current_velocity,ocean_current_direction', { signal: controller.signal }),
+          fetch('https://api.open-meteo.com/v1/forecast?latitude=13.0827&longitude=80.3800&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,visibility', { signal: controller.signal })
         ]);
+        clearTimeout(timeoutId);
 
         if (marineRes.ok) {
           const mData = await marineRes.json();
@@ -785,7 +789,7 @@ export const coastalGuardService = {
           }
         }
       } catch (apiErr) {
-        console.log('[CG Service] Live Open-Meteo fallback:', apiErr);
+        console.log('[CG Service] Live fallback:', apiErr);
       }
 
       // Calculate risk level dynamically
@@ -817,12 +821,14 @@ export const coastalGuardService = {
         return `${arr[val % 16]} (${deg}°)`;
       };
 
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
       return {
         overall_risk_level: overallRisk,
         risk_color: riskColor,
         risk_title: riskTitle,
         risk_reason: riskReason,
-        last_updated: new Date().toLocaleTimeString(),
+        last_updated: `${nowStr}`,
         data_source: isLive ? 'INCOIS & Open-Meteo Satellite Live Stream' : 'INCOIS Oceansat-3 Live Feed',
         is_live_data: true,
         wind: { speed_kmh: windSpeedKmh, direction: dirToCompass(windDirDeg), gust_kmh: gustKmh },

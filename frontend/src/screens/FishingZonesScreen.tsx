@@ -19,6 +19,8 @@ import {
   fetchAutoPFZ,
   fetchNearbyPFZ,
   fetchPFZLayers,
+  getInitialPFZAdvisory,
+  getRealSatellitePFZHotspots,
   SectorAdvisoryResponse,
   HotspotInfo,
   INCOISWMSLayersResponse,
@@ -51,10 +53,10 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 }) => {
   const { t, tDirection, language } = useLanguage();
   const [userLocation, setUserLocation] = useState({ lat: 13.0827, lon: 80.3800 });
-  const [advisory, setAdvisory] = useState<SectorAdvisoryResponse | null>(null);
+  const [advisory, setAdvisory] = useState<SectorAdvisoryResponse>(() => getInitialPFZAdvisory(13.0827, 80.3800));
   const [wmsLayers, setWmsLayers] = useState<INCOISWMSLayersResponse | null>(null);
-  const [activeLayer, setActiveLayer] = useState<'chl' | 'sst' | 'bathymetry'>('chl');
-  const [loading, setLoading] = useState<boolean>(true);
+  const [activeLayer, setActiveLayer] = useState<'chl' | 'sst' | 'bathymetry' | 'ibl'>('chl');
+  const [loading, setLoading] = useState<boolean>(false);
   const [selectedHotspot, setSelectedHotspot] = useState<HotspotInfo | null>(null);
   const [selectedNavigationTarget, setSelectedNavigationTarget] = useState<HotspotInfo | null>(initialTarget || null);
 
@@ -67,7 +69,11 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          const lastLoc = await Location.getLastKnownPositionAsync();
+          if (lastLoc && lastLoc.coords && isMounted) {
+            setUserLocation({ lat: lastLoc.coords.latitude, lon: lastLoc.coords.longitude });
+          }
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           if (loc && loc.coords && isMounted) {
             setUserLocation({ lat: loc.coords.latitude, lon: loc.coords.longitude });
           }
@@ -88,10 +94,14 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
   useEffect(() => {
     loadLocationPFZData();
+    const timer = setInterval(() => {
+      loadLocationPFZData();
+    }, 4000);
+    return () => clearInterval(timer);
   }, [userLocation.lat, userLocation.lon]);
 
   const loadLocationPFZData = async () => {
-    setLoading(true);
+    if (!advisory) setLoading(true);
     try {
       const [advData, layerData, nearbySpots] = await Promise.all([
         fetchAutoPFZ(userLocation.lat, userLocation.lon),
@@ -99,9 +109,8 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         fetchNearbyPFZ(userLocation.lat, userLocation.lon).catch(() => []),
       ]);
 
-      if (nearbySpots && nearbySpots.length > 0) {
-        advData.hotspots = nearbySpots;
-      }
+      const allSpots = getRealSatellitePFZHotspots(undefined, userLocation.lat, userLocation.lon);
+      advData.hotspots = allSpots;
       setAdvisory(advData);
       if (layerData) {
         setWmsLayers(layerData);
@@ -298,6 +307,15 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 Bathymetry
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.layerToggleBtn, activeLayer === 'ibl' ? styles.layerToggleBtnActive : styles.layerToggleBtnInactive]}
+              onPress={() => setActiveLayer('ibl')}
+            >
+              <Text style={[styles.layerToggleText, activeLayer === 'ibl' ? styles.layerToggleTextActive : styles.layerToggleTextInactive]}>
+                IBL Boundary
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Interactive Ocean Map with Route Line & Copying */}
@@ -376,8 +394,6 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
               const isTargeted = selectedNavigationTarget?.id === spot.id;
 
-              const spotIbl = checkIBLProximity(spot.latitude, spot.longitude);
-
               return (
                 <TouchableOpacity
                   key={spot.id}
@@ -387,25 +403,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 >
                   <View style={styles.hotspotHeader}>
                     <View style={styles.hotspotTitleGroup}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                        <Text style={styles.hotspotName}>🐟 {spot.name}</Text>
-                        <View style={{
-                          backgroundColor: spotIbl.status === 'SAFE' ? '#DCFCE7' : spotIbl.status === 'WARNING' ? '#FEF3C7' : '#FEE2E2',
-                          borderColor: spotIbl.status === 'SAFE' ? '#16A34A' : spotIbl.status === 'WARNING' ? '#D97706' : '#DC2626',
-                          borderWidth: 1,
-                          paddingHorizontal: 6,
-                          paddingVertical: 2,
-                          borderRadius: 6,
-                        }}>
-                          <Text style={{
-                            fontSize: 9,
-                            fontWeight: '900',
-                            color: spotIbl.status === 'SAFE' ? '#15803D' : spotIbl.status === 'WARNING' ? '#B45309' : '#B91C1C',
-                          }}>
-                            {spotIbl.status === 'SAFE' ? `🛡️ ${spotIbl.distanceNm} NM to IBL` : `🚨 ${spotIbl.status} (${spotIbl.distanceNm} NM)`}
-                          </Text>
-                        </View>
-                      </View>
+                      <Text style={styles.hotspotName}>🐟 {spot.name}</Text>
                       <Text style={styles.hotspotCoords}>
                         {t('latitude')}: {spot.latitude.toFixed(4)}° N, {t('longitude')}: {spot.longitude.toFixed(4)}° E
                       </Text>

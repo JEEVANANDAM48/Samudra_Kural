@@ -156,6 +156,41 @@ export const clearCGOfficerSession = async (): Promise<void> => {
   } catch (error) {}
 };
 
+
+const ASYNC_FISHERMAN_ACCOUNTS_KEY = '@samudra_kural_fisherman_registered_accounts';
+
+const DEFAULT_FISHERMAN_ACCOUNTS: (FishermanUser & { pin: string })[] = [];
+
+const DEFAULT_CG_ACCOUNTS: any[] = [];
+
+export const saveFishermanRegisteredAccounts = async (accounts: any[]): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(ASYNC_FISHERMAN_ACCOUNTS_KEY, JSON.stringify(accounts));
+  } catch (error) {
+    console.error('Error saving fisherman registered accounts:', error);
+  }
+};
+
+export const getFishermanRegisteredAccounts = async (): Promise<any[]> => {
+  try {
+    const json = await AsyncStorage.getItem(ASYNC_FISHERMAN_ACCOUNTS_KEY);
+    if (json) {
+      const stored = JSON.parse(json);
+      if (Array.isArray(stored)) {
+        return stored;
+      }
+    }
+  } catch (error) {}
+  return [];
+};
+
+export const registerFishermanAccount = async (account: any): Promise<void> => {
+  const current = await getFishermanRegisteredAccounts();
+  const filtered = current.filter(a => a.phone !== account.phone);
+  const updated = [account, ...filtered];
+  await saveFishermanRegisteredAccounts(updated);
+};
+
 export const saveCGRegisteredAccounts = async (accounts: any[]): Promise<void> => {
   try {
     await AsyncStorage.setItem(ASYNC_CG_ACCOUNTS_KEY, JSON.stringify(accounts));
@@ -167,8 +202,19 @@ export const saveCGRegisteredAccounts = async (accounts: any[]): Promise<void> =
 export const getCGRegisteredAccounts = async (): Promise<any[]> => {
   try {
     const json = await AsyncStorage.getItem(ASYNC_CG_ACCOUNTS_KEY);
-    return json ? JSON.parse(json) : [];
-  } catch (error) {
-    return [];
-  }
+    if (json) {
+      const stored = JSON.parse(json);
+      if (Array.isArray(stored)) {
+        return stored;
+      }
+    }
+  } catch (error) {}
+  return [];
+};
+
+export const registerCGOfficerAccount = async (account: any): Promise<void> => {
+  const current = await getCGRegisteredAccounts();
+  const filtered = current.filter(a => a.serviceId !== account.serviceId && a.phone !== account.phone);
+  const updated = [account, ...filtered];
+  await saveCGRegisteredAccounts(updated);
 };

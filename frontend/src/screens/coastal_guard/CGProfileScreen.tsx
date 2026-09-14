@@ -333,42 +333,16 @@ export const CGProfileScreen: React.FC<CGProfileScreenProps> = ({
           )}
         </View>
 
-        {/* Operational Settings Options */}
-        <View style={styles.optionsCard}>
-          <Text style={styles.sectionHeading}>⚙️ Operational Settings</Text>
-
-          <TouchableOpacity
-            style={styles.optionItem}
-            onPress={handleStartEdit}
-          >
-            <Text style={styles.optionIcon}>✏️</Text>
-            <Text style={styles.optionTxt}>Edit Officer Profile Details</Text>
-            <Text style={styles.arrow}>➔</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.optionItem}
-            onPress={() => Alert.alert('Emergency Broadcasts', 'Live audio & push siren notifications are ENABLED.')}
-          >
-            <Text style={styles.optionIcon}>🔔</Text>
-            <Text style={styles.optionTxt}>Emergency Siren & Push Alerts</Text>
-            <Text style={styles.arrow}>➔</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.optionItem}
-            onPress={() => Alert.alert('Dispatch Frequency', 'Active SOS polling frequency set to 20 seconds.')}
-          >
-            <Text style={styles.optionIcon}>📡</Text>
-            <Text style={styles.optionTxt}>Live Telemetry Polling Rate</Text>
-            <Text style={styles.arrow}>➔</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logoutItem} onPress={onLogout}>
-            <Text style={styles.logoutIcon}>🚪</Text>
-            <Text style={styles.logoutTxt}>Log Out of Command Center</Text>
-          </TouchableOpacity>
+        {/* LOGOUT BUTTON - Placed at bottom of page matching Fisherman view */}
+        <View style={styles.logoutSection}>
+          <PrimaryButton
+            title="Logout"
+            variant="danger"
+            onPress={onLogout}
+          />
         </View>
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -609,19 +583,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
   },
-  logoutItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 6,
+  logoutSection: {
+    marginTop: 20,
+    marginBottom: 16,
   },
-  logoutIcon: {
-    fontSize: 18,
-    marginRight: 12,
-  },
-  logoutTxt: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#DC2626',
+  bottomSpacer: {
+    height: 80,
   },
 });

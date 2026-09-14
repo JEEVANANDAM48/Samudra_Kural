@@ -31,11 +31,15 @@ export const CGSOSDetailsScreen: React.FC<CGSOSDetailsScreenProps> = ({
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    fetchDetail();
+    fetchDetail(false);
+    const timer = setInterval(() => {
+      fetchDetail(true);
+    }, 3000);
+    return () => clearInterval(timer);
   }, [sosId]);
 
-  const fetchDetail = async () => {
-    setLoading(true);
+  const fetchDetail = async (isSilent: boolean = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const data = await coastalGuardService.getSOSAlertDetail(sosId);
       setAlert(data);
