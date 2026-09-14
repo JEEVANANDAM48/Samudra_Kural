@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
-import * as Battery from 'expo-battery';
 import { LocationResult } from '../types/sos';
+
+let Battery: any = null;
+try {
+  Battery = require('expo-battery');
+} catch (e) {
+  Battery = null;
+}
 
 let demoGpsAvailable = true;
 
@@ -73,7 +79,7 @@ export function subscribeToBatteryLevel(onChange: (level: number) => void): () =
   // 1. Listen via native Expo Battery listener
   try {
     if (Battery && typeof Battery.addBatteryLevelListener === 'function') {
-      nativeSub = Battery.addBatteryLevelListener(({ batteryLevel }) => {
+      nativeSub = Battery.addBatteryLevelListener(({ batteryLevel }: any) => {
         if (isSubscribed && typeof batteryLevel === 'number' && batteryLevel >= 0) {
           onChange(Math.round(batteryLevel * 100));
         }
