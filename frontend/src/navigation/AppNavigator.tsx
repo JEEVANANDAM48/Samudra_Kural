@@ -15,9 +15,10 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { BotScreen } from '../screens/BotScreen';
 import { CoastalGuardHomeScreen } from '../screens/coastal_guard/CoastalGuardHomeScreen';
 import { CGLoginScreen } from '../screens/coastal_guard/CGLoginScreen';
+import { CGRegisterScreen } from '../screens/coastal_guard/CGRegisterScreen';
 import { HotspotInfo } from '../services/pfzService';
 
-type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile' | 'bot' | 'cg_login' | 'coastal_guard';
+type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile' | 'bot' | 'cg_login' | 'cg_register' | 'coastal_guard';
 
 export const AppNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('loading');
@@ -147,10 +148,19 @@ export const AppNavigator: React.FC = () => {
         <CGLoginScreen
           onLoginSuccess={() => setCurrentScreen('coastal_guard')}
           onNavigateToFishermanLogin={() => setCurrentScreen('login')}
+          onNavigateToRegister={() => setCurrentScreen('cg_register')}
         />
       )}
 
-      {/* 5. REGISTER SCREEN */}
+      {/* 5. COASTAL GUARD OFFICER REGISTRATION SCREEN */}
+      {currentScreen === 'cg_register' && (
+        <CGRegisterScreen
+          onRegisterSuccess={() => setCurrentScreen('cg_login')}
+          onNavigateToLogin={() => setCurrentScreen('cg_login')}
+        />
+      )}
+
+      {/* 6. FISHERMAN REGISTER SCREEN */}
       {currentScreen === 'register' && (
         <RegisterScreen
           currentLanguage={language}

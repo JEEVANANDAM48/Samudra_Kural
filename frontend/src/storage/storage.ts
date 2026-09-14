@@ -102,6 +102,7 @@ export const getUserSession = async (): Promise<FishermanUser | null> => {
 export const clearSession = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ASYNC_USER_KEY);
+    await AsyncStorage.removeItem(ASYNC_CG_OFFICER_KEY);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     await SecureStore.deleteItemAsync(USER_KEY);
   } catch (error) {
@@ -109,7 +110,7 @@ export const clearSession = async (): Promise<void> => {
   }
 };
 
-// --- Coastal Guard Officer Session Storage ---
+// --- Coastal Guard Officer Session & Account Storage ---
 export interface CGOfficerUser {
   officerId: string;
   rank: string;
@@ -120,8 +121,9 @@ export interface CGOfficerUser {
 
 const ASYNC_CG_OFFICER_KEY = '@samudra_kural_cg_officer_session';
 const SECURE_CG_OFFICER_KEY = 'samudra_kural_cg_officer_data';
+const ASYNC_CG_ACCOUNTS_KEY = '@samudra_kural_cg_registered_accounts';
 
-export const saveCGOfficerSession = async (officer: CGOfficerUser): Promise<void> => {
+export const saveCGOfficerSession = async (officer: any): Promise<void> => {
   try {
     const json = JSON.stringify(officer);
     await AsyncStorage.setItem(ASYNC_CG_OFFICER_KEY, json);
@@ -133,7 +135,7 @@ export const saveCGOfficerSession = async (officer: CGOfficerUser): Promise<void
   }
 };
 
-export const getCGOfficerSession = async (): Promise<CGOfficerUser | null> => {
+export const getCGOfficerSession = async (): Promise<any | null> => {
   try {
     const asyncJson = await AsyncStorage.getItem(ASYNC_CG_OFFICER_KEY);
     if (asyncJson) {
@@ -152,4 +154,21 @@ export const clearCGOfficerSession = async (): Promise<void> => {
     await AsyncStorage.removeItem(ASYNC_CG_OFFICER_KEY);
     await SecureStore.deleteItemAsync(SECURE_CG_OFFICER_KEY);
   } catch (error) {}
+};
+
+export const saveCGRegisteredAccounts = async (accounts: any[]): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(ASYNC_CG_ACCOUNTS_KEY, JSON.stringify(accounts));
+  } catch (error) {
+    console.error('Error saving CG registered accounts:', error);
+  }
+};
+
+export const getCGRegisteredAccounts = async (): Promise<any[]> => {
+  try {
+    const json = await AsyncStorage.getItem(ASYNC_CG_ACCOUNTS_KEY);
+    return json ? JSON.parse(json) : [];
+  } catch (error) {
+    return [];
+  }
 };

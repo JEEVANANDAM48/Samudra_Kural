@@ -276,10 +276,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={styles.logoutSection}>
           <PrimaryButton
             title={t('logout')}
-            variant="outline"
+            variant="danger"
             onPress={handleLogoutPress}
-            style={styles.logoutButtonOverride}
-            textStyle={{ color: '#C0392B', fontWeight: '900' }}
           />
         </View>
 

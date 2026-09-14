@@ -13,7 +13,7 @@ import { Colors } from '../theme/colors';
 interface PrimaryButtonProps extends TouchableOpacityProps {
   title: string;
   loading?: boolean;
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
   style?: ViewStyle;
   textStyle?: TextStyle;
 }
@@ -30,12 +30,14 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
 }) => {
   const isPrimary = variant === 'primary';
   const isOutline = variant === 'outline';
+  const isDanger = variant === 'danger';
 
   const containerStyles = [
     styles.button,
     isPrimary && styles.primaryButton,
     variant === 'secondary' && styles.secondaryButton,
     isOutline && styles.outlineButton,
+    isDanger && styles.dangerButton,
     (disabled || loading) && styles.disabledButton,
     style,
   ];
@@ -45,6 +47,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
     isPrimary && styles.primaryText,
     variant === 'secondary' && styles.secondaryText,
     isOutline && styles.outlineText,
+    isDanger && styles.dangerText,
     (disabled || loading) && styles.disabledText,
     textStyle,
   ];
@@ -58,7 +61,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary ? Colors.textLight : Colors.primary} size="small" />
+        <ActivityIndicator color={isPrimary || isDanger ? Colors.textLight : Colors.primary} size="small" />
       ) : (
         <Text style={textStyles}>{title}</Text>
       )}
@@ -92,6 +95,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.primary,
   },
+  dangerButton: {
+    backgroundColor: '#DC2626',
+    borderWidth: 0,
+    elevation: 3,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
   disabledButton: {
     backgroundColor: Colors.disabled,
     borderColor: Colors.disabled,
@@ -110,6 +122,10 @@ const styles = StyleSheet.create({
   },
   outlineText: {
     color: Colors.primary,
+  },
+  dangerText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   disabledText: {
     color: '#E0E8E8',

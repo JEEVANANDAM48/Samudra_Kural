@@ -8,9 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { coastalGuardService, SOSAlertItem } from '../../services/coastalGuardService';
 
@@ -171,9 +171,11 @@ export const CGSOSAlertsScreen: React.FC<CGSOSAlertsScreenProps> = ({
                 </Text>
 
                 <View style={styles.cardFooter}>
-                  <Text style={styles.gpsCoords}>
-                    📍 {alert.latitude.toFixed(4)}° N, {alert.longitude.toFixed(4)}° E
-                  </Text>
+                  <View style={styles.gpsBadge}>
+                    <Text style={styles.gpsCoordsText}>
+                      📍 <Text style={styles.gpsCoordsVal}>{alert.latitude.toFixed(4)}° N, {alert.longitude.toFixed(4)}° E</Text>
+                    </Text>
+                  </View>
                   <View style={styles.statusGroup}>
                     <Text style={styles.statusTxt}>
                       Status: <Text style={{ fontWeight: '800', color: Colors.cgPrimary }}>{alert.status}</Text>
@@ -330,10 +332,25 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
     paddingTop: 8,
+    gap: 8,
   },
-  gpsCoords: {
-    fontSize: 11,
-    color: '#64748B',
+  gpsBadge: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  gpsCoordsText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.cgPrimary,
+  },
+  gpsCoordsVal: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: Colors.cgPrimaryDark,
   },
   statusGroup: {
     flexDirection: 'row',

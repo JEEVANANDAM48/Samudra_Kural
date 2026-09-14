@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import {
   coastalGuardService,
@@ -73,7 +73,7 @@ export const CGMarineMapScreen: React.FC<CGMarineMapScreenProps> = ({ onBack }) 
           </View>
         ) : (
           <CoastalGuardMapComponent
-            height={560}
+            height="100%"
             sosAlerts={sosAlerts}
             riskZones={riskZones}
             missions={missions}

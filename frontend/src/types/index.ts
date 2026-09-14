@@ -16,6 +16,30 @@ export interface FishermanUser {
   lifeJacketsCount?: number;
 }
 
+export interface CoastalGuardOfficer {
+  id?: string;
+  serviceId: string;
+  name: string;
+  rank: string;
+  station: string;
+  phone: string;
+  email: string;
+  jurisdiction: string;
+  pin: string;
+  badgeNumber?: string;
+}
+
+export interface CGRegisterPayload {
+  name: string;
+  serviceId: string;
+  rank: string;
+  station: string;
+  phone: string;
+  email: string;
+  jurisdiction: string;
+  pin: string;
+}
+
 export interface RegisterPayload {
   name: string;
   phone: string;

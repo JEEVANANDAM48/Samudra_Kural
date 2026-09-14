@@ -316,7 +316,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <View style={styles.logoutWrapper}>
                   <PrimaryButton
                     title={t('logout', currentLanguage)}
-                    variant="outline"
+                    variant="danger"
                     onPress={handleLogout}
                   />
                 </View>

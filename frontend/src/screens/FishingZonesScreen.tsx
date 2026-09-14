@@ -28,6 +28,7 @@ import { INCOISMapComponent } from '../components/INCOISMapComponent';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { SupportedLanguage } from '../types';
 import { useLanguage } from '../i18n';
+import { checkIBLProximity } from '../services/iblService';
 
 const { width } = Dimensions.get('window');
 
@@ -159,9 +160,6 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             <Text style={styles.headerTitle}>Potential Fishing Zone</Text>
             <Text style={styles.headerSubtitle}>INCOIS Oceansat-3 & Marine Data</Text>
           </View>
-          <View style={styles.incoisBadge}>
-            <Text style={styles.incoisBadgeText}>🌊 LIVE DATA</Text>
-          </View>
         </View>
       )}
 
@@ -238,6 +236,36 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             </View>
           </View>
         )}
+
+        {/* Potential Fishing Zones (PFZ) Top Banner Card */}
+        <View style={styles.pfzTopBannerCard}>
+          <View style={styles.pfzHeaderRow}>
+            <View style={styles.pfzTitleGroup}>
+              <Text style={styles.pfzTitleIcon}>🐟</Text>
+              <View>
+                <Text style={styles.pfzMainTitle}>{t('pfzTitle')}</Text>
+                <Text style={styles.pfzMainSub}>{t('pfzSubtitle')}</Text>
+              </View>
+            </View>
+          </View>
+
+          {advisory && (
+            <View style={styles.pfzMetricsRow}>
+              <View style={styles.pfzMetricBox}>
+                <Text style={styles.pfzMetricValue}>{advisory.hotspots?.length ?? 0}</Text>
+                <Text style={styles.pfzMetricLabel}>{t('hotspotsFound')}</Text>
+              </View>
+              <View style={styles.pfzMetricBox}>
+                <Text style={styles.pfzMetricValue}>{advisory.oceanographic_indicators?.chlorophyll_a ?? '1.45'}</Text>
+                <Text style={styles.pfzMetricLabel}>{t('chlorophyllA')}</Text>
+              </View>
+              <View style={styles.pfzMetricBox}>
+                <Text style={styles.pfzMetricValue}>{advisory.oceanographic_indicators?.sea_surface_temperature ?? '28.5°C'}</Text>
+                <Text style={styles.pfzMetricLabel}>{t('sstLayer')}</Text>
+              </View>
+            </View>
+          )}
+        </View>
 
         {/* 2. MAP SECTION: Layer Selector & Interactive Ocean Map */}
         <View style={styles.layerSelectorSection}>
@@ -348,6 +376,8 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
               const isTargeted = selectedNavigationTarget?.id === spot.id;
 
+              const spotIbl = checkIBLProximity(spot.latitude, spot.longitude);
+
               return (
                 <TouchableOpacity
                   key={spot.id}
@@ -357,41 +387,42 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 >
                   <View style={styles.hotspotHeader}>
                     <View style={styles.hotspotTitleGroup}>
-                      <Text style={styles.hotspotName}>🐟 {spot.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                        <Text style={styles.hotspotName}>🐟 {spot.name}</Text>
+                        <View style={{
+                          backgroundColor: spotIbl.status === 'SAFE' ? '#DCFCE7' : spotIbl.status === 'WARNING' ? '#FEF3C7' : '#FEE2E2',
+                          borderColor: spotIbl.status === 'SAFE' ? '#16A34A' : spotIbl.status === 'WARNING' ? '#D97706' : '#DC2626',
+                          borderWidth: 1,
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                          borderRadius: 6,
+                        }}>
+                          <Text style={{
+                            fontSize: 9,
+                            fontWeight: '900',
+                            color: spotIbl.status === 'SAFE' ? '#15803D' : spotIbl.status === 'WARNING' ? '#B45309' : '#B91C1C',
+                          }}>
+                            {spotIbl.status === 'SAFE' ? `🛡️ ${spotIbl.distanceNm} NM to IBL` : `🚨 ${spotIbl.status} (${spotIbl.distanceNm} NM)`}
+                          </Text>
+                        </View>
+                      </View>
                       <Text style={styles.hotspotCoords}>
                         {t('latitude')}: {spot.latitude.toFixed(4)}° N, {t('longitude')}: {spot.longitude.toFixed(4)}° E
                       </Text>
                     </View>
-                    <View style={styles.reliabilityBadge}>
-                      <Text style={styles.reliabilityScore}>{spot.reliability_score}</Text>
-                      <Text style={styles.reliabilityLabel}>{t('reliability')}</Text>
-                    </View>
                   </View>
 
-                  {/* Distance & Direction Info Bar */}
+                  {/* Distance & Depth Info Bar */}
                   <View style={styles.distanceBar}>
                     <Text style={styles.distanceTxt}>
-                      🧭 {distanceKm} km ({directionTxt})
+                      📏 {t('distance')}: {distanceKm} km
+                    </Text>
+                    <Text style={styles.distanceTxt}>
+                      ⚓ {t('depth')}: {spot.depth_meters}m
                     </Text>
                   </View>
 
-                  {/* Indicators Pills */}
-                  <View style={styles.hotspotDetailsRow}>
-                    <View style={styles.detailPill}>
-                      <Text style={styles.detailPillLabel}>SST:</Text>
-                      <Text style={styles.detailPillValue}>{spot.sst_celsius}°C</Text>
-                    </View>
-                    <View style={styles.detailPill}>
-                      <Text style={styles.detailPillLabel}>Chl-a:</Text>
-                      <Text style={styles.detailPillValue}>{spot.chlorophyll_mg_m3} mg/m³</Text>
-                    </View>
-                    <View style={styles.detailPill}>
-                      <Text style={styles.detailPillLabel}>{t('depth')}:</Text>
-                      <Text style={styles.detailPillValue}>{spot.depth_meters}m</Text>
-                    </View>
-                  </View>
-
-                  {/* Action Buttons Row */}
+                  {/* Action Buttons Row: Copy GPS & Navigate */}
                   <View style={styles.cardActionsRow}>
                     <TouchableOpacity
                       style={styles.copyBtnCard}
@@ -405,7 +436,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                       onPress={() => handleStartNavigation(spot)}
                     >
                       <Text style={styles.navigateButtonText}>
-                        {isTargeted ? '✓ MAP ROUTE ACTIVE' : 'NAVIGATE & SHOW MAP ROUTE'}
+                        {isTargeted ? '✓ MAP ROUTE ACTIVE' : 'NAVIGATE'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -511,7 +542,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                   <View style={styles.paramItem}>
                     <Text style={styles.paramIcon}>📡</Text>
                     <Text style={styles.paramVal}>INCOIS</Text>
-                    <Text style={styles.paramLabel}>{t('liveSatelliteData')}</Text>
+                    <Text style={styles.paramLabel}>Satellite Data</Text>
                   </View>
                 </View>
 
@@ -652,9 +683,98 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   container: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 90,
+    paddingBottom: 120,
+  },
+
+  /* Potential Fishing Zones Top Banner Styles */
+  pfzTopBannerCard: {
+    backgroundColor: '#E0F2F1',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: '#0D9488',
+    marginBottom: 12,
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  pfzHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pfzTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  pfzTitleIcon: {
+    fontSize: 22,
+  },
+  pfzMainTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#042F2C',
+    letterSpacing: 0.3,
+  },
+  pfzMainSub: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0D6E6E',
+    marginTop: 1,
+  },
+  pfzLiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(13, 148, 136, 0.15)',
+    borderColor: '#0D9488',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 4,
+  },
+  pfzPulseDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+  },
+  pfzBadgeTxt: {
+    color: '#042F2C',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  pfzMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(13, 148, 136, 0.25)',
+  },
+  pfzMetricBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pfzMetricValue: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#042F2C',
+  },
+  pfzMetricLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0D6E6E',
+    marginTop: 1,
+    textAlign: 'center',
   },
 
   /* Live Route Telemetry Card Styles */
@@ -915,20 +1035,23 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   hotspotCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
+    padding: 16,
+    marginBottom: 14,
     borderWidth: 1.5,
-    borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    borderColor: '#CBD5E1',
+    borderLeftWidth: 5,
+    borderLeftColor: Colors.primary,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   hotspotCardTargeted: {
     borderColor: Colors.primary,
+    borderLeftColor: Colors.primaryDark,
     borderWidth: 2.5,
     backgroundColor: '#F0FDFA',
   },
@@ -944,14 +1067,15 @@ const styles = StyleSheet.create({
   },
   hotspotName: {
     color: Colors.text,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
   },
   hotspotCoords: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
+    color: Colors.primaryDark,
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   reliabilityBadge: {
     backgroundColor: '#E8F8F5',
@@ -973,18 +1097,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   distanceBar: {
-    backgroundColor: '#EBF5FB',
-    borderWidth: 1,
-    borderColor: '#3498DB',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginBottom: 10,
+    backgroundColor: '#E0F2FE',
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   distanceTxt: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#2980B9',
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0369A1',
   },
   hotspotDetailsRow: {
     flexDirection: 'row',

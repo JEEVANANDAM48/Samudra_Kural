@@ -3,6 +3,7 @@ import { SOSPacket, EmergencyType, LocationResult, MockSendResult } from '../typ
 import { communicationManager } from './communicationManager';
 import { FishermanUser } from '../types';
 import { getNearestRescueStation } from '../data/mockRescueStations';
+import { coastalGuardService } from './coastalGuardService';
 
 const PENDING_SOS_KEY = '@samudra_kural_pending_sos';
 const ACTIVE_SOS_KEY = '@samudra_kural_active_sos';
@@ -23,7 +24,7 @@ export function buildEmergencyPacket(
   location: LocationResult,
   emergencyType: EmergencyType = 'General Emergency',
   user?: FishermanUser | null,
-  batteryLevel: number = 88
+  batteryLevel: number = 100
 ): SOSPacket {
   const id = generateSOSId();
   const rescueInfo = getNearestRescueStation(location.latitude, location.longitude);
@@ -104,6 +105,15 @@ export async function clearActiveSOS(): Promise<void> {
 
 export async function sendSOS(packet: SOSPacket): Promise<MockSendResult> {
   const commStatus = communicationManager.getStatus();
+
+  // Instantly broadcast SOS alert to Coastal Guard Command Center Dashboard
+  coastalGuardService.triggerSOS(
+    packet.latitude || 13.0827,
+    packet.longitude || 80.3800,
+    packet.emergencyType || 'General Emergency',
+    `Distress beacon alert from ${packet.boatId}. Battery level: ${packet.batteryLevel}%.`,
+    3
+  ).catch((e) => console.log('CG dispatch notify warning:', e));
 
   if (commStatus === 'offline') {
     await savePendingSOS(packet);

@@ -32,6 +32,8 @@ import { getUserSession, clearSession } from '../storage/storage';
 import * as Location from 'expo-location';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { useLanguage } from '../i18n';
+import { checkIBLProximity } from '../services/iblService';
+import { speakNativeText } from '../utils/speech';
 
 interface NavigationScreenProps {
   currentLanguage: string;
@@ -137,6 +139,19 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     }
     return DEFAULT_HOTSPOT;
   });
+
+  const iblTelemetry = checkIBLProximity(boatLocation.lat, boatLocation.lon);
+  const prevIblStatus = useRef<string>(iblTelemetry.status);
+
+  useEffect(() => {
+    if (isVoiceActive && iblTelemetry.status !== prevIblStatus.current) {
+      if (iblTelemetry.status === 'WARNING' || iblTelemetry.status === 'CRITICAL' || iblTelemetry.status === 'CROSSED') {
+        const speechMsg = `${iblTelemetry.warningMessage}. Distance is ${iblTelemetry.distanceNm} Nautical Miles.`;
+        speakNativeText(speechMsg, language || 'en');
+      }
+      prevIblStatus.current = iblTelemetry.status;
+    }
+  }, [iblTelemetry.status, isVoiceActive, language]);
 
   const [gpsStatus, setGpsStatus] = useState<string>('Initializing Live Smartphone GPS...');
   const [gpsPlaceName, setGpsPlaceName] = useState<string>('Live Smartphone Hardware GPS');
@@ -429,6 +444,71 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           </View>
 
           <Text style={styles.heroGpsSubText}>📍 {gpsPlaceName}</Text>
+        </View>
+
+        {/* 1.5 INTERNATIONAL MARITIME BOUNDARY LINE (IBL) GEO-FENCE CARD */}
+        <View style={[
+          styles.iblCard,
+          iblTelemetry.status === 'CROSSED'
+            ? styles.iblCardCrossed
+            : iblTelemetry.status === 'CRITICAL'
+            ? styles.iblCardCritical
+            : iblTelemetry.status === 'WARNING'
+            ? styles.iblCardWarning
+            : styles.iblCardSafe
+        ]}>
+          <View style={styles.iblHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <Text style={{ fontSize: 22 }}>
+                {iblTelemetry.status === 'SAFE' ? '🛡️' : '🚨'}
+              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.iblTitle}>INTERNATIONAL BOUNDARY GEO-FENCE</Text>
+                <Text style={styles.iblSub}>India - Sri Lanka IBL Monitoring Zone</Text>
+              </View>
+            </View>
+
+            <View style={[
+              styles.iblStatusBadge,
+              iblTelemetry.status === 'CROSSED'
+                ? styles.badgeRed
+                : iblTelemetry.status === 'CRITICAL'
+                ? styles.badgeDarkRed
+                : iblTelemetry.status === 'WARNING'
+                ? styles.badgeOrange
+                : styles.badgeGreen
+            ]}>
+              <Text style={styles.iblStatusTxt}>
+                {iblTelemetry.status === 'CROSSED'
+                  ? 'CROSSED 🚨'
+                  : iblTelemetry.status === 'CRITICAL'
+                  ? 'CRITICAL 🚨'
+                  : iblTelemetry.status === 'WARNING'
+                  ? 'WARNING ⚠️'
+                  : 'SAFE ZONE ✓'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.iblMetricGrid}>
+            <View style={styles.iblMetricBox}>
+              <Text style={styles.iblMetricLabel}>Distance to Boundary:</Text>
+              <Text style={styles.iblMetricVal}>{iblTelemetry.distanceNm} NM ({iblTelemetry.distanceKm} km)</Text>
+            </View>
+
+            <View style={styles.iblMetricBox}>
+              <Text style={styles.iblMetricLabel}>Heading to Boundary:</Text>
+              <Text style={styles.iblMetricVal}>{iblTelemetry.bearingDegrees}°</Text>
+            </View>
+          </View>
+
+          {iblTelemetry.status !== 'SAFE' && (
+            <View style={styles.iblAlertBanner}>
+              <Text style={styles.iblAlertBannerTxt}>
+                ⚠️ {iblTelemetry.warningMessage}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* 2. OCEAN & VESSEL TELEMETRY GRID */}
@@ -1609,17 +1689,20 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   logoutBtn: {
-    backgroundColor: 'rgba(192, 57, 43, 0.1)',
-    borderColor: '#C0392B',
-    borderWidth: 2,
+    backgroundColor: '#DC2626',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 4,
     marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   logoutBtnText: {
-    color: '#C0392B',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '900',
   },
@@ -1635,5 +1718,101 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '900',
+  },
+  /* International Boundary Line (IBL) Geo-Fence Styles */
+  iblCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+  },
+  iblCardSafe: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#16A34A',
+  },
+  iblCardWarning: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#F59E0B',
+  },
+  iblCardCritical: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#DC2626',
+  },
+  iblCardCrossed: {
+    backgroundColor: '#450A0A',
+    borderColor: '#EF4444',
+  },
+  iblHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  iblTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 0.4,
+  },
+  iblSub: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  iblStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeGreen: {
+    backgroundColor: '#DCFCE7',
+  },
+  badgeOrange: {
+    backgroundColor: '#FEF3C7',
+  },
+  badgeDarkRed: {
+    backgroundColor: '#FEE2E2',
+  },
+  badgeRed: {
+    backgroundColor: '#EF4444',
+  },
+  iblStatusTxt: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  iblMetricGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+  },
+  iblMetricBox: {
+    flex: 1,
+  },
+  iblMetricLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 2,
+  },
+  iblMetricVal: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  iblAlertBanner: {
+    backgroundColor: '#DC2626',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+  },
+  iblAlertBannerTxt: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textAlign: 'center',
   },
 });

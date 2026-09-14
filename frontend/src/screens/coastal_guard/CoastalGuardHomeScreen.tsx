@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
+import { PrimaryButton } from '../../components/PrimaryButton';
 import { CoastalGuardNavBar, CGTab } from '../../components/CoastalGuardNavBar';
 import { CGDashboardScreen } from './CGDashboardScreen';
 import { CGSOSAlertsScreen } from './CGSOSAlertsScreen';
@@ -24,13 +25,14 @@ import { CGMarineMapScreen } from './CGMarineMapScreen';
 import { CGProfileScreen } from './CGProfileScreen';
 import { coastalGuardService, SOSAlertItem } from '../../services/coastalGuardService';
 import { getCGOfficerSession, CGOfficerUser } from '../../storage/storage';
+import { CoastalGuardOfficer } from '../../types';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
 
 interface CoastalGuardHomeScreenProps {
   onLogout: () => void;
-  onSwitchToFishermanView: () => void;
+  onSwitchToFishermanView?: () => void;
 }
 
 export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
@@ -43,7 +45,7 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
   const [targetSOSForMission, setTargetSOSForMission] = useState<SOSAlertItem | null>(null);
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
-  const [officer, setOfficer] = useState<CGOfficerUser | null>(null);
+  const [officer, setOfficer] = useState<any | null>(null);
   const [latestEmergency, setLatestEmergency] = useState<SOSAlertItem | null>(null);
   const [activeSOSCount, setActiveSOSCount] = useState<number>(0);
 
@@ -119,6 +121,9 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
   };
 
   const isMainScreen = activeSubScreen === 'main';
+  const officerDisplayName = officer
+    ? `${officer.rank ? officer.rank + ' ' : ''}${officer.name}`
+    : 'Officer';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -131,7 +136,7 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
             <View style={styles.titleContainer}>
               <Text style={styles.appTitle}>SAMUDRA KURAL</Text>
               <Text style={styles.welcomeText}>
-                Welcome, {officer ? `${officer.rank} (${officer.officerId})` : 'Officer'}!
+                Welcome, {officerDisplayName}!
               </Text>
               <Text style={styles.appSubtitle}>
                 {officer?.station || 'Coastal Guard Emergency Command HQ'}
@@ -300,8 +305,8 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
                     <Text style={styles.verifiedBadgeDrawerTxt}>✓ Authorized Coastal Guard</Text>
                   </View>
 
-                  <Text style={styles.profileName}>{officer ? `${officer.rank}` : 'Commander (ICG)'}</Text>
-                  <Text style={styles.profilePhone}>ID: {officer?.officerId || 'CG-8841-TN'}</Text>
+                  <Text style={styles.profileName}>{officer?.name || officer?.rank || 'Commander (ICG)'}</Text>
+                  <Text style={styles.profilePhone}>ID: {officer?.serviceId || officer?.officerId || 'CG-8841-TN'}</Text>
 
                   <TouchableOpacity
                     style={styles.fullProfileDrawerBtn}
@@ -318,8 +323,8 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
                   {/* Official Coastal Guard Officer Specs List */}
                   <View style={{ width: '100%', marginTop: 12 }}>
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Emergency Hotline:</Text>
-                      <Text style={styles.infoBoxValueHighlight}>+91 44 2345 6789</Text>
+                      <Text style={styles.infoBoxLabel}>Official Phone:</Text>
+                      <Text style={styles.infoBoxValueHighlight}>{officer?.phone || '+91 94440 99999'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
@@ -329,62 +334,36 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
 
                     <View style={styles.infoBox}>
                       <Text style={styles.infoBoxLabel}>Service Badge ID:</Text>
-                      <Text style={styles.infoBoxValueBadge}>{officer?.officerId || 'CG-8841-TN'}</Text>
+                      <Text style={styles.infoBoxValueBadge}>{officer?.serviceId || officer?.officerId || 'CG-8841-TN'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Clearance Level:</Text>
-                      <Text style={styles.infoBoxValue}>Level 5 Master Command</Text>
+                      <Text style={styles.infoBoxLabel}>Officer Rank:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.rank || 'Commandant (ICG)'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Patrol Vessel Unit:</Text>
-                      <Text style={styles.infoBoxValue}>ICGS Samudra Paheredar</Text>
+                      <Text style={styles.infoBoxLabel}>Patrol Zone:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.jurisdiction || 'Tamil Nadu Coastal Zone'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Officer License No:</Text>
-                      <Text style={styles.infoBoxValue}>ICG-IND-2024-88410</Text>
-                    </View>
-
-                    <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Officer Gov Aadhaar:</Text>
-                      <Text style={styles.infoBoxValue}>XXXX-XXXX-8841</Text>
-                    </View>
-
-                    <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>Base HQ Address:</Text>
-                      <Text style={styles.infoBoxValue}>Ennore High Road, Chennai</Text>
-                    </View>
-
-                    <View style={styles.infoBox}>
-                      <Text style={styles.infoBoxLabel}>HQ Pincode:</Text>
-                      <Text style={styles.infoBoxValue}>600009</Text>
+                      <Text style={styles.infoBoxLabel}>Gov Email:</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.email || 'officer@indiancoastguard.gov.in'}</Text>
                     </View>
                   </View>
                 </View>
 
-                {/* Drawer Actions */}
-                <View style={styles.drawerActions}>
-                  <TouchableOpacity
-                    style={styles.switchRoleBtn}
-                    onPress={() => {
-                      closeMenuDrawer();
-                      onSwitchToFishermanView();
-                    }}
-                  >
-                    <Text style={styles.switchRoleTxt}>🎣 Switch to Fisherman App View</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.logoutBtn}
+                {/* Drawer Actions - Matches Fisherman HomeScreen pattern */}
+                <View style={styles.logoutWrapper}>
+                  <PrimaryButton
+                    title="Officer Logout"
+                    variant="danger"
                     onPress={() => {
                       closeMenuDrawer();
                       onLogout();
                     }}
-                  >
-                    <Text style={styles.logoutTxt}>🔒 Officer Logout</Text>
-                  </TouchableOpacity>
+                  />
                 </View>
               </ScrollView>
             </SafeAreaView>
@@ -624,32 +603,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.text,
   },
-  switchRoleBtn: {
-    backgroundColor: '#EFF6FF',
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#93C5FD',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  switchRoleTxt: {
-    color: Colors.cgPrimary,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  logoutBtn: {
-    backgroundColor: '#FEF2F2',
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    alignItems: 'center',
-  },
-  logoutTxt: {
-    color: Colors.cgCritical,
-    fontSize: 14,
-    fontWeight: 'bold',
+  logoutWrapper: {
+    marginTop: 8,
+    marginBottom: 16,
   },
   sosNotificationBanner: {
     backgroundColor: '#DC2626',

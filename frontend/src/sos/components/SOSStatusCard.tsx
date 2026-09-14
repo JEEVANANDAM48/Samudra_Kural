@@ -14,10 +14,12 @@ interface SOSStatusCardProps {
 export const SOSStatusCard: React.FC<SOSStatusCardProps> = ({
   gpsAvailable,
   communicationStatus,
-  batteryLevel = 88,
+  batteryLevel = 100,
   sosId,
   isPending = false,
 }) => {
+  const isLowBattery = batteryLevel < 20;
+
   return (
     <View style={styles.cardContainer}>
       <Text style={styles.cardHeaderTitle}>SYSTEM STATUS</Text>
@@ -63,8 +65,10 @@ export const SOSStatusCard: React.FC<SOSStatusCardProps> = ({
         <View style={styles.statusBox}>
           <Text style={styles.label}>Battery</Text>
           <View style={styles.valueRow}>
-            <Text style={styles.batteryIcon}>🔋</Text>
-            <Text style={styles.batteryText}>{batteryLevel}%</Text>
+            <Text style={styles.batteryIcon}>{isLowBattery ? '🪫' : '🔋'}</Text>
+            <Text style={[styles.batteryText, isLowBattery && { color: '#E53E3E' }]}>
+              {batteryLevel}%
+            </Text>
           </View>
         </View>
       </View>
