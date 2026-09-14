@@ -273,6 +273,25 @@ export const kn: Record<TranslationKeys, string> = {
   compassCourse: "ದಿಕ್ಸೂಚಿ ಮಾರ್ಗ",
   sstHeatmap: "ತಾಪಮಾನ ನಕ್ಷೆ (SST)",
   bathymetry: "ಆಳದ ಮಾಹಿತಿ",
-  chlorophyllA: "ಕ್ಲೋರೋಫಿಲ್-ಎ"
+  chlorophyllA: "ಕ್ಲೋರೋಫಿಲ್-ಎ",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 ಏಜೆಂಟರು ಲೈವ್ ಆಗಿದ್ದಾರೆ",
+  liveTelemetryHeading: "ಲೈವ್ ಉಪಗ್ರಹ ಮತ್ತು ಸಮುದ್ರ ಟೆಲಿಮೆಟ್ರಿ",
+  showRouteOceanMap: "ಸಮುದ್ರ ನಕ್ಷೆಯಲ್ಲಿ ಮಾರ್ಗವನ್ನು ತೋರಿಸಿ",
+  spokenVoiceBadge: "🎤 ಮಾತನಾಡಿದ ಧ್ವನಿ",
+  listenNativeVoice: "🔊 ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ಕೇಳಿ",
+  stopVoice: "⏹️ ಧ್ವನಿ ನಿಲ್ಲಿಸಿ",
+  playingAudio: "ಆಡಿಯೋ ಪ್ಲೇ ಆಗುತ್ತಿದೆ...",
+  ttsSub: "ಧ್ವನಿ ಸಲಹೆ",
+  aiMarineAssistant: "AI ಸಮುದ್ರ ಸಹಾಯಕ",
+  botWelcome: "ನಮಸ್ಕಾರ! ನಾನು ಸಮುದ್ರ ಕುರಲ್ ORCA 12-AI ಏಜೆಂಟ್ ಸಹಾಯಕ. ಧ್ವನಿ ಅಥವಾ ಪಠ್ಯದ ಮೂಲಕ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಿ!",
+  askMarineQuestionPlaceholder: "ಧ್ವನಿ ಅಥವಾ ಟೈಪ್ ಮಾಡಿ ಪ್ರಶ್ನೆ ಕೇಳಿ...",
+  typeQuestionPlaceholder: "ಪ್ರಶ್ನೆಯನ್ನು ಟೈಪ್ ಮಾಡಿ...",
+  quickPromptsTitle: "ತ್ವರಿತ ಪ್ರಶ್ನೆಗಳು",
+  emergencySosTitle: "ತುರ್ತು SOS",
+  emergencySosMsg: "ಕೋಸ್ಟ್ ಗಾರ್ಡ್ ಮತ್ತು ಹತ್ತಿರದ ದೋಣಿಗಳಿಗೆ ತುರ್ತು ಸಂದೇಶ ರವಾನಿಸಲಾಗಿದೆ.",
+  seaSurfaceTempLabel: "ಸಮುದ್ರ ಮೇಲ್ಮೈ ತಾಪಮಾನ",
+  oceanCurrentLabel: "ಪ್ರವಾಹ"
 };
 

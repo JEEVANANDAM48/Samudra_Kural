@@ -1,4 +1,33 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { getAuthToken } from '../storage/storage';
+
+function resolveApiBaseUrl(): string {
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8000/api/v1';
+  }
+
+  const debuggerHost =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+
+  if (debuggerHost) {
+    const ip = debuggerHost.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return `http://${ip}:8000/api/v1`;
+    }
+  }
+
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  return 'http://192.168.0.4:8000/api/v1';
+}
+
+// Base API URL configured for Expo environment with dynamic host detection
+export const API_BASE_URL = resolveApiBaseUrl();
 
 // Base API URL configured for Expo environment with sensible defaults
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.4:8000/api/v1';
@@ -29,9 +58,9 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
 
-  // 15-second AbortController timeout for ocean physics calculations
+  // 45-second AbortController timeout for comprehensive multi-agent ocean calculations
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   try {
     const response = await fetch(url, {

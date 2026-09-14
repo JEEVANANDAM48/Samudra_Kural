@@ -271,7 +271,26 @@ export const en = {
   compassCourse: "Compass Course",
   sstHeatmap: "SST Heatmap",
   bathymetry: "Bathymetry",
-  chlorophyllA: "Chlorophyll-a"
+  chlorophyllA: "Chlorophyll-a",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 AGENTS LIVE",
+  liveTelemetryHeading: "LIVE SATELLITE & SEA TELEMETRY",
+  showRouteOceanMap: "SHOW ROUTE ON OCEAN MAP",
+  spokenVoiceBadge: "🎤 Spoken Voice",
+  listenNativeVoice: "🔊 Listen in Native Voice",
+  stopVoice: "⏹️ Stop Voice",
+  playingAudio: "Playing audio...",
+  ttsSub: "Text-to-Speech audio recommendation",
+  aiMarineAssistant: "AI Marine Assistant",
+  botWelcome: "Hello! I am Samudra Kural ORCA 12-AI Marine Assistant. Ask me any question via Voice or Text in your native language!",
+  askMarineQuestionPlaceholder: "Ask marine question via voice or text...",
+  typeQuestionPlaceholder: "Type a question...",
+  quickPromptsTitle: "Quick Prompts",
+  emergencySosTitle: "Emergency SOS",
+  emergencySosMsg: "Distress beacon signal transmitted to Coast Guard and nearest vessels.",
+  seaSurfaceTempLabel: "Sea Surface Temp",
+  oceanCurrentLabel: "Current"
 };
 
 export type TranslationKeys = keyof typeof en;

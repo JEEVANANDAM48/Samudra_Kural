@@ -187,6 +187,20 @@ export const AppNavigator: React.FC = () => {
           initialTarget={selectedHotspot}
           onBack={() => setCurrentScreen('home')}
           onNavigateToHotspot={handleStartNavigationToHotspot}
+          onTabPress={(tabId) => {
+            if (tabId === 'nets' || tabId === 'home') {
+              setCurrentScreen('home');
+            } else if (tabId === 'nav') {
+              setCurrentScreen('navigation');
+            } else if (tabId === 'bot') {
+              setCurrentScreen('bot');
+            } else if (tabId === 'sos') {
+              Alert.alert(
+                t('emergencySosTitle'),
+                t('emergencySosMsg')
+              );
+            }
+          }}
         />
       )}
 
@@ -199,6 +213,20 @@ export const AppNavigator: React.FC = () => {
           onOpenMap={() => setCurrentScreen('fishing_zones')}
           onLogout={handleLogout}
           onOpenProfile={() => setCurrentScreen('profile')}
+          onTabPress={(tabId) => {
+            if (tabId === 'nets' || tabId === 'home') {
+              setCurrentScreen('home');
+            } else if (tabId === 'fishing') {
+              setCurrentScreen('fishing_zones');
+            } else if (tabId === 'bot') {
+              setCurrentScreen('bot');
+            } else if (tabId === 'sos') {
+              Alert.alert(
+                t('emergencySosTitle'),
+                t('emergencySosMsg')
+              );
+            }
+          }}
         />
       )}
 
@@ -218,6 +246,20 @@ export const AppNavigator: React.FC = () => {
           currentLanguage={language}
           onBack={() => setCurrentScreen('home')}
           onNavigateToHotspot={handleStartNavigationToHotspot}
+          onTabPress={(tabId) => {
+            if (tabId === 'home' || tabId === 'nets') {
+              setCurrentScreen('home');
+            } else if (tabId === 'fishing') {
+              setCurrentScreen('fishing_zones');
+            } else if (tabId === 'nav') {
+              setCurrentScreen('navigation');
+            } else if (tabId === 'sos') {
+              Alert.alert(
+                t('emergencySosTitle'),
+                t('emergencySosMsg')
+              );
+            }
+          }}
         />
       )}
     </View>

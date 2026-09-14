@@ -273,6 +273,25 @@ export const gu: Record<TranslationKeys, string> = {
   compassCourse: "હોકાયંત્ર દિશા",
   sstHeatmap: "તાપમાન નકશો (SST)",
   bathymetry: "ઊંડાઈ માહિતી",
-  chlorophyllA: "ક્લોરોફિલ-એ"
+  chlorophyllA: "ક્લોરોફિલ-એ",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 એજન્ટો લાઈવ છે",
+  liveTelemetryHeading: "લાઈવ સેટેલાઇટ અને દરિયાઈ ટેલિમેટ્રી",
+  showRouteOceanMap: "દરિયાઈ નકશા પર માર્ગ જુઓ",
+  spokenVoiceBadge: "🎤 બોલાયેલ અવાજ",
+  listenNativeVoice: "🔊 તમારી ભાષામાં સાંભળો",
+  stopVoice: "⏹️ અવાજ બંધ કરો",
+  playingAudio: "ઓડિયો ચાલી રહ્યો છે...",
+  ttsSub: "અવાજ દ્વારા સલાહ",
+  aiMarineAssistant: "AI દરિયાઈ સહાયક",
+  botWelcome: "નમસ્તે! હું સમુદ્ર કુરલ ORCA 12-AI એજન્ટ સહાયક છું. વૉઇસ અથવા ટેક્સ્ટ દ્વારા પ્રશ્નો પૂછો!",
+  askMarineQuestionPlaceholder: "અવાજ અથવા ટાઇપ કરીને પૂછો...",
+  typeQuestionPlaceholder: "પ્રશ્ન ટાઇપ કરો...",
+  quickPromptsTitle: "ઝડપી પ્રશ્નો",
+  emergencySosTitle: "ઇમરજન્સી SOS",
+  emergencySosMsg: "કોસ્ટ ગಾರ್ડ અને નજીકની બોટોને કટોકટીનો સંદેશ મોકલવામાં આવ્યો છે.",
+  seaSurfaceTempLabel: "દરિયાઈ સપાટીનું તાપમાન",
+  oceanCurrentLabel: "પ્રવાહ"
 };
 

@@ -273,6 +273,25 @@ export const or: Record<TranslationKeys, string> = {
   compassCourse: "ଦିଗନିର୍ଣ୍ଣୟ ପଥ",
   sstHeatmap: "ତାପମାତ୍ରା ମ୍ୟାପ୍ (SST)",
   bathymetry: "ଗଭୀରତା ତଥ୍ୟ",
-  chlorophyllA: "କ୍ଲୋରୋଫିଲ୍-ଏ"
+  chlorophyllA: "କ୍ଲୋରୋଫିଲ୍-ଏ",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 ଏଜେଣ୍ଟ ଲାଇଭ ଅଛନ୍ତି",
+  liveTelemetryHeading: "ଲାଇଭ ସାଟେଲାଇଟ୍ ଏବଂ ସାମୁଦ୍ରିକ ଟେଲିମେଟ୍ରି",
+  showRouteOceanMap: "ସମୁଦ୍ର ମାନଚିତ୍ରରେ ରାସ୍ତା ଦେଖନ୍ତୁ",
+  spokenVoiceBadge: "🎤 କଥିତ ସ୍ୱର",
+  listenNativeVoice: "🔊 ନିଜ ଭାଷାରେ ଶୁଣନ୍ତୁ",
+  stopVoice: "⏹️ ଶବ୍ଦ ବନ୍ଦ କରନ୍ତୁ",
+  playingAudio: "ଅଡିଓ ଚାଲୁଛି...",
+  ttsSub: "ଭଏସ୍ ପରାମର୍ଶ",
+  aiMarineAssistant: "AI ସାମୁଦ୍ରିକ ସହାୟକ",
+  botWelcome: "ନମସ୍କାର! ମୁଁ ସମୁଦ୍ର କୁରଲ ORCA 12-AI ଏଜେଣ୍ଟ ସହାୟକ। ଭଏସ୍ ବା ଟେକ୍ସଟ୍ ମାଧ୍ୟମରେ ପ୍ରଶ୍ନ ପଚାରନ୍ତୁ!",
+  askMarineQuestionPlaceholder: "ଭଏସ୍ ବା ଟାଇପ୍ କରି ପଚାରନ୍ତୁ...",
+  typeQuestionPlaceholder: "ପ୍ରଶ୍ନ ଟାଇପ୍ କରନ୍ତୁ...",
+  quickPromptsTitle: "ଦ୍ରୁତ ପ୍ରଶ୍ନ",
+  emergencySosTitle: "ଜରୁରୀକାଳୀନ SOS",
+  emergencySosMsg: "ତଟରକ୍ଷୀ ବାହିନୀ ଏବଂ ନିକଟସ୍ଥ ଡଙ୍ଗାଗୁଡ଼ିକୁ ଜରୁରୀକାଳୀନ ବାର୍ତ୍ତା ପଠାଯାଇଛି।",
+  seaSurfaceTempLabel: "ସମୁଦ୍ର ପୃଷ୍ଠ ତାପମାତ୍ରା",
+  oceanCurrentLabel: "ସ୍ରୋତ"
 };
 

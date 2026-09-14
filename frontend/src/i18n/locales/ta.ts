@@ -273,5 +273,24 @@ export const ta: Record<TranslationKeys, string> = {
   compassCourse: "திசைகாட்டி பாதை",
   sstHeatmap: "வெப்பநிலை வரைபடம் (SST)",
   bathymetry: "ஆழக் கணக்கீடு",
-  chlorophyllA: "குளோரோபில்-ஏ"
-}
+  chlorophyllA: "குளோரோபில்-ஏ",
+
+  // Chatbot & Multilingual UI Keys
+  agentsLive: "12 ஏஜென்ட்கள் செயலில் உள்ளன",
+  liveTelemetryHeading: "நேரடி செயற்கைக்கோள் & கடல் தொலைநிலை தரவு",
+  showRouteOceanMap: "கடல் வரைபடத்தில் வழியைக் காட்டு",
+  spokenVoiceBadge: "🎤 பேசிய குரல்",
+  listenNativeVoice: "🔊 தாய்மொழியில் கேட்கவும்",
+  stopVoice: "⏹️ ஆடியோவை நிறுத்து",
+  playingAudio: "ஆடியோ இயங்குகிறது...",
+  ttsSub: "குரல் வழி பரிந்துரை",
+  aiMarineAssistant: "AI கடல்சார் உதவியாளர்",
+  botWelcome: "வணக்கம்! நான் சமுத்திர குரல் ORCA 12-AI ஏஜென்ட் உதவியாளன். நீங்கள் குரல் மூலமாகவோ அல்லது தட்டச்சு மூலமாகவோ என்னிடம் கேள்விகள் கேட்கலாம்.",
+  askMarineQuestionPlaceholder: "குரல் அல்லது தட்டச்சு மூலம் கேளுங்கள்...",
+  typeQuestionPlaceholder: "கேள்வியை தட்டச்சு செய்யவும்...",
+  quickPromptsTitle: "விரைவான கேள்விகள்",
+  emergencySosTitle: "அவசர SOS",
+  emergencySosMsg: "கடலோர காவல்படை மற்றும் அருகிலுள்ள படகுகளுக்கு அவசர சமிக்ஞை அனுப்பப்பட்டது.",
+  seaSurfaceTempLabel: "கடல் மேற்பரப்பு வெப்பநிலை",
+  oceanCurrentLabel: "நீரோட்டம்"
+};

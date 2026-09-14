@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # Sarvam AI Voice API Credentials
     SARVAM_API_KEY: Optional[str] = os.getenv("SARVAM_API_KEY", "sk_bdef6i5n_IMCodc8v3cOjtIod6qhvNM1b")
 
+    # ElevenLabs Voice API Credentials (Multilingual TTS & STT)
+    ELEVENLABS_API_KEY: Optional[str] = os.getenv("ELEVENLABS_API_KEY", "")
+    ELEVENLABS_VOICE_ID: Optional[str] = os.getenv("ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB")  # Adam (Multilingual)
+
     # Generative AI LLM API Credentials (Google Gemini & OpenAI)
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY", "")

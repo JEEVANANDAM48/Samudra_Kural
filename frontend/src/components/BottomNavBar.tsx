@@ -8,13 +8,13 @@ import {
   Image,
 } from 'react-native';
 import { Colors } from '../theme/colors';
-import { t } from '../i18n';
+import { t, useLanguage } from '../i18n';
 import { SupportedLanguage } from '../types';
 
 interface BottomNavBarProps {
   activeTab: string;
   onTabPress: (tabId: string) => void;
-  currentLanguage: SupportedLanguage;
+  currentLanguage?: SupportedLanguage;
 }
 
 export const BottomNavBar: React.FC<BottomNavBarProps> = ({
@@ -22,12 +22,15 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
   onTabPress,
   currentLanguage,
 }) => {
+  const { language: ctxLang } = useLanguage();
+  const lang = (currentLanguage || ctxLang || 'en') as SupportedLanguage;
+
   const tabs = [
-    { id: 'nav', icon: '🧭', label: t('placeholderNav', currentLanguage) },
-    { id: 'fishing', icon: '🎣', label: t('placeholderFishing', currentLanguage) },
-    { id: 'bot', label: t('askBot', currentLanguage), isCenter: true },
-    { id: 'nets', icon: '🕸️', label: t('placeholderNets', currentLanguage) },
-    { id: 'sos', icon: '🆘', label: t('placeholderEmergency', currentLanguage) },
+    { id: 'nav', icon: '🧭', label: t('placeholderNav', lang) },
+    { id: 'fishing', icon: '🎣', label: t('placeholderFishing', lang) },
+    { id: 'bot', label: t('askBot', lang), isCenter: true },
+    { id: 'nets', icon: '🕸️', label: t('placeholderNets', lang) },
+    { id: 'sos', icon: '🆘', label: t('placeholderEmergency', lang) },
   ];
 
   return (
