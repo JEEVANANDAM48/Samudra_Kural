@@ -1,6 +1,12 @@
 import * as Location from 'expo-location';
-import * as Battery from 'expo-battery';
 import { LocationResult } from '../types/sos';
+
+let Battery: any = null;
+try {
+  Battery = require('expo-battery');
+} catch (e) {
+  Battery = null;
+}
 
 let demoGpsAvailable = true;
 
@@ -20,9 +26,11 @@ export function isDemoGpsAvailable(): boolean {
  */
 export async function getRealBatteryLevel(): Promise<number> {
   try {
-    const level = await Battery.getBatteryLevelAsync();
-    if (level !== null && level >= 0) {
-      return Math.round(level * 100);
+    if (Battery && Battery.getBatteryLevelAsync) {
+      const level = await Battery.getBatteryLevelAsync();
+      if (level !== null && level >= 0) {
+        return Math.round(level * 100);
+      }
     }
   } catch (e) {
     console.warn('Expo Battery error:', e);
