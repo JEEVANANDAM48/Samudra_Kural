@@ -280,10 +280,10 @@ export const BotScreen: React.FC<BotScreenProps> = ({
           setIsTranscribing(false);
         }
       } catch (err: any) {
-        console.error('STT error:', err);
+        console.warn('[STT Notice]', err?.message || err);
         Alert.alert(
-          'Voice Recognition Error',
-          err.message || 'Failed to transcribe audio. Please check network connection.'
+          'Voice Recognition',
+          err.message || 'Could not recognize voice input. Please try speaking again or type your message.'
         );
         setIsTranscribing(false);
       }
