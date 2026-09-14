@@ -279,6 +279,11 @@ export const BotScreen: React.FC<BotScreenProps> = ({
           );
         }
       } catch (err: any) {
+        console.warn('[STT Notice]', err?.message || err);
+        Alert.alert(
+          'Voice Recognition',
+          err.message || 'Could not recognize voice input. Please try speaking again or type your message.'
+        );
         setIsTranscribing(false);
       }
       return;
@@ -388,7 +393,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
 
-      {/* Header Banner */}
+      {/* Header Banner - Only shown when BotScreen is standalone (not inside HomeScreen tab) */}
       {!hideTopHeader && (
         <View style={styles.header}>
           <View style={styles.headerLeftRow}>
@@ -684,7 +689,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Floating Bottom Navigation Bar (Only rendered when standalone) */}
+      {/* Floating Bottom Navigation Bar - Only when standalone (HomeScreen already provides the bottom bar) */}
       {!hideTopHeader && (
         <BottomNavBar
           activeTab="bot"

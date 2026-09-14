@@ -445,17 +445,19 @@ export async function startRealAudioRecording(language: string = 'ta'): Promise<
         await ExpoAudio.setAudioModeAsync({
           allowsRecording: true,
           playsInSilentMode: true,
+          interruptionMode: 'doNotMix',
         });
       }
 
-      const presetOptions = ExpoAudio.RecordingPresets?.HIGH_QUALITY || {
+      const presetOptions = {
         extension: '.m4a',
-        sampleRate: 44100,
-        numberOfChannels: 2,
-        bitRate: 128000,
+        sampleRate: 16000,
+        numberOfChannels: 1, // Mono channel: required for reliable Android microphone capture
+        bitRate: 64000,
         android: {
           outputFormat: 'mpeg4',
           audioEncoder: 'aac',
+          audioSource: 'mic',
         },
         ios: {
           outputFormat: 'aac ',
@@ -472,7 +474,7 @@ export async function startRealAudioRecording(language: string = 'ta'): Promise<
         await recorder.prepareToRecordAsync(presetOptions);
         recorder.record();
         activeExpoAudioRecorder = recorder;
-        console.log('[Voice Recording] Native expo-audio recording started at:', new Date().toISOString());
+        console.log('[Voice Recording] Native expo-audio recording started (Mono 16kHz, source=mic) at:', new Date().toISOString());
         return;
       }
     } catch (err) {

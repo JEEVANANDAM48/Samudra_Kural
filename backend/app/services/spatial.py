@@ -3,11 +3,17 @@ from geoalchemy2.shape import to_shape
 from shapely.geometry import Point as ShapelyPoint
 from app.schemas.common import LocationPoint
 
-def location_to_wkt(point: LocationPoint) -> WKTElement:
+def location_to_wkt(point) -> WKTElement:
     """
-    Convert LocationPoint (latitude, longitude) to PostGIS WKTElement (POINT(longitude latitude), srid=4326).
+    Convert LocationPoint or dict (latitude, longitude) to PostGIS WKTElement (POINT(longitude latitude), srid=4326).
     PostGIS requires longitude first, latitude second.
     """
+    if point is None:
+        return WKTElement("POINT(80.297412 13.120456)", srid=4326)
+    if isinstance(point, dict):
+        lat = point.get("latitude", 13.120456)
+        lon = point.get("longitude", 80.297412)
+        return WKTElement(f"POINT({lon} {lat})", srid=4326)
     return WKTElement(f"POINT({point.longitude} {point.latitude})", srid=4326)
 
 def wkt_from_lat_lon(latitude: float, longitude: float) -> WKTElement:

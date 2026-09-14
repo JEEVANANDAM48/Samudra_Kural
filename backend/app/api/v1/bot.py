@@ -68,9 +68,10 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
             raw_b64 = raw_b64.split(",", 1)[1]
         
         audio_bytes = base64.b64decode(raw_b64)
+        print(f"\n[STT DEBUG] Received payload: base64_len={len(raw_b64)}, audio_bytes={len(audio_bytes)}, format={payload.format}, lang={payload.language}", flush=True)
         if len(audio_bytes) == 0:
             return {"success": False, "status": "error", "message": "Decoded audio is empty", "transcript": ""}
-        
+
         filename = f"audio.{payload.format or 'm4a'}"
 
         # 1. Try Sarvam AI
@@ -99,14 +100,14 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
                 "success": True,
                 "status": "success",
                 "transcript": el_res.get("transcript", ""),
-                "language": el_res.get("language", "ta"),
-                "language_code": f"{payload.language or 'en'}-IN"
+                "language": el_res.get("language", payload.language or "ta"),
+                "language_code": f"{payload.language or 'ta'}-IN"
             }
 
         # Clear human message if quota ran out
-        err_msg = res.get("message") or el_res.get("message") or "Speech recognition quota exceeded or unavailable."
-        if "402" in err_msg or "credits" in err_msg.lower():
-            err_msg = "Voice cloud quota exhausted. Please configure ElevenLabs API Key in .env or speak into text."
+        err_msg = el_res.get("message") or res.get("message") or "Speech recognition unavailable."
+        if ("402" in err_msg or "insufficient" in err_msg.lower()) and "elevenlabs" not in err_msg.lower():
+            err_msg = "Speech recognition could not process audio. Please try speaking again or type your question."
 
         return {
             "success": False,
@@ -151,19 +152,20 @@ async def voice_speech_to_text(
             filename=file.filename or "audio.m4a",
             language_code=language
         )
-        if el_res.get("status") == "success" and el_res.get("transcript"):
+        if el_res.get("status") == "success":
             return {
                 "success": True,
                 "status": "success",
                 "transcript": el_res.get("transcript", ""),
-                "language": el_res.get("language", "ta"),
+                "language": el_res.get("language", language or "ta"),
                 "language_code": f"{language}-IN"
             }
 
+        err_msg = el_res.get("message") or res.get("message") or "Speech recognition failed"
         return {
             "success": False,
             "status": "error",
-            "message": res.get("message") or el_res.get("message") or "Speech recognition failed",
+            "message": err_msg,
             "transcript": ""
         }
     except Exception as e:

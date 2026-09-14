@@ -444,21 +444,34 @@ class OrcaAgentOrchestrator:
 
         voice_audio_b64 = None
         try:
+            # 1. Try Sarvam TTS first if configured
             tts_res = await asyncio.wait_for(
                 sarvam_service.text_to_speech(text=voice_text, language_code=language),
-                timeout=2.0
+                timeout=2.5
             )
             if tts_res.get("status") == "success":
                 voice_audio_b64 = tts_res.get("audio_base64")
             elif elevenlabs_service.is_available():
                 el_res = await asyncio.wait_for(
                     elevenlabs_service.text_to_speech(text=voice_text, language_code=language),
-                    timeout=2.0
+                    timeout=5.0
                 )
                 if el_res.get("status") == "success":
                     voice_audio_b64 = el_res.get("audio_base64")
         except Exception as e:
-            logger.warning(f"TTS generation skipped or timed out: {e}")
+            # If Sarvam timed out or failed, try ElevenLabs directly
+            if elevenlabs_service.is_available() and not voice_audio_b64:
+                try:
+                    el_res = await asyncio.wait_for(
+                        elevenlabs_service.text_to_speech(text=voice_text, language_code=language),
+                        timeout=5.0
+                    )
+                    if el_res.get("status") == "success":
+                        voice_audio_b64 = el_res.get("audio_base64")
+                except Exception as el_err:
+                    logger.warning(f"ElevenLabs TTS fallback error: {el_err}")
+            else:
+                logger.warning(f"TTS generation skipped or timed out: {e}")
 
         quick_actions = [
             {"id": "map", "label": "🧭 Show Route on Ocean Map", "action": "NAVIGATE_MAP"},
