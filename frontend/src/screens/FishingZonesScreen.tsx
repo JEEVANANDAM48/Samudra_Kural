@@ -280,8 +280,9 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         <View style={styles.layerSelectorSection}>
           <Text style={styles.sectionTitle}>{t('incoisOceanMap')}</Text>
 
-          <View style={styles.layerToggleGroup}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.layerToggleScroll}>
             <TouchableOpacity
+              activeOpacity={0.8}
               style={[styles.layerToggleBtn, activeLayer === 'chl' ? styles.layerToggleBtnActive : styles.layerToggleBtnInactive]}
               onPress={() => setActiveLayer('chl')}
             >
@@ -291,6 +292,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
+              activeOpacity={0.8}
               style={[styles.layerToggleBtn, activeLayer === 'sst' ? styles.layerToggleBtnActive : styles.layerToggleBtnInactive]}
               onPress={() => setActiveLayer('sst')}
             >
@@ -300,6 +302,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
+              activeOpacity={0.8}
               style={[styles.layerToggleBtn, activeLayer === 'bathymetry' ? styles.layerToggleBtnActive : styles.layerToggleBtnInactive]}
               onPress={() => setActiveLayer('bathymetry')}
             >
@@ -309,6 +312,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
+              activeOpacity={0.8}
               style={[styles.layerToggleBtn, activeLayer === 'ibl' ? styles.layerToggleBtnActive : styles.layerToggleBtnInactive]}
               onPress={() => setActiveLayer('ibl')}
             >
@@ -316,7 +320,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 IBL Boundary
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
 
           {/* Interactive Ocean Map with Route Line & Copying */}
           {advisory && (
@@ -331,53 +335,7 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
           )}
         </View>
 
-        {/* 3. Advisory Overview Card & 2x2 Indicators Grid */}
-        {advisory && (
-          <View style={styles.advisoryCard}>
-            <View style={styles.advisoryHeader}>
-              <View>
-                <Text style={styles.advisorySectorName}>{advisory.sector_name}</Text>
-                <Text style={styles.advisoryState}>State: {advisory.state} (GPS: {userLocation.lat.toFixed(4)}°N, {userLocation.lon.toFixed(4)}°E)</Text>
-              </View>
-            </View>
 
-            {/* Oceanographic Metric Cards Grid: 2x2 Side-by-Side Cards */}
-            <Text style={styles.metricsHeader}>{t('oceanIndicators')}</Text>
-            <View style={styles.metricsGrid}>
-              <View style={styles.metricItem}>
-                <Text style={styles.metricIcon}>🌡️</Text>
-                <Text style={styles.metricValue}>
-                  {advisory.oceanographic_indicators.sea_surface_temperature}
-                </Text>
-                <Text style={styles.metricLabel}>{t('sstLayer')}</Text>
-              </View>
-
-              <View style={styles.metricItem}>
-                <Text style={styles.metricIcon}>🌿</Text>
-                <Text style={styles.metricValue}>
-                  {advisory.oceanographic_indicators.chlorophyll_a}
-                </Text>
-                <Text style={styles.metricLabel}>{t('chlorophyllA')}</Text>
-              </View>
-
-              <View style={styles.metricItem}>
-                <Text style={styles.metricIcon}>💨</Text>
-                <Text style={styles.metricValue}>
-                  {advisory.oceanographic_indicators.wind_speed_knots}
-                </Text>
-                <Text style={styles.metricLabel}>{t('windSpeed')}</Text>
-              </View>
-
-              <View style={styles.metricItem}>
-                <Text style={styles.metricIcon}>🌊</Text>
-                <Text style={styles.metricValue}>
-                  {advisory.oceanographic_indicators.wave_height_meters}
-                </Text>
-                <Text style={styles.metricLabel}>{t('waveHeight')}</Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* 4. ACTIVE POTENTIAL FISHING ZONES LIST */}
         {advisory && advisory.hotspots && advisory.hotspots.length > 0 && (
@@ -751,27 +709,36 @@ const styles = StyleSheet.create({
   },
   pfzMetricsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(13, 148, 136, 0.25)',
+    gap: 6,
   },
   pfzMetricBox: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 148, 136, 0.2)',
   },
   pfzMetricValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '900',
     color: '#042F2C',
+    textAlign: 'center',
   },
   pfzMetricLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0D6E6E',
-    marginTop: 1,
+    marginTop: 2,
     textAlign: 'center',
   },
 
@@ -999,16 +966,19 @@ const styles = StyleSheet.create({
   layerSelectorSection: {
     marginBottom: 12,
   },
-  layerToggleGroup: {
+  layerToggleScroll: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 8,
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 16,
+    marginBottom: 10,
   },
   layerToggleBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1.5,
   },
   layerToggleBtnActive: {
@@ -1020,8 +990,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   layerToggleText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '900',
+    letterSpacing: 0.2,
   },
   layerToggleTextActive: {
     color: '#FFFFFF',

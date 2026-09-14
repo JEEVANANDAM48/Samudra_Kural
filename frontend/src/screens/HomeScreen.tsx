@@ -21,6 +21,7 @@ import { getUserSession, clearSession, saveLanguagePreference } from '../storage
 import { PrimaryButton } from '../components/PrimaryButton';
 import { BottomNavBar } from '../components/BottomNavBar';
 import { SOSScreen } from '../sos/SOSScreen';
+import { HeaderWaveBottom } from '../components/WavyBackground';
 
 import { NavigationScreen } from './NavigationScreen';
 import { FishingZonesScreen } from './FishingZonesScreen';
@@ -139,6 +140,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+      <HeaderWaveBottom color={Colors.primary} bgColor={Colors.background} height={22} />
 
       {/* Main Content Area with Instant Navigation Auto-Reload Keys */}
       {activeTab === 'sos' ? (
@@ -412,14 +414,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 6 : 10,
-    paddingBottom: 12,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 4,
+    paddingBottom: 10,
   },
   headerTopRow: {
     flexDirection: 'row',

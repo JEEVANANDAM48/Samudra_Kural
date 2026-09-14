@@ -403,11 +403,14 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     setIsNavigating(true);
   };
 
+  // Active Category Filter Pill ('telemetry' | 'geofence' | 'pfz' | 'sos')
+  const [activeSection, setActiveSection] = useState<string>('telemetry');
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
 
-      {/* Header */}
+      {/* Top Header Banner */}
       {!hideTopHeader && (
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => (onOpenProfile ? onOpenProfile() : setIsProfileModalOpen(true))}>
@@ -425,9 +428,95 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
       )}
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* 1. CENTERED HERO LATITUDE & LONGITUDE DISPLAY */}
+        {/* 0. Top Horizontal Category Pill Scroll Bar */}
+        <View style={styles.categoryBarContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryBarScroll}>
+            <TouchableOpacity
+              style={[styles.categoryPill, activeSection === 'telemetry' && styles.categoryPillActive]}
+              onPress={() => setActiveSection('telemetry')}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.categoryIconCircle, activeSection === 'telemetry' && styles.categoryIconCircleActive]}>
+                <Text style={styles.categoryIconTxt}>📡</Text>
+              </View>
+              <Text style={[styles.categoryPillTxt, activeSection === 'telemetry' && styles.categoryPillTxtActive]}>
+                Live Telemetry
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.categoryPill, activeSection === 'geofence' && styles.categoryPillActive]}
+              onPress={() => setActiveSection('geofence')}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.categoryIconCircle, activeSection === 'geofence' && styles.categoryIconCircleActive]}>
+                <Text style={styles.categoryIconTxt}>🛡️</Text>
+              </View>
+              <Text style={[styles.categoryPillTxt, activeSection === 'geofence' && styles.categoryPillTxtActive]}>
+                IBL Geo-Fence
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.categoryPill, activeSection === 'pfz' && styles.categoryPillActive]}
+              onPress={() => {
+                setActiveSection('pfz');
+                if (onTabPress) onTabPress('fishing');
+              }}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.categoryIconCircle, activeSection === 'pfz' && styles.categoryIconCircleActive]}>
+                <Text style={styles.categoryIconTxt}>🐟</Text>
+              </View>
+              <Text style={[styles.categoryPillTxt, activeSection === 'pfz' && styles.categoryPillTxtActive]}>
+                Fishing Zones
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.categoryPill, activeSection === 'sos' && styles.categoryPillActive]}
+              onPress={() => {
+                setActiveSection('sos');
+                if (onTabPress) onTabPress('sos');
+              }}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.categoryIconCircle, activeSection === 'sos' && styles.categoryIconCircleActive]}>
+                <Text style={styles.categoryIconTxt}>🚨</Text>
+              </View>
+              <Text style={[styles.categoryPillTxt, activeSection === 'sos' && styles.categoryPillTxtActive]}>
+                Emergency SOS
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
+        {/* 0.5 Modern Glassmorphic Search Bar */}
+        <TouchableOpacity
+          style={styles.searchBarContainer}
+          activeOpacity={0.85}
+          onPress={() => setIsPickerVisible(true)}
+        >
+          <Text style={styles.searchIcon}>🔍</Text>
+          <Text style={styles.searchPlaceholder}>Search coordinates, harbor or fishing zone...</Text>
+          <View style={styles.searchFilterBadge}>
+            <Text style={styles.searchFilterBadgeTxt}>TARGETS ▾</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* 1. GLASSMORPHIC MARINE HERO COORDINATES CARD */}
         <View style={styles.heroGpsCard}>
-          <Text style={styles.heroGpsTitle}>VESSEL CURRENT COORDINATES</Text>
+          <View style={styles.heroCardHeaderRow}>
+            <View style={styles.compassHeaderGroup}>
+              <Text style={styles.compassIcon}>🧭</Text>
+              <Text style={styles.heroGpsTitle}>VESSEL POSITION</Text>
+            </View>
+
+            <View style={styles.heroGpsBadge}>
+              <View style={styles.heroGpsDot} />
+              <Text style={styles.heroGpsBadgeText}>LIVE GPS LOCKED 🟢</Text>
+            </View>
+          </View>
 
           <View style={styles.heroGpsValueBox}>
             <View style={styles.coordColumn}>
@@ -447,7 +536,12 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             </View>
           </View>
 
-          <Text style={styles.heroGpsSubText}>📍 {gpsPlaceName}</Text>
+          <View style={styles.gpsLocationRow}>
+            <Text style={styles.gpsLocationIcon}>📍</Text>
+            <Text style={styles.heroGpsSubText} numberOfLines={1}>
+              {gpsPlaceName}
+            </Text>
+          </View>
         </View>
 
         {/* 1.5 INTERNATIONAL MARITIME BOUNDARY LINE (IBL) GEO-FENCE CARD */}
@@ -518,27 +612,45 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         {/* 2. OCEAN & VESSEL TELEMETRY GRID */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{t('oceanAndVesselTelemetry')}</Text>
+          <View style={styles.telemetryLiveBadge}>
+            <Text style={styles.telemetryLiveBadgeText}>LIVE TELEMETRY</Text>
+          </View>
         </View>
 
         <View style={styles.telemetryGrid}>
           {/* Card 1: Wave Height */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryValue}>{telemetry?.waveHeight || '0.8m'}</Text>
+            <View style={styles.telemetryCardTop}>
+              <View style={styles.telemetryIconCircle}>
+                <Text style={styles.telemetryIcon}>🌊</Text>
+              </View>
+            </View>
+            <Text style={styles.telemetryValue}>{telemetry?.waveHeight || '0.8m - 1.4m'}</Text>
             <Text style={styles.telemetryLabel}>Wave Height</Text>
-            <Text style={styles.telemetrySub}>Sea State: {telemetry?.seaState || 'Slight'}</Text>
+            <Text style={styles.telemetrySub}>Sea State: {telemetry?.seaState || 'Slight to Moderate'}</Text>
           </View>
 
           {/* Card 2: Wind Speed */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryValue}>{telemetry?.windSpeedKnots || '12 kts'}</Text>
+            <View style={styles.telemetryCardTop}>
+              <View style={styles.telemetryIconCircle}>
+                <Text style={styles.telemetryIcon}>💨</Text>
+              </View>
+            </View>
+            <Text style={styles.telemetryValue}>{telemetry?.windSpeedKnots || '3.2 kts'}</Text>
             <Text style={styles.telemetryLabel}>{t('windSpeed')}</Text>
             <Text style={styles.telemetrySub}>
-              {telemetry?.windDirectionDegrees ? `${t('likelyDirection')}: ${telemetry.windDirectionDegrees}°` : tDirection('Northeast')}
+              {telemetry?.windDirectionDegrees ? `${t('likelyDirection')}: ${telemetry.windDirectionDegrees}°` : 'Likely Direction: 170°'}
             </Text>
           </View>
 
           {/* Card 3: Boat Speed */}
           <View style={styles.telemetryCard}>
+            <View style={styles.telemetryCardTop}>
+              <View style={styles.telemetryIconCircle}>
+                <Text style={styles.telemetryIcon}>🚤</Text>
+              </View>
+            </View>
             <Text style={styles.telemetryValue}>{boatSpeedKnots} knots</Text>
             <Text style={styles.telemetryLabel}>{t('boatSpeed')}</Text>
             <Text style={styles.telemetrySub}>({(boatSpeedKnots * 1.852).toFixed(1)} km/h)</Text>
@@ -546,6 +658,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
           {/* Card 4: Distance & ETA */}
           <View style={styles.telemetryCard}>
+            <View style={styles.telemetryCardTop}>
+              <View style={styles.telemetryIconCircle}>
+                <Text style={styles.telemetryIcon}>⏱️</Text>
+              </View>
+            </View>
             <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
             <Text style={styles.telemetryLabel}>{t('distanceAndEta')}</Text>
             <Text style={styles.telemetrySub}>{t('eta')} {navDetails.formatted_eta}</Text>
@@ -562,6 +679,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             <View style={styles.telemetryGrid}>
               {/* Card 1: Target Latitude */}
               <View style={styles.telemetryCard}>
+                <View style={styles.telemetryCardTop}>
+                  <View style={styles.telemetryIconCircle}>
+                    <Text style={styles.telemetryIcon}>🌐</Text>
+                  </View>
+                </View>
                 <Text style={styles.telemetryValue}>{activeTarget.latitude.toFixed(4)}° N</Text>
                 <Text style={styles.telemetryLabel}>{t('targetLatitude')}</Text>
                 <Text style={styles.telemetrySub}>{t('degreesNorth')}</Text>
@@ -569,6 +691,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Card 2: Target Longitude */}
               <View style={styles.telemetryCard}>
+                <View style={styles.telemetryCardTop}>
+                  <View style={styles.telemetryIconCircle}>
+                    <Text style={styles.telemetryIcon}>📍</Text>
+                  </View>
+                </View>
                 <Text style={styles.telemetryValue}>{activeTarget.longitude.toFixed(4)}° E</Text>
                 <Text style={styles.telemetryLabel}>{t('targetLongitude')}</Text>
                 <Text style={styles.telemetrySub}>{t('degreesEast')}</Text>
@@ -576,6 +703,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Card 3: Distance to Target */}
               <View style={styles.telemetryCard}>
+                <View style={styles.telemetryCardTop}>
+                  <View style={styles.telemetryIconCircle}>
+                    <Text style={styles.telemetryIcon}>📏</Text>
+                  </View>
+                </View>
                 <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
                 <Text style={styles.telemetryLabel}>{t('distanceToTarget')}</Text>
                 <Text style={styles.telemetrySub}>({(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km)</Text>
@@ -583,6 +715,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Card 4: Water Depth */}
               <View style={styles.telemetryCard}>
+                <View style={styles.telemetryCardTop}>
+                  <View style={styles.telemetryIconCircle}>
+                    <Text style={styles.telemetryIcon}>⚓</Text>
+                  </View>
+                </View>
                 <Text style={styles.telemetryValue}>{activeTarget.depth_meters ? `${activeTarget.depth_meters}m` : '26m'}</Text>
                 <Text style={styles.telemetryLabel}>{t('waterDepth')}</Text>
                 <Text style={styles.telemetrySub}>{t('seaFloorBathymetry')}</Text>
@@ -641,23 +778,22 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         {/* CONTROL ACTION BUTTONS */}
         <View style={styles.controlButtonsGroup}>
           <TouchableOpacity
-            style={styles.addCustomMainBtn}
-            onPress={() => setIsAddCustomVisible(true)}
-          >
-            <Text style={styles.addCustomMainBtnText}>Add Custom Coordinates for Fishing Zone</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={styles.changeTargetMainBtn}
             onPress={() => setIsPickerVisible(true)}
+            activeOpacity={0.85}
           >
-            <Text style={styles.changeTargetMainBtnText}>Change Target Destination (Select Hotspot / Shore)</Text>
+            <Text style={styles.btnIcon}>🎯</Text>
+            <Text style={styles.changeTargetMainBtnText}>
+              Change Target Destination (Select Hotspot / Shore)
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionBtn, isNavigating ? styles.pauseBtn : styles.startBtn]}
             onPress={() => setIsNavigating(!isNavigating)}
+            activeOpacity={0.85}
           >
+            <Text style={styles.btnIcon}>{isNavigating ? '⏸️' : '▶️'}</Text>
             <Text style={styles.actionBtnText}>
               {isNavigating ? 'Pause GPS Tracking' : 'Resume GPS Tracking'}
             </Text>
@@ -666,7 +802,9 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <TouchableOpacity
             style={styles.mapBtn}
             onPress={onOpenMap}
+            activeOpacity={0.85}
           >
+            <Text style={styles.btnIcon}>🗺️</Text>
             <Text style={styles.mapBtnText}>Open Ocean Map</Text>
           </TouchableOpacity>
         </View>
@@ -980,35 +1118,142 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   container: {
-    paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
     paddingBottom: 90,
   },
-  heroGpsCard: {
+  /* 0. Top Horizontal Category Pill Scroll Bar */
+  categoryBarContainer: {
+    marginBottom: 12,
+    marginTop: 2,
+  },
+  categoryBarScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 2,
+  },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  categoryPillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primaryDark,
+  },
+  categoryIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  categoryIconCircleActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  categoryIconTxt: {
+    fontSize: 14,
+  },
+  categoryPillTxt: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  categoryPillTxtActive: {
+    color: '#FFFFFF',
+  },
+  /* 0.5 Modern Search Bar (Reference App UI) */
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  searchIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  searchFilterBadge: {
+    backgroundColor: '#E6F4F1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  searchFilterBadgeTxt: {
+    color: Colors.primaryDark,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  /* 1. Hero Coordinates Card (Marine Gradient Glassmorphism) */
+  heroGpsCard: {
+    backgroundColor: '#E6F4F1',
+    borderRadius: 24,
+    padding: 18,
     borderWidth: 2,
     borderColor: Colors.primary,
     marginBottom: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  heroCardHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  compassHeaderGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compassIcon: {
+    fontSize: 18,
   },
   heroGpsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 95, 96, 0.1)',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 12,
     gap: 6,
-    marginBottom: 6,
     borderWidth: 1,
-    borderColor: 'rgba(0, 95, 96, 0.25)',
+    borderColor: Colors.primary,
   },
   heroGpsDot: {
     width: 8,
@@ -1018,109 +1263,120 @@ const styles = StyleSheet.create({
   },
   heroGpsBadgeText: {
     color: Colors.primaryDark,
-    fontSize: 12,
+    fontSize: 10.5,
     fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-  fishermanWelcomeText: {
-    color: Colors.primaryDark,
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 4,
-    marginBottom: 2,
-    textAlign: 'center',
     letterSpacing: 0.4,
   },
   heroGpsTitle: {
-    color: Colors.textSecondary,
+    color: Colors.primaryDark,
     fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    fontWeight: '900',
+    letterSpacing: 0.6,
   },
   heroGpsValueBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    paddingVertical: 14,
     paddingHorizontal: 10,
     width: '100%',
     borderWidth: 1.5,
     borderColor: Colors.border,
-    marginBottom: 8,
+    marginBottom: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
   },
   coordColumn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 2,
   },
   coordLabel: {
     color: Colors.primary,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.6,
     marginBottom: 2,
     textAlign: 'center',
   },
   coordValue: {
-    color: Colors.text,
-    fontSize: 26,
+    color: Colors.primaryDark,
+    fontSize: 24,
     fontWeight: '900',
     letterSpacing: 0.4,
     textAlign: 'center',
   },
   coordDivider: {
     width: 1.5,
-    height: 32,
+    height: 36,
     backgroundColor: Colors.border,
     marginHorizontal: 4,
   },
-  heroGpsSubText: {
-    color: Colors.textSecondary,
+  gpsLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  gpsLocationIcon: {
     fontSize: 14,
+    marginRight: 6,
+  },
+  heroGpsSubText: {
+    color: Colors.primaryDark,
+    fontSize: 13,
     fontWeight: '800',
+    textAlign: 'center',
   },
   targetCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1.5,
     borderColor: Colors.primary,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 2,
   },
   targetHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   targetIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 10,
     borderWidth: 1.5,
     borderColor: Colors.secondaryDark,
   },
   targetIcon: {
-    fontSize: 18,
+    fontSize: 20,
   },
   targetTitleGroup: {
     flex: 1,
   },
   targetLabel: {
     color: Colors.primary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -1141,7 +1397,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
     marginTop: 6,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   detailPill: {
     flexDirection: 'row',
@@ -1156,23 +1412,23 @@ const styles = StyleSheet.create({
   },
   detailPillLabel: {
     color: Colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   detailPillValue: {
     color: Colors.text,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '900',
   },
   switchButtonRow: {
-    marginTop: 4,
+    marginTop: 6,
   },
   switchShoreBtn: {
     backgroundColor: 'rgba(192, 57, 43, 0.12)',
     borderColor: '#C0392B',
     borderWidth: 1.5,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   switchShoreBtnText: {
@@ -1184,8 +1440,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary,
     borderColor: Colors.secondaryDark,
     borderWidth: 1.5,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   switchTargetBtnText: {
@@ -1202,45 +1458,25 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: Colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   telemetryLiveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 245, 212, 0.18)',
-    borderColor: '#00F5D4',
-    borderWidth: 1.5,
-    borderRadius: 10,
+    backgroundColor: '#E6F4F1',
+    borderColor: Colors.primary,
+    borderWidth: 1,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
-  },
-  telemetryLiveBadgeDot: {
-    fontSize: 9,
-    marginRight: 4,
   },
   telemetryLiveBadgeText: {
-    color: '#00F5D4',
-    fontSize: 12,
+    color: Colors.primaryDark,
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.4,
-  },
-  oceanCardTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  oceanCardSubBadge: {
-    color: '#00F5D4',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    backgroundColor: 'rgba(0, 245, 212, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
   },
   telemetryGrid: {
     flexDirection: 'row',
@@ -1251,29 +1487,41 @@ const styles = StyleSheet.create({
   telemetryCard: {
     width: '48.5%',
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 12,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  telemetryCardTop: {
+    marginBottom: 8,
+  },
+  telemetryIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E6F4F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary,
   },
   telemetryIcon: {
-    fontSize: 20,
-    marginBottom: 2,
+    fontSize: 16,
   },
   telemetryValue: {
     color: Colors.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
   },
   telemetryLabel: {
     color: Colors.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     marginTop: 2,
   },
@@ -1281,7 +1529,7 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 11,
     fontWeight: '800',
-    marginTop: 1,
+    marginTop: 2,
   },
   oceanCard: {
     backgroundColor: Colors.surface,
@@ -1348,13 +1596,25 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   controlButtonsGroup: {
-    gap: 12,
+    gap: 10,
     marginBottom: 16,
   },
+  btnIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
   actionBtn: {
-    paddingVertical: 10,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   startBtn: {
     backgroundColor: Colors.primary,
@@ -1368,53 +1628,48 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   mapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.surface,
     borderColor: Colors.primary,
     borderWidth: 1.5,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   mapBtnText: {
     color: Colors.primary,
     fontSize: 14,
     fontWeight: '800',
   },
-  addCustomMainBtn: {
-    backgroundColor: '#00F5D4',
-    borderColor: '#00A896',
-    borderWidth: 2,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  addCustomMainBtnText: {
-    color: '#003840',
-    fontSize: 14,
-    fontWeight: '900',
-  },
   changeTargetMainBtn: {
-    backgroundColor: Colors.secondary,
-    borderColor: Colors.secondaryDark,
-    borderWidth: 2,
-    paddingVertical: 10,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    justifyContent: 'center',
+    backgroundColor: '#E6F4F1',
+    borderColor: Colors.primary,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2,
   },
   changeTargetMainBtnText: {
+    flex: 1,
     color: Colors.primaryDark,
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 13.5,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   customPickerCard: {
     backgroundColor: 'rgba(0, 245, 212, 0.12)',
