@@ -31,6 +31,7 @@ import { BottomNavBar } from '../components/BottomNavBar';
 import { SupportedLanguage } from '../types';
 import { useLanguage } from '../i18n';
 import { checkIBLProximity } from '../services/iblService';
+import { calculateSafeMaritimeRoute } from '../services/navigationService';
 
 const { width } = Dimensions.get('window');
 
@@ -143,17 +144,23 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  // Route metrics calculations
-  const routeDistanceKm = selectedNavigationTarget
-    ? calculateHaversineKm(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
-    : 0;
-  const routeDistanceNM = routeDistanceKm / 1.852;
+  // Route metrics calculations using Obstacle-Avoiding Maritime Safe Route Engine
   const vesselSpeedKnots = 8.5;
-  const routeEtaMins = routeDistanceNM > 0 ? Math.round((routeDistanceNM / vesselSpeedKnots) * 60) : 0;
-  const routeBearing = selectedNavigationTarget
-    ? calculateBearingDeg(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
-    : 0;
-  const routeCardinal = degreesToCardinal(routeBearing);
+  const safeRouteMetrics = selectedNavigationTarget
+    ? calculateSafeMaritimeRoute(
+        userLocation.lat,
+        userLocation.lon,
+        selectedNavigationTarget.latitude,
+        selectedNavigationTarget.longitude,
+        vesselSpeedKnots
+      )
+    : null;
+
+  const routeDistanceKm = safeRouteMetrics ? safeRouteMetrics.totalDistanceKm : 0;
+  const routeDistanceNM = safeRouteMetrics ? safeRouteMetrics.totalDistanceNM : 0;
+  const routeEtaMins = safeRouteMetrics ? safeRouteMetrics.etaMinutes : 0;
+  const routeBearing = safeRouteMetrics ? safeRouteMetrics.bearingDegrees : 0;
+  const routeCardinal = safeRouteMetrics ? safeRouteMetrics.directionCardinal : '';
 
   return (
     <SafeAreaView style={styles.safeArea}>

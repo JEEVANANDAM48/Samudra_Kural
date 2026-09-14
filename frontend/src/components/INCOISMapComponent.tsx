@@ -3,6 +3,7 @@ import { View, StyleSheet, Dimensions, Platform, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Clipboard from 'expo-clipboard';
 import { HotspotInfo } from '../services/pfzService';
+import { calculateSafeMaritimeRoute } from '../services/navigationService';
 import { Colors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -25,10 +26,21 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
   onNavigateToHotspot,
   onSelectHotspot,
 }) => {
+  // Compute safe obstacle-avoiding maritime route if a navigation target is selected
+  const safeRoute = selectedNavigationTarget
+    ? calculateSafeMaritimeRoute(
+        center.lat,
+        center.lon,
+        selectedNavigationTarget.latitude,
+        selectedNavigationTarget.longitude
+      )
+    : null;
+
   // Generate dynamic Leaflet HTML with pinch-zoom, user location, route line & copy coordinates
   const generateLeafletHTML = () => {
     const hotspotsJSON = JSON.stringify(hotspots);
     const targetJSON = selectedNavigationTarget ? JSON.stringify(selectedNavigationTarget) : 'null';
+    const safeRouteJSON = safeRoute ? JSON.stringify(safeRoute) : 'null';
 
     return `
       <!DOCTYPE html>
@@ -135,6 +147,18 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             font-size: 19px;
             box-shadow: 0 0 18px rgba(255, 209, 102, 1.0), 0 2px 8px rgba(0,0,0,0.7);
           }
+          .waypoint-pin {
+            width: 28px;
+            height: 28px;
+            background: radial-gradient(circle, #00F5D4 35%, #0077B6 90%);
+            border: 2px solid #FFFFFF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            box-shadow: 0 0 10px rgba(0, 245, 212, 0.8);
+          }
           .legend-box {
             position: absolute;
             bottom: 16px;
@@ -156,15 +180,15 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             left: 14px;
             right: 70px;
             z-index: 1000;
-            background: rgba(13, 37, 38, 0.92);
+            background: rgba(13, 37, 38, 0.94);
             border: 1.5px solid #00F5D4;
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 10px 14px;
             color: #FFFFFF;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 800;
             font-family: sans-serif;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
           }
           .floating-zoom-bar {
             position: absolute;
@@ -201,11 +225,12 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
         <div id="map"></div>
 
         ${
-          selectedNavigationTarget
+          selectedNavigationTarget && safeRoute
             ? `<div class="nav-route-banner">
-                🧭 <b>LIVE NAVIGATION ROUTE</b><br>
-                From: My Location (${center.lat.toFixed(3)}°N, ${center.lon.toFixed(3)}°E)<br>
-                To: ${selectedNavigationTarget.name} (${selectedNavigationTarget.latitude.toFixed(3)}°N, ${selectedNavigationTarget.longitude.toFixed(3)}°E)
+                🛡️ <span style="color:#00F5D4;">OBSTACLE & ROCK AVOIDED MARITIME ROUTE</span><br>
+                📍 <b>Target:</b> ${selectedNavigationTarget.name}<br>
+                📏 <b>Distance:</b> ${safeRoute.totalDistanceNM} NM (${safeRoute.totalDistanceKm} km) | ⏱️ <b>ETA:</b> ${safeRoute.formattedEta}<br>
+                🧭 <b>Course:</b> ${safeRoute.bearingDegrees}° ${safeRoute.directionCardinal} ${safeRoute.hasObstacleAvoidance ? '• <span style="color:#FFD166;">[Deep Water Fairway]</span>' : ''}
               </div>`
             : ''
         }
@@ -309,7 +334,6 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
                   opacity: 1.0
                 }).addTo(map);
 
-                // Fit bounds to show full International Maritime Boundary Line when selected
                 map.fitBounds(L.polyline(iblCoords).getBounds(), { padding: [40, 40] });
               `
               : `
@@ -347,6 +371,7 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
           // 2. Render Hotspots Custom Markers & INCOIS PFZ Vector Boundary Lines
           var hotspots = ${hotspotsJSON};
           var navTarget = ${targetJSON};
+          var safeRouteData = ${safeRouteJSON};
           var markerGroup = L.featureGroup();
           var sectorGroups = {};
 
@@ -390,25 +415,45 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
 
           markerGroup.addTo(map);
 
-          // 3. Render Navigation Route Polyline if target is selected!
-          if (navTarget) {
-            var routeCoords = [
-              [${center.lat}, ${center.lon}],
-              [navTarget.latitude, navTarget.longitude]
-            ];
+          // 3. Render Safe Obstacle-Avoiding Maritime Polyline & Waypoints
+          if (safeRouteData && safeRouteData.waypoints && safeRouteData.waypoints.length > 0) {
+            // Background Glow Line
+            var routeGlow = L.polyline(safeRouteData.waypoints, {
+              color: '#00F5D4',
+              weight: 8,
+              opacity: 0.45
+            }).addTo(map);
 
-            var routeLine = L.polyline(routeCoords, {
+            // Front Nautical Dashed Line
+            var routeLine = L.polyline(safeRouteData.waypoints, {
               color: '#00F5D4',
               weight: 4,
               dashArray: '8, 8',
               opacity: 0.95
             }).addTo(map);
 
-            routeLine.bindPopup('<div class="custom-popup"><div class="popup-title">🧭 Live Navigation Route</div><div class="popup-info">My Location ➔ ' + navTarget.name + '</div></div>');
+            routeLine.bindPopup('<div class="custom-popup"><div class="popup-title">🛡️ Safe Maritime Navigation Channel</div><div class="popup-info">Obstacle & Rock Avoided Route<br>Distance: ' + safeRouteData.totalDistanceNM + ' NM | ETA: ' + safeRouteData.formattedEta + '</div></div>');
 
-            // Auto-fit bounds to show BOTH My Location & Target Fishing Zone on map!
-            var bounds = L.latLngBounds(routeCoords);
-            map.fitBounds(bounds, { padding: [50, 50] });
+            // Render intermediate Waypoint Pins (Harbour exit, Coastal bypass points)
+            if (safeRouteData.detailedWaypoints) {
+              safeRouteData.detailedWaypoints.forEach(function(wp) {
+                if (wp.type === 'harbor_exit' || wp.type === 'rock_avoidance') {
+                  var wpSymbol = wp.type === 'harbor_exit' ? '⚓' : '🪨';
+                  var wpIcon = L.divIcon({
+                    className: 'wp-pin-wrapper',
+                    html: '<div class="waypoint-pin">' + wpSymbol + '</div>',
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                  });
+                  var wpMarker = L.marker([wp.latitude, wp.longitude], { icon: wpIcon }).addTo(map);
+                  wpMarker.bindPopup('<div class="custom-popup"><div class="popup-title">' + wpSymbol + ' ' + wp.name + '</div><div class="popup-info">Safe Nautical Waypoint<br>Lat: ' + wp.latitude.toFixed(4) + '°N, Lon: ' + wp.longitude.toFixed(4) + '°E</div></div>');
+                }
+              });
+            }
+
+            // Auto-fit bounds to show full safe route on map!
+            var routeBounds = L.latLngBounds(safeRouteData.waypoints);
+            map.fitBounds(routeBounds, { padding: [50, 50] });
           }
 
           // Draw INCOIS PFZ Convergence Vector Lines for all sectors

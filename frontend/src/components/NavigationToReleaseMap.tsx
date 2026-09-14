@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity
 import { WebView } from 'react-native-webview';
 import { Colors } from '../theme/colors';
 
+import { calculateSafeMaritimeRoute } from '../services/navigationService';
+
 interface NavigationToReleaseMapProps {
   fishermanLat: number;
   fishermanLon: number;
@@ -27,10 +29,8 @@ export const NavigationToReleaseMap: React.FC<NavigationToReleaseMapProps> = ({
   const webViewRef = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);
 
-  const routeCoords = [
-    [fishermanLat, fishermanLon],
-    [releaseLat, releaseLon],
-  ];
+  const safeRoute = calculateSafeMaritimeRoute(fishermanLat, fishermanLon, releaseLat, releaseLon);
+  const routeCoords = safeRoute.waypoints;
 
   const htmlContent = `
 <!DOCTYPE html>

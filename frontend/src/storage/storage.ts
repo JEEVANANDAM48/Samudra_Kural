@@ -1,6 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import { SupportedLanguage, FishermanUser } from '../types';
+
+let SecureStore: any = null;
+try {
+  SecureStore = require('expo-secure-store');
+} catch (e) {
+  SecureStore = null;
+}
 
 const LANGUAGE_KEY = '@samudra_kural_language';
 const HAS_LAUNCHED_KEY = '@samudra_kural_has_launched';
@@ -46,15 +52,22 @@ export const getHasLaunched = async (): Promise<boolean> => {
 // --- Secure Authentication Token & Session Storage (Expo SecureStore) ---
 export const saveAuthToken = async (token: string): Promise<void> => {
   try {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
+    if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
+      await SecureStore.setItemAsync(TOKEN_KEY, token);
+    }
+    await AsyncStorage.setItem(TOKEN_KEY, token);
   } catch (error) {
-    console.error('Error saving auth token to SecureStore:', error);
+    console.error('Error saving auth token:', error);
   }
 };
 
 export const getAuthToken = async (): Promise<string | null> => {
   try {
-    return await SecureStore.getItemAsync(TOKEN_KEY);
+    if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
+      const secToken = await SecureStore.getItemAsync(TOKEN_KEY);
+      if (secToken) return secToken;
+    }
+    return await AsyncStorage.getItem(TOKEN_KEY);
   } catch (error) {
     console.error('Error retrieving auth token:', error);
     return null;
@@ -63,7 +76,10 @@ export const getAuthToken = async (): Promise<string | null> => {
 
 export const deleteAuthToken = async (): Promise<void> => {
   try {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+    }
+    await AsyncStorage.removeItem(TOKEN_KEY);
   } catch (error) {
     console.error('Error deleting auth token:', error);
   }
@@ -75,9 +91,11 @@ export const saveUserSession = async (user: FishermanUser): Promise<void> => {
   try {
     const json = JSON.stringify(user);
     await AsyncStorage.setItem(ASYNC_USER_KEY, json);
-    try {
-      await SecureStore.setItemAsync(USER_KEY, json);
-    } catch (e) {}
+    if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
+      try {
+        await SecureStore.setItemAsync(USER_KEY, json);
+      } catch (e) {}
+    }
   } catch (error) {
     console.error('Error saving user session:', error);
   }
@@ -89,9 +107,11 @@ export const getUserSession = async (): Promise<FishermanUser | null> => {
     if (asyncJson) {
       return JSON.parse(asyncJson);
     }
-    const secureJson = await SecureStore.getItemAsync(USER_KEY);
-    if (secureJson) {
-      return JSON.parse(secureJson);
+    if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
+      const secureJson = await SecureStore.getItemAsync(USER_KEY);
+      if (secureJson) {
+        return JSON.parse(secureJson);
+      }
     }
   } catch (error) {
     console.error('Error reading user session:', error);
@@ -103,8 +123,13 @@ export const clearSession = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ASYNC_USER_KEY);
     await AsyncStorage.removeItem(ASYNC_CG_OFFICER_KEY);
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_KEY);
+    await AsyncStorage.removeItem(TOKEN_KEY);
+    if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
+      try {
+        await SecureStore.deleteItemAsync(TOKEN_KEY);
+        await SecureStore.deleteItemAsync(USER_KEY);
+      } catch (e) {}
+    }
   } catch (error) {
     console.error('Error clearing session:', error);
   }
@@ -127,9 +152,11 @@ export const saveCGOfficerSession = async (officer: any): Promise<void> => {
   try {
     const json = JSON.stringify(officer);
     await AsyncStorage.setItem(ASYNC_CG_OFFICER_KEY, json);
-    try {
-      await SecureStore.setItemAsync(SECURE_CG_OFFICER_KEY, json);
-    } catch (e) {}
+    if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
+      try {
+        await SecureStore.setItemAsync(SECURE_CG_OFFICER_KEY, json);
+      } catch (e) {}
+    }
   } catch (error) {
     console.error('Error saving CG officer session:', error);
   }
@@ -141,9 +168,11 @@ export const getCGOfficerSession = async (): Promise<any | null> => {
     if (asyncJson) {
       return JSON.parse(asyncJson);
     }
-    const secureJson = await SecureStore.getItemAsync(SECURE_CG_OFFICER_KEY);
-    if (secureJson) {
-      return JSON.parse(secureJson);
+    if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
+      const secureJson = await SecureStore.getItemAsync(SECURE_CG_OFFICER_KEY);
+      if (secureJson) {
+        return JSON.parse(secureJson);
+      }
     }
   } catch (error) {}
   return null;
@@ -152,7 +181,11 @@ export const getCGOfficerSession = async (): Promise<any | null> => {
 export const clearCGOfficerSession = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ASYNC_CG_OFFICER_KEY);
-    await SecureStore.deleteItemAsync(SECURE_CG_OFFICER_KEY);
+    if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
+      try {
+        await SecureStore.deleteItemAsync(SECURE_CG_OFFICER_KEY);
+      } catch (e) {}
+    }
   } catch (error) {}
 };
 
