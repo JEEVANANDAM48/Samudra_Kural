@@ -53,6 +53,12 @@ let activeExpoAudioRecorder: any = null;
 let activeExpoAvRecording: any = null;
 let webMediaRecorder: any = null;
 let webAudioChunks: Blob[] = [];
+let activeSpeechRecognition: any = null;
+let recognizedWebSpeechText: string = '';
+
+export function getRecognizedWebSpeechText(): string {
+  return recognizedWebSpeechText;
+}
 
 export function getRecordingState(): RecordingState {
   return activeRecordingState;
@@ -370,7 +376,7 @@ export async function requestMicrophonePermission(): Promise<boolean> {
  * Start actual microphone recording.
  * Uses expo-audio on Android / Expo Go, expo-av fallback, and MediaRecorder on Web.
  */
-export async function startRealAudioRecording(): Promise<void> {
+export async function startRealAudioRecording(language: string = 'ta'): Promise<void> {
   if (activeRecordingState === 'RECORDING') {
     console.warn('[Voice Recording] Already recording, ignoring duplicate start.');
     return;
@@ -379,8 +385,35 @@ export async function startRealAudioRecording(): Promise<void> {
   await stopNativeSpeech();
   activeRecordingState = 'RECORDING';
   recordingStartTime = Date.now();
+  recognizedWebSpeechText = '';
 
   if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognitionClass) {
+        try {
+          const recognition = new SpeechRecognitionClass();
+          recognition.lang = LANGUAGE_VOICE_MAP[language] || 'ta-IN';
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.onresult = (event: any) => {
+            let text = '';
+            for (let i = 0; i < event.results.length; i++) {
+              text += event.results[i][0].transcript;
+            }
+            if (text && text.trim()) {
+              recognizedWebSpeechText = text.trim();
+              console.log('[Web Speech Recognition] Live recognized text:', recognizedWebSpeechText);
+            }
+          };
+          recognition.start();
+          activeSpeechRecognition = recognition;
+        } catch (err) {
+          console.log('[Web Speech Recognition] Note:', err);
+        }
+      }
+    }
+
     if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -480,6 +513,13 @@ export async function startRealAudioRecording(): Promise<void> {
 export async function stopRealAudioRecording(): Promise<RecordedAudioResult | null> {
   const durationMs = Date.now() - recordingStartTime;
   console.log('[Voice Recording] Stop triggered. Duration elapsed:', durationMs, 'ms');
+
+  if (activeSpeechRecognition) {
+    try {
+      activeSpeechRecognition.stop();
+    } catch (e) {}
+    activeSpeechRecognition = null;
+  }
 
   if (activeRecordingState !== 'RECORDING') {
     console.warn('[Voice Recording] stopRealAudioRecording called but state is:', activeRecordingState);

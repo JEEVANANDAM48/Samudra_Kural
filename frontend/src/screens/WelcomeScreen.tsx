@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,15 @@ import {
   TouchableOpacity,
   Platform,
   Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { t, supportedLanguages } from '../i18n';
 import { SupportedLanguage } from '../types';
-import { PrimaryButton } from '../components/PrimaryButton';
 import { FishGroup } from '../components/FishIllustration';
-import { WavyTopBorder } from '../components/WavyBackground';
+import { WavyTopBorder, OceanBackground } from '../components/WavyBackground';
 
 const { width } = Dimensions.get('window');
 
@@ -37,43 +38,214 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
 
-  // Find native name of current language
   const currentLangObj = supportedLanguages.find((l) => l.code === currentLanguage);
   const langLabel = currentLangObj ? `${currentLangObj.nativeName}` : '🌐';
 
-  // Animated values for each fish's (x, y) displacement
-  const animFish1 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const animFish2 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const animFish3 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const animFish4 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  // Entrance & Exit Animated values for each fish (start offscreen for entrance)
+  const animFish1 = useRef(new Animated.ValueXY({ x: -width * 1.2, y: 0 })).current;
+  const animFish2 = useRef(new Animated.ValueXY({ x: width * 1.2, y: 0 })).current;
+  const animFish3 = useRef(new Animated.ValueXY({ x: -width * 1.2, y: 0 })).current;
+  const animFish4 = useRef(new Animated.ValueXY({ x: width * 1.2, y: 0 })).current;
+
+  // Title & Button Entrance Animation Values
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const titleTranslateY = useRef(new Animated.Value(24)).current;
+  const btnOpacity = useRef(new Animated.Value(0)).current;
+  const btnScale = useRef(new Animated.Value(0.85)).current;
+  const btnPressScale = useRef(new Animated.Value(1)).current;
+  const btnPulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Continuous Idle Floating Loop Animation Values
+  const floatAnim1 = useRef(new Animated.Value(0)).current;
+  const floatAnim2 = useRef(new Animated.Value(0)).current;
+  const floatAnim3 = useRef(new Animated.Value(0)).current;
+  const floatAnim4 = useRef(new Animated.Value(0)).current;
+
+  // Continuous Tail-Wiggle Swimming Oscillation Values
+  const wiggleAnim1 = useRef(new Animated.Value(0)).current;
+  const wiggleAnim2 = useRef(new Animated.Value(0)).current;
+  const wiggleAnim3 = useRef(new Animated.Value(0)).current;
+  const wiggleAnim4 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Start continuous button pulse aura immediately
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(btnPulseAnim, {
+          toValue: 1.04,
+          duration: 1600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(btnPulseAnim, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // 1. Entrance Staggered Animation Sequence at screen load
+    Animated.sequence([
+      // Title fade & slide up
+      Animated.parallel([
+        Animated.timing(titleOpacity, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(titleTranslateY, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.back(1.4)),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Staggered Fish Entrance (swimming gently into position with spring fluidness)
+      Animated.stagger(140, [
+        Animated.spring(animFish1, {
+          toValue: { x: 0, y: 0 },
+          friction: 6.5,
+          tension: 38,
+          useNativeDriver: true,
+        }),
+        Animated.spring(animFish2, {
+          toValue: { x: 0, y: 0 },
+          friction: 6.5,
+          tension: 38,
+          useNativeDriver: true,
+        }),
+        Animated.spring(animFish3, {
+          toValue: { x: 0, y: 0 },
+          friction: 6.5,
+          tension: 38,
+          useNativeDriver: true,
+        }),
+        Animated.spring(animFish4, {
+          toValue: { x: 0, y: 0 },
+          friction: 6.5,
+          tension: 38,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Button Entrance
+      Animated.parallel([
+        Animated.timing(btnOpacity, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.spring(btnScale, {
+          toValue: 1,
+          friction: 5.5,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => {
+      startIdleFloatingAnimations();
+    });
+  }, []);
+
+  const startIdleFloatingAnimations = () => {
+    const createFloatLoop = (animVal: Animated.Value, duration: number, delay: number) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(animVal, {
+            toValue: 1,
+            duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(animVal, {
+            toValue: 0,
+            duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    const createWiggleLoop = (animVal: Animated.Value, duration: number, delay: number) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(animVal, {
+            toValue: 1,
+            duration,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(animVal, {
+            toValue: 0,
+            duration,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    // Continuous idle floating (vertical bobbing)
+    createFloatLoop(floatAnim1, 2800, 0);
+    createFloatLoop(floatAnim2, 3200, 300);
+    createFloatLoop(floatAnim3, 3000, 600);
+    createFloatLoop(floatAnim4, 3400, 200);
+
+    // Continuous tail-wiggling swimming oscillation
+    createWiggleLoop(wiggleAnim1, 1400, 0);
+    createWiggleLoop(wiggleAnim2, 1600, 200);
+    createWiggleLoop(wiggleAnim3, 1300, 400);
+    createWiggleLoop(wiggleAnim4, 1500, 100);
+  };
+
+  const handlePressIn = () => {
+    Animated.spring(btnPressScale, {
+      toValue: 0.94,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(btnPressScale, {
+      toValue: 1,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const handleGetStartedPress = () => {
     if (isAnimating) return;
     setIsAnimating(true);
 
+    // Each fish swims away off-screen in its OWN HEAD DIRECTION with authentic swimming propulsion:
     Animated.parallel([
       Animated.timing(animFish1, {
-        toValue: { x: width * 1.4, y: 0 },
-        duration: 600,
-        easing: Easing.in(Easing.quad),
+        toValue: { x: width * 1.5, y: -30 },
+        duration: 720,
+        easing: Easing.bezier(0.3, 0, 0.2, 1.0),
         useNativeDriver: true,
       }),
       Animated.timing(animFish2, {
-        toValue: { x: -width * 1.4, y: 0 },
-        duration: 600,
-        easing: Easing.in(Easing.quad),
+        toValue: { x: -width * 1.5, y: 25 },
+        duration: 780,
+        easing: Easing.bezier(0.3, 0, 0.2, 1.0),
         useNativeDriver: true,
       }),
       Animated.timing(animFish3, {
-        toValue: { x: width * 1.4, y: -80 },
-        duration: 650,
-        easing: Easing.in(Easing.quad),
+        toValue: { x: width * 1.5, y: -80 },
+        duration: 740,
+        easing: Easing.bezier(0.3, 0, 0.2, 1.0),
         useNativeDriver: true,
       }),
       Animated.timing(animFish4, {
-        toValue: { x: -width * 1.4, y: 80 },
-        duration: 650,
-        easing: Easing.in(Easing.quad),
+        toValue: { x: width * 1.5, y: 80 },
+        duration: 800,
+        easing: Easing.bezier(0.3, 0, 0.2, 1.0),
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -84,9 +256,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FAF8F5" />
       
-      {/* Top Section */}
+      {/* Top Header Section */}
       <View style={styles.topContainer}>
         {onChangeLanguage && (
           <TouchableOpacity
@@ -94,36 +266,60 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             onPress={onChangeLanguage}
             activeOpacity={0.7}
           >
-            <Text style={styles.langPillText}>🌐 {langLabel}</Text>
+            <Text style={styles.langPillText}>{langLabel}</Text>
           </TouchableOpacity>
         )}
 
-        <Text style={styles.appTitle}>SAMUDRA KURAL</Text>
-        <Text style={styles.appSubtitle}>{t('welcomeSubtitle', currentLanguage)}</Text>
+        <Animated.View style={{ opacity: titleOpacity, transform: [{ translateY: titleTranslateY }] }}>
+          <Text style={styles.appTitle}>Samudra Kural</Text>
+        </Animated.View>
       </View>
 
-      <WavyTopBorder height={40} />
+      <WavyTopBorder height={45} />
 
       {/* Main Sea Section */}
       <View style={styles.seaContainer}>
+        {/* Animated ocean wave lines background */}
+        <OceanBackground />
+
         <View style={styles.fishSection}>
           <FishGroup
             animFish1={animFish1}
             animFish2={animFish2}
             animFish3={animFish3}
             animFish4={animFish4}
+            floatAnim1={floatAnim1}
+            floatAnim2={floatAnim2}
+            floatAnim3={floatAnim3}
+            floatAnim4={floatAnim4}
+            wiggleAnim1={wiggleAnim1}
+            wiggleAnim2={wiggleAnim2}
+            wiggleAnim3={wiggleAnim3}
+            wiggleAnim4={wiggleAnim4}
           />
         </View>
 
-        {/* Footer with GET STARTED Button */}
+        {/* Footer with animated White Pill GET STARTED Button */}
         <View style={styles.footer}>
-          <PrimaryButton
-            title={t('getStarted', currentLanguage)}
-            onPress={handleGetStartedPress}
-            disabled={isAnimating}
-            variant="secondary"
-            textStyle={styles.buttonText}
-          />
+          <Animated.View
+            style={{
+              width: '100%',
+              alignItems: 'center',
+              opacity: btnOpacity,
+              transform: [{ scale: Animated.multiply(Animated.multiply(btnScale, btnPressScale), btnPulseAnim) }],
+            }}
+          >
+            <TouchableOpacity
+              style={styles.getPillBtn}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              onPress={handleGetStartedPress}
+              disabled={isAnimating}
+              activeOpacity={0.9}
+            >
+              <Text style={styles.getPillBtnText}>Get Started</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </View>
 
@@ -190,13 +386,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FAF8F5',
   },
   topContainer: {
-    backgroundColor: Colors.background,
+    backgroundColor: '#FAF8F5',
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 16 : 24,
-    paddingBottom: 10,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 20,
+    paddingBottom: 4,
     alignItems: 'center',
     position: 'relative',
   },
@@ -208,7 +404,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   langPillText: {
     fontSize: 14,
@@ -216,24 +412,19 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
   },
   appTitle: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '900',
-    color: Colors.text,
-    letterSpacing: 1.5,
+    color: '#1B382D',
+    letterSpacing: 0.8,
     marginBottom: 6,
-  },
-  appSubtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    fontWeight: '600',
     textAlign: 'center',
   },
   seaContainer: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#235E4B',
     paddingHorizontal: 24,
     justifyContent: 'space-between',
-    paddingBottom: 30,
+    paddingBottom: 36,
   },
   fishSection: {
     flex: 1,
@@ -244,11 +435,26 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%',
     paddingBottom: 10,
+    alignItems: 'center',
   },
-  buttonText: {
-    color: Colors.primaryDark,
-    fontSize: 20,
+  getPillBtn: {
+    backgroundColor: '#FFFFFF',
+    width: '90%',
+    borderRadius: 40,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  getPillBtnText: {
+    color: '#0F281E',
+    fontSize: 18,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
   modalOverlay: {
     flex: 1,

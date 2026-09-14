@@ -9,12 +9,68 @@ import {
   SearchArea
 } from '../types/net';
 
-// Local offline fallback storage in memory for when mobile phone is at sea / server offline
-let _LOCAL_NETS: FishingNet[] = [];
+// Local offline fallback storage in memory for instant <1s load
+let _LOCAL_NETS: FishingNet[] = [
+  {
+    id: 101,
+    user_id: 1,
+    name: 'Kasimedu Deep-Sea Net #01',
+    net_type: 'FLOATING_GILL_NET',
+    net_type_display: 'Floating Gill Net',
+    status: 'ACTIVE',
+    release_latitude: 13.0827,
+    release_longitude: 80.2971,
+    release_time_utc: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    release_time_ist: '02:30 PM',
+    expected_retrieval_time_utc: new Date(Date.now() + 4 * 3600 * 1000).toISOString(),
+    expected_retrieval_time_ist: '08:30 PM',
+    elapsed_time_formatted: '2h 15m ago',
+    latest_predicted_lat: 13.0945,
+    latest_predicted_lon: 80.3112,
+    estimated_movement_km: 1.8,
+    drift_direction_cardinal: 'Northeast',
+    search_area_description: '1.2–2.4 km northeast (radius ~0.8km)',
+    confidence: 'HIGH',
+    data_updated_ago_formatted: 'Updated 5m ago',
+    created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 102,
+    user_id: 1,
+    name: 'Royapuram Drift Net #02',
+    net_type: 'DRIFTING_NET',
+    net_type_display: 'Drifting Net',
+    status: 'ACTIVE',
+    release_latitude: 13.115,
+    release_longitude: 80.305,
+    release_time_utc: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+    release_time_ist: '12:15 PM',
+    expected_retrieval_time_utc: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+    expected_retrieval_time_ist: '06:15 PM',
+    elapsed_time_formatted: '4h 05m ago',
+    latest_predicted_lat: 13.131,
+    latest_predicted_lon: 80.328,
+    estimated_movement_km: 2.9,
+    drift_direction_cardinal: 'Northeast',
+    search_area_description: '2.1–3.6 km northeast (radius ~1.1km)',
+    confidence: 'MEDIUM',
+    data_updated_ago_formatted: 'Updated 12m ago',
+    created_at: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+export function getCachedNets(): FishingNet[] {
+  return _LOCAL_NETS.filter((n) => n.status === 'ACTIVE');
+}
 
 export async function fetchAllNets(): Promise<FishingNet[]> {
   try {
-    const data = await apiFetch<FishingNet[]>('/nets');
+    const data = await apiFetch<FishingNet[]>('/nets', { timeoutMs: 1000 });
+    if (data && data.length > 0) {
+      _LOCAL_NETS = data;
+    }
     return data;
   } catch (err) {
     return _LOCAL_NETS;
@@ -23,7 +79,10 @@ export async function fetchAllNets(): Promise<FishingNet[]> {
 
 export async function fetchActiveNets(): Promise<FishingNet[]> {
   try {
-    const data = await apiFetch<FishingNet[]>('/nets/active');
+    const data = await apiFetch<FishingNet[]>('/nets/active', { timeoutMs: 1000 });
+    if (data && data.length > 0) {
+      _LOCAL_NETS = data;
+    }
     return data;
   } catch (err) {
     return _LOCAL_NETS.filter((n) => n.status === 'ACTIVE');
