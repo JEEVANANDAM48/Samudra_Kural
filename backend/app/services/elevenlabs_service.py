@@ -149,29 +149,41 @@ class ElevenLabsService:
                 resp = await client.post(url, headers=headers, data=data, files=files)
                 if resp.status_code == 200:
                     res_json = resp.json()
-                    transcript = res_json.get("text", "").strip()
+                    raw_transcript = res_json.get("text", "").strip()
                     detected_lang = res_json.get("language_code", language_code)
-                    
-                    # If transcript is empty and a language was specified, retry in auto-detect mode
-                    if not transcript and "language_code" in data:
+
+                    # Filter out non-speech event tags like [tone], [beep], [laughter], [applause], [screaming]
+                    import re
+                    clean_transcript = re.sub(r'\[.*?\]', '', raw_transcript).strip()
+
+                    # If clean transcript is empty and a language was specified, retry in auto-detect mode
+                    if not clean_transcript and "language_code" in data:
                         retry_data = {"model_id": "scribe_v1"}
                         retry_resp = await client.post(url, headers=headers, data=retry_data, files=files)
                         if retry_resp.status_code == 200:
                             retry_json = retry_resp.json()
-                            retry_transcript = retry_json.get("text", "").strip()
-                            if retry_transcript:
+                            retry_raw = retry_json.get("text", "").strip()
+                            retry_clean = re.sub(r'\[.*?\]', '', retry_raw).strip()
+                            if retry_clean:
                                 detected_lang = retry_json.get("language_code", detected_lang)
                                 return {
                                     "status": "success",
-                                    "transcript": retry_transcript,
+                                    "transcript": retry_clean,
                                     "language": detected_lang
                                 }
 
-                    return {
-                        "status": "success",
-                        "transcript": transcript,
-                        "language": detected_lang
-                    }
+                    if clean_transcript:
+                        return {
+                            "status": "success",
+                            "transcript": clean_transcript,
+                            "language": detected_lang
+                        }
+                    else:
+                        return {
+                            "status": "error",
+                            "message": "No clear speech detected. Please speak closer to the microphone and try again.",
+                            "transcript": ""
+                        }
                 else:
                     logger.warning(f"ElevenLabs STT error ({resp.status_code}): {resp.text}")
                     openai_key = (getattr(settings, "OPENAI_API_KEY", None) or "").strip()

@@ -104,9 +104,9 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
                 "language_code": f"{payload.language or 'ta'}-IN"
             }
 
-        # Clear human message if quota ran out
-        err_msg = el_res.get("message") or res.get("message") or "Speech recognition unavailable."
-        if ("402" in err_msg or "insufficient" in err_msg.lower()) and "elevenlabs" not in err_msg.lower():
+        # Clear human message when audio was quiet or uninterpretable
+        err_msg = el_res.get("message") or "Speech recognition could not detect clear audio. Please speak closer to the microphone and try again."
+        if "402" in err_msg or "quota" in err_msg.lower():
             err_msg = "Speech recognition could not process audio. Please try speaking again or type your question."
 
         return {
