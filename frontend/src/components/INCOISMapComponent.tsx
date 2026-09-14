@@ -145,33 +145,6 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             font-size: 19px;
             box-shadow: 0 0 18px rgba(255, 71, 87, 1.0), 0 2px 8px rgba(0,0,0,0.7);
           }
-          .legend-box {
-            position: absolute;
-            bottom: 16px;
-            right: 12px;
-            z-index: 1000;
-            background: rgba(13, 37, 38, 0.92);
-            border: 1.5px solid #00F5D4;
-            border-radius: 12px;
-            padding: 10px 14px;
-            color: #FFFFFF;
-            font-size: 11px;
-            font-weight: 700;
-            font-family: sans-serif;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-            line-height: 1.8;
-          }
-          .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          .legend-color-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-          }
           .map-mode-bar {
             position: absolute;
             bottom: 16px;
@@ -266,13 +239,6 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
           <button id="btn-nau" class="mode-btn" onclick="switchLayer('nautical')">Nautical</button>
         </div>
 
-        <div class="legend-box">
-          <div class="legend-item"><span class="legend-color-dot" style="background:#00F5D4;"></span> 🟢 Your Vessel</div>
-          <div class="legend-item"><span style="color:#00F5D4; font-weight:bold;">----</span> Safe Nautical Spline Route</div>
-          <div class="legend-item"><span class="legend-color-dot" style="background:#FF4757;"></span> 🔴 Destination Target</div>
-          <div class="legend-item"><span class="legend-color-dot" style="background:#FF9F43;"></span> 🟧 Restricted Area</div>
-          <div class="legend-item"><span class="legend-color-dot" style="background:#FF4757;"></span> 🟥 Hazard (Shallow Rocks)</div>
-        </div>
 
         <script>
           var map = L.map('map', {
