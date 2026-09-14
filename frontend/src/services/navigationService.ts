@@ -90,7 +90,7 @@ export function bearingToCardinal(bearingDegrees: number): string {
 
 /**
  * Full Navigation Calculation Helper
- * Speed in knots (default 8 knots for typical fishing trawler / motorboat)
+ * Speed in knots (default 8.5 knots for typical fishing trawler / motorboat)
  */
 export function getNavigationDetails(
   userLat: number,
@@ -106,7 +106,6 @@ export function getNavigationDetails(
   const bearing = calculateInitialBearing(userLat, userLon, targetLat, targetLon);
   const cardinal = bearingToCardinal(bearing);
 
-  // Speed in NM/hr = knots
   const timeHours = distNM / Math.max(1, speedKnots);
   const etaMinutes = Math.round(timeHours * 60);
 
@@ -213,87 +212,9 @@ export interface SafeMaritimeRouteResult {
 }
 
 /**
- * Smooth Cubic Bezier Spline interpolation for organic, curved nautical fairway trajectories.
- */
-function interpolateCubicBezierPath(
-  controlPoints: Array<[number, number]>,
-  totalSteps: number = 40
-): Array<[number, number]> {
-  if (controlPoints.length < 2) return controlPoints;
-
-  const result: Array<[number, number]> = [];
-
-  if (controlPoints.length === 2) {
-    const p0 = controlPoints[0];
-    const p3 = controlPoints[1];
-    const midLat = (p0[0] + p3[0]) / 2;
-    const maxLon = Math.max(p0[1], p3[1]);
-    const minLon = Math.min(p0[1], p3[1]);
-    const offset = Math.max(0.045, (maxLon - minLon) * 0.8 + 0.035);
-
-    const p1: [number, number] = [p0[0] + (midLat - p0[0]) * 0.4, p0[1] + offset];
-    const p2: [number, number] = [midLat + (p3[0] - midLat) * 0.6, p3[1] + offset];
-
-    for (let i = 0; i <= totalSteps; i++) {
-      const t = i / totalSteps;
-      const oneMinusT = 1 - t;
-      const lat =
-        oneMinusT * oneMinusT * oneMinusT * p0[0] +
-        3 * oneMinusT * oneMinusT * t * p1[0] +
-        3 * oneMinusT * t * t * p2[0] +
-        t * t * t * p3[0];
-      const lon =
-        oneMinusT * oneMinusT * oneMinusT * p0[1] +
-        3 * oneMinusT * oneMinusT * t * p1[1] +
-        3 * oneMinusT * t * t * p2[1] +
-        t * t * t * p3[1];
-      result.push([Number(lat.toFixed(5)), Number(lon.toFixed(5))]);
-    }
-    return result;
-  }
-
-  const segments = controlPoints.length - 1;
-  const stepsPerSeg = Math.ceil(totalSteps / segments);
-
-  for (let i = 0; i < segments; i++) {
-    const p0 = controlPoints[i];
-    const p3 = controlPoints[i + 1];
-
-    const dLat = p3[0] - p0[0];
-    const dLon = p3[1] - p0[1];
-
-    const p1: [number, number] = [
-      p0[0] + dLat * 0.35,
-      p0[1] + (dLon > 0 ? Math.max(0.025, dLon * 0.6) : Math.min(-0.010, dLon * 0.4)),
-    ];
-    const p2: [number, number] = [
-      p3[0] - dLat * 0.35,
-      p3[1] + (dLon > 0 ? Math.max(0.025, dLon * 0.4) : Math.min(-0.010, dLon * 0.6)),
-    ];
-
-    for (let s = 0; s < stepsPerSeg; s++) {
-      const t = s / stepsPerSeg;
-      const oneMinusT = 1 - t;
-      const lat =
-        oneMinusT * oneMinusT * oneMinusT * p0[0] +
-        3 * oneMinusT * oneMinusT * t * p1[0] +
-        3 * oneMinusT * t * t * p2[0] +
-        t * t * t * p3[0];
-      const lon =
-        oneMinusT * oneMinusT * oneMinusT * p0[1] +
-        3 * oneMinusT * oneMinusT * t * p1[1] +
-        3 * oneMinusT * t * t * p2[1] +
-        t * t * t * p3[1];
-      result.push([Number(lat.toFixed(5)), Number(lon.toFixed(5))]);
-    }
-  }
-  result.push(controlPoints[controlPoints.length - 1]);
-  return result;
-}
-
-/**
- * Calculates a safe, obstacle-avoiding maritime route between fisherman location and target zone.
- * Avoids landmass, headlands, shallow coastal breakwaters, and rocky shoals.
+ * Calculates a smooth, safe, obstacle-avoiding nautical route using a Cubic Bezier Spline.
+ * Eliminates all sharp L-turns, hairpin bends, double-backs, and ugly zig-zags.
+ * Generates an elegant, natural marine fairway curve (matching professional electronic chart systems).
  */
 export function calculateSafeMaritimeRoute(
   startLat: number,
@@ -302,72 +223,132 @@ export function calculateSafeMaritimeRoute(
   targetLon: number,
   speedKnots: number = 8.5
 ): SafeMaritimeRouteResult {
-  const getSafeOceanLon = (lat: number): number => {
-    if (lat >= 13.30) return 80.385;
-    if (lat >= 13.15) return 80.370;
-    if (lat >= 13.00) return 80.350;
-    if (lat >= 12.50) return 80.295;
-    return Math.max(80.285, startLon);
+  // Helper to determine minimum safe longitude to clear coastal reefs & shallow breakwaters along Tamil Nadu coast
+  const getMinSafeOceanLon = (lat: number): number => {
+    if (lat >= 13.30) return 80.365;
+    if (lat >= 13.15) return 80.350;
+    if (lat >= 13.00) return 80.335;
+    if (lat >= 12.50) return 80.280;
+    return 80.270;
   };
 
-  const waypointsList: MaritimeWaypoint[] = [];
-  const keyControlPoints: Array<[number, number]> = [];
+  const dLat = targetLat - startLat;
+  const dLon = targetLon - startLon;
+  const directDistM = calculateHaversineDistance(startLat, startLon, targetLat, targetLon);
+
+  // Check if straight line path passes close to shallow rocks / hazard zones
+  let maxHazardOffset = 0;
   let hasObstacleAvoidance = false;
 
-  // Add Start Point
-  waypointsList.push({
-    name: 'Fisherman Location (Boat)',
-    latitude: startLat,
-    longitude: startLon,
-    type: 'start',
-  });
-  keyControlPoints.push([startLat, startLon]);
+  COASTAL_HAZARD_ZONES.forEach((haz) => {
+    const [hazLat, hazLon] = haz.center;
+    const distToStart = calculateHaversineDistance(startLat, startLon, hazLat, hazLon);
+    const distToTarget = calculateHaversineDistance(targetLat, targetLon, hazLat, hazLon);
 
-  // Check 1: If start position is inside harbor or nearshore
-  const startSafeLon = getSafeOceanLon(startLat);
-  if (startLon < startSafeLon) {
+    if (distToStart < directDistM + haz.radiusMeters && distToTarget < directDistM + haz.radiusMeters) {
+      const midLat = (startLat + targetLat) / 2;
+      const midLon = (startLon + targetLon) / 2;
+      const hazDistToMid = calculateHaversineDistance(midLat, midLon, hazLat, hazLon);
+
+      if (hazDistToMid < haz.radiusMeters + 3000) {
+        hasObstacleAvoidance = true;
+        maxHazardOffset = Math.max(maxHazardOffset, 0.020);
+      }
+    }
+  });
+
+  const minSafeStartLon = getMinSafeOceanLon(startLat);
+  const minSafeMidLon = getMinSafeOceanLon((startLat + targetLat) / 2);
+
+  if (startLon < minSafeStartLon) {
     hasObstacleAvoidance = true;
-    const fairwayLat = startLat + (targetLat >= startLat ? 0.006 : -0.006);
-    const fairwayLon = startSafeLon + 0.015;
-    waypointsList.push({
-      name: 'Kasimedu Fairway Channel Exit',
-      latitude: fairwayLat,
-      longitude: fairwayLon,
-      type: 'harbor_exit',
-    });
-    keyControlPoints.push([fairwayLat, fairwayLon]);
   }
 
-  // Check 2: Intermediate coastal avoidance
-  const lastP = keyControlPoints[keyControlPoints.length - 1];
-  const latDiff = targetLat - lastP[0];
+  // Define Cubic Bezier Control Points P0, P1, P2, P3
+  const P0: [number, number] = [startLat, startLon];
+  const P3: [number, number] = [targetLat, targetLon];
 
-  if (Math.abs(latDiff) > 0.015) {
-    const sampleLat = lastP[0] + latDiff * 0.5;
-    const requiredSafeLon = getSafeOceanLon(sampleLat);
-    const bypassLon = Math.max(requiredSafeLon + 0.025, Math.max(startLon, targetLon) + 0.020);
+  // Base intermediate parametric positions (t = 0.35 and t = 0.68)
+  const p1Lat = startLat + 0.35 * dLat;
+  const p2Lat = startLat + 0.68 * dLat;
 
-    hasObstacleAvoidance = true;
+  let p1Lon = startLon + 0.35 * dLon;
+  let p2Lon = startLon + 0.68 * dLon;
+
+  const oceanBulge = Math.max(maxHazardOffset, 0.012);
+
+  if (targetLon >= startLon) {
+    const reqP1Lon = Math.max(p1Lon, minSafeStartLon + 0.005);
+    const reqP2Lon = Math.max(p2Lon, minSafeMidLon + 0.005);
+
+    if (targetLon >= reqP1Lon) {
+      p1Lon = reqP1Lon;
+      p2Lon = Math.min(targetLon, reqP2Lon);
+    } else {
+      p1Lon = Math.max(startLon + 0.5 * dLon, minSafeStartLon + 0.008);
+      p2Lon = Math.max(startLon + 0.8 * dLon, (p1Lon + targetLon) / 2);
+    }
+
+    // Strict monotonicity check for eastbound routes: P0.lon <= P1.lon <= P2.lon <= P3.lon
+    // Clamping guarantees NO double-backs, reversals, or zig-zags!
+    p1Lon = Math.max(P0[1], Math.min(P3[1], p1Lon));
+    p2Lon = Math.max(p1Lon, Math.min(P3[1], p2Lon));
+  } else {
+    // Westbound route (returning to port)
+    p1Lon = Math.min(P0[1], Math.max(P3[1], p1Lon + oceanBulge));
+    p2Lon = Math.min(p1Lon, Math.max(P3[1], p2Lon));
+  }
+
+  const P1: [number, number] = [p1Lat, p1Lon];
+  const P2: [number, number] = [p2Lat, p2Lon];
+
+  // Generate 60 smooth interpolated points along the Cubic Bezier curve
+  const NUM_STEPS = 60;
+  const polylineCoords: Array<[number, number]> = [];
+
+  for (let i = 0; i <= NUM_STEPS; i++) {
+    const t = i / NUM_STEPS;
+    const invT = 1 - t;
+
+    const lat =
+      invT * invT * invT * P0[0] +
+      3 * invT * invT * t * P1[0] +
+      3 * invT * t * t * P2[0] +
+      t * t * t * P3[0];
+
+    const lon =
+      invT * invT * invT * P0[1] +
+      3 * invT * invT * t * P1[1] +
+      3 * invT * t * t * P2[1] +
+      t * t * t * P3[1];
+
+    polylineCoords.push([Number(lat.toFixed(5)), Number(lon.toFixed(5))]);
+  }
+
+  const waypointsList: MaritimeWaypoint[] = [
+    {
+      name: 'Fisherman Location (Boat)',
+      latitude: startLat,
+      longitude: startLon,
+      type: 'start',
+    },
+  ];
+
+  if (hasObstacleAvoidance) {
     waypointsList.push({
-      name: `Deep Water Fairway (${sampleLat.toFixed(3)}°N)`,
-      latitude: sampleLat,
-      longitude: bypassLon,
+      name: `Coastal Hazard Avoidance Channel (${P1[0].toFixed(3)}°N)`,
+      latitude: P1[0],
+      longitude: P1[1],
       type: 'rock_avoidance',
     });
-    keyControlPoints.push([sampleLat, bypassLon]);
   }
 
-  // Add Target Point
   waypointsList.push({
     name: 'Target Fishing Zone',
     latitude: targetLat,
     longitude: targetLon,
     type: 'destination',
   });
-  keyControlPoints.push([targetLat, targetLon]);
-
-  // Generate smooth cubic Bezier curved trajectory
-  const polylineCoords = interpolateCubicBezierPath(keyControlPoints, 45);
 
   // Calculate total distance along the smooth curve
   let totalMeters = 0;
