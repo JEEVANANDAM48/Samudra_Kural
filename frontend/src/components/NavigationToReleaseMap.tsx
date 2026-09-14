@@ -24,7 +24,7 @@ export const NavigationToReleaseMap: React.FC<NavigationToReleaseMapProps> = ({
   distanceKm,
   bearingDeg,
   width = Dimensions.get('window').width - 48,
-  height = 240,
+  height = 360,
 }) => {
   const webViewRef = useRef<any>(null);
   const [mapLoaded, setMapLoaded] = useState<boolean>(false);

@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
+from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.api.deps import get_current_fisherman, reusable_oauth2
 from app.models.fisherman import Fisherman
@@ -207,7 +208,7 @@ async def list_nets(
     token: Optional[str] = Depends(reusable_oauth2)
 ):
     """List all fishing nets."""
-    result = await db.execute(select(Net).order_by(desc(Net.created_at)))
+    result = await db.execute(select(Net).options(selectinload(Net.predictions)).order_by(desc(Net.created_at)))
     nets = result.scalars().unique().all()
     return [build_net_summary(n) for n in nets]
 
@@ -217,7 +218,7 @@ async def list_active_nets(
     token: Optional[str] = Depends(reusable_oauth2)
 ):
     """List only active drifting nets."""
-    result = await db.execute(select(Net).where(Net.status == "ACTIVE").order_by(desc(Net.created_at)))
+    result = await db.execute(select(Net).where(Net.status == "ACTIVE").options(selectinload(Net.predictions)).order_by(desc(Net.created_at)))
     nets = result.scalars().unique().all()
     return [build_net_summary(n) for n in nets]
 

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions, Platform, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Dimensions, Platform, Alert, Text, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Clipboard from 'expo-clipboard';
 import { HotspotInfo } from '../services/pfzService';
@@ -35,6 +35,7 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
         selectedNavigationTarget.longitude
       )
     : null;
+
 
   // Generate dynamic Leaflet HTML with pinch-zoom, user location, route line & copy coordinates
   const generateLeafletHTML = () => {

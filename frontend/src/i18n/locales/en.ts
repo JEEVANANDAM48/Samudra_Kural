@@ -12,7 +12,7 @@ export const en = {
   placeholderFishing: "Fishing Zones",
   placeholderSafety: "Sea Safety",
   placeholderNets: "My Nets",
-  placeholderEmergency: "Emergency / SOS",
+  placeholderEmergency: "Emergency",
   askBot: "Ask Bot",
   askBotSub: "AI Marine Chatbot",
   menuAndProfile: "Menu & Profile",

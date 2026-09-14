@@ -41,7 +41,7 @@ import {
 } from '../services/sosService';
 import { getUserSession } from '../storage/storage';
 import { getNearestRescueStation } from '../data/mockRescueStations';
-import { findNearbyRegisteredBoats } from '../data/mockBoats';
+import { fetchLiveRegisteredBoats, RegisteredBoat } from '../data/mockBoats';
 import { coastalGuardService, RescueMissionItem } from '../services/coastalGuardService';
 import { playEmergencyBuzzerSound } from '../utils/speech';
 
@@ -69,10 +69,28 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [isUpdatingLocation, setIsUpdatingLocation] = useState<boolean>(false);
+  const [nearbyBoats, setNearbyBoats] = useState<RegisteredBoat[]>([]);
 
   useEffect(() => {
     initSOSScreen();
   }, []);
+
+  useEffect(() => {
+    const updateLiveBoats = async () => {
+      try {
+        const currentLat = activeSOSPacket?.latitude ?? location?.latitude ?? liveLocation?.latitude ?? null;
+        const currentLon = activeSOSPacket?.longitude ?? location?.longitude ?? liveLocation?.longitude ?? null;
+        const boats = await fetchLiveRegisteredBoats(currentLat, currentLon, 35);
+        setNearbyBoats(boats);
+      } catch (e) {
+        console.log('[SOSScreen] Live boats update error:', e);
+      }
+    };
+
+    updateLiveBoats();
+    const interval = setInterval(updateLiveBoats, 3500);
+    return () => clearInterval(interval);
+  }, [activeSOSPacket, location, liveLocation]);
 
   useEffect(() => {
     const pollMissionUpdates = async () => {
@@ -80,37 +98,45 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         const missions = await coastalGuardService.getLocalMissions();
         const alerts = await coastalGuardService.getLocalAlerts();
         
-        // Find mission linked to active or pending SOS
+        // Find mission linked to active or pending SOS of current user
         const activeTarget = activeSOSPacket || pendingSOSPacket || (await getActiveSOS());
         if (activeTarget) {
           const targetIdStr = String(activeTarget.id);
-          const linkedMission = missions.find(m => String(m.sos_alert_id) === targetIdStr || m.sos_alert_id === 1 || m.sos_alert_id === 2);
-          if (linkedMission) {
+          const userSession = await getUserSession();
+          const linkedAlert = alerts.find(
+            a => String(a.id) === targetIdStr || (userSession?.name && a.fisherman?.name === userSession.name && a.status !== 'RESOLVED' && a.status !== 'CANCELLED')
+          );
+          const targetAlertId = linkedAlert ? linkedAlert.id : Number(targetIdStr);
+
+          const linkedMission = missions.find(
+            m => m.sos_alert_id === targetAlertId || String(m.sos_alert_id) === targetIdStr
+          );
+
+          if (linkedMission && linkedMission.status !== 'CANCELLED') {
             setActiveMission(linkedMission);
+          } else if (linkedAlert && linkedAlert.rescue_mission) {
+            setActiveMission({
+              id: linkedAlert.rescue_mission.id,
+              sos_alert_id: linkedAlert.id,
+              officer_name: 'Cmdr. Rajesh Kumar (ICG)',
+              rescue_team: linkedAlert.rescue_mission.rescue_team,
+              rescue_vessel: linkedAlert.rescue_mission.rescue_vessel,
+              status: linkedAlert.rescue_mission.status as any,
+              eta_minutes: linkedAlert.rescue_mission.eta_minutes,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
           } else {
-            const linkedAlert = alerts.find(a => String(a.id) === targetIdStr);
-            if (linkedAlert?.rescue_mission) {
-              setActiveMission({
-                id: linkedAlert.rescue_mission.id,
-                sos_alert_id: linkedAlert.id,
-                officer_name: 'Cmdr. Rajesh Kumar (ICG)',
-                rescue_team: linkedAlert.rescue_mission.rescue_team,
-                rescue_vessel: linkedAlert.rescue_mission.rescue_vessel,
-                status: linkedAlert.rescue_mission.status as any,
-                eta_minutes: linkedAlert.rescue_mission.eta_minutes,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              });
-            }
+            // NO mission assigned by Coastal Guard yet!
+            setActiveMission(null);
           }
-        } else if (missions.length > 0) {
-          // If any active mission exists in local store
-          const activeM = missions.find(m => m.status !== 'COMPLETED' && m.status !== 'CANCELLED');
-          if (activeM) {
-            setActiveMission(activeM);
-          }
+        } else {
+          // NO active or pending SOS for this fisherman!
+          setActiveMission(null);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.log('[SOSScreen] Error polling mission updates:', e);
+      }
     };
 
     pollMissionUpdates();
@@ -342,12 +368,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
     activeSOSPacket?.longitude ?? location?.longitude ?? null
   );
 
-  const nearbyBoats = findNearbyRegisteredBoats(
-    activeSOSPacket?.latitude ?? location?.latitude ?? null,
-    activeSOSPacket?.longitude ?? location?.longitude ?? null,
-    20
-  );
-
   return (
     <ScrollView
       style={styles.container}
@@ -382,21 +402,29 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </Text>
       </View>
 
-      {/* 2. Main 3-Second Hold SOS Button (PLACED AT TOP ABOVE SYSTEM STATUS) */}
+      {/* 2. Main 3-Second Hold SOS Button (BEFORE SOS ACTIVATION) */}
       {(sosStatus === 'idle' ||
         sosStatus === 'getting_location' ||
         sosStatus === 'checking_connection' ||
         sosStatus === 'sending' ||
         sosStatus === 'cancelled' ||
         sosStatus === 'error') && (
-        <SOSButton
-          onHoldSuccess={handleSOSTriggered}
-          disabled={
-            sosStatus === 'getting_location' ||
-            sosStatus === 'checking_connection' ||
-            sosStatus === 'sending'
-          }
-        />
+        <>
+          <SOSButton
+            onHoldSuccess={handleSOSTriggered}
+            disabled={
+              sosStatus === 'getting_location' ||
+              sosStatus === 'checking_connection' ||
+              sosStatus === 'sending'
+            }
+          />
+
+          {/* Optional Emergency Category Selector (PLACED RIGHT BELOW SOS BUTTON) */}
+          <SOSEmergencyTypeSelector
+            selectedType={emergencyType}
+            onSelectType={(type) => setEmergencyType(type)}
+          />
+        </>
       )}
 
       {/* Status Message / Progress Feedback */}
@@ -469,33 +497,79 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </View>
       )}
 
-      {/* 3. System Status Card */}
-      <SOSStatusCard
-        gpsAvailable={gpsAvailable}
-        communicationStatus={communicationStatus}
-        batteryLevel={realBatteryLevel}
-        sosId={activeSOSPacket?.id || pendingSOSPacket?.id}
-        isPending={sosStatus === 'pending'}
-      />
-
-      {/* 4. ACTIVE SOS VIEW */}
+      {/* 3. ACTIVE SOS VIEW (PLACED MOVED UP ABOVE SYSTEM STATUS CARD) */}
       {sosStatus === 'active' && activeSOSPacket && (
         <View style={styles.activeContainer}>
-          <View style={styles.activeBanner}>
-            <Text style={styles.activeBannerIcon}>🚨</Text>
+          <View style={[styles.activeBanner, activeMission?.status === 'COMPLETED' && { backgroundColor: '#1E824C', borderColor: '#145A32' }]}>
+            <Text style={styles.activeBannerIcon}>
+              {activeMission
+                ? activeMission.status === 'COMPLETED'
+                  ? '✅'
+                  : '🛡️'
+                : '🚨'}
+            </Text>
             <View style={styles.activeBannerTextCol}>
-              <Text style={styles.activeBannerTitle}>EMERGENCY SOS IS ACTIVE</Text>
+              <Text style={styles.activeBannerTitle}>
+                {activeMission
+                  ? activeMission.status === 'COMPLETED'
+                    ? 'RESCUE COMPLETED & RESOLVED'
+                    : 'COAST GUARD RESCUE IN PROGRESS'
+                  : 'EMERGENCY SOS IS ACTIVE'}
+              </Text>
 
-              {/* Explicit distinction between location available vs unavailable */}
-              {activeSOSPacket.latitude !== null ? (
-                <Text style={styles.activeBannerSubtitle}>
-                  SOS SENT WITH GPS LOCATION
+              <Text style={styles.activeBannerSubtitle}>
+                {activeMission
+                  ? `Rescue Status: ${activeMission.status.replace('_', ' ')} • ETA: ${activeMission.eta_minutes} mins`
+                  : activeSOSPacket.latitude !== null
+                  ? 'SOS SIGNAL TRANSMITTED • AWAITING COAST GUARD MISSION ASSIGNMENT'
+                  : 'SOS SENT WITHOUT LOCATION (GPS UNAVAILABLE)'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Rescue Lifecycle Progress Tracker */}
+          <View style={styles.trackerCard}>
+            <Text style={styles.trackerHeaderTitle}>RESCUE LIFECYCLE PROGRESS</Text>
+            <View style={styles.trackerRow}>
+              {/* Step 1: Signal Sent */}
+              <View style={styles.trackerStep}>
+                <View style={[styles.stepDot, styles.stepDotDone]}>
+                  <Text style={styles.stepDotTxt}>✓</Text>
+                </View>
+                <Text style={styles.stepLabel}>Signal Sent</Text>
+              </View>
+
+              <View style={[styles.stepLine, activeMission ? styles.stepLineDone : null]} />
+
+              {/* Step 2: Mission Assigned */}
+              <View style={styles.trackerStep}>
+                <View style={[styles.stepDot, activeMission ? styles.stepDotDone : styles.stepDotActive]}>
+                  <Text style={styles.stepDotTxt}>{activeMission ? '✓' : '2'}</Text>
+                </View>
+                <Text style={styles.stepLabel}>
+                  {activeMission ? 'Assigned' : 'Awaiting'}
                 </Text>
-              ) : (
-                <Text style={styles.activeBannerSubtitleWarning}>
-                  SOS SENT WITHOUT LOCATION (GPS UNAVAILABLE)
-                </Text>
-              )}
+              </View>
+
+              <View style={[styles.stepLine, (activeMission && activeMission.status !== 'ASSIGNED') ? styles.stepLineDone : null]} />
+
+              {/* Step 3: En Route */}
+              <View style={styles.trackerStep}>
+                <View style={[styles.stepDot, (activeMission && activeMission.status !== 'ASSIGNED') ? styles.stepDotDone : styles.stepDotInactive]}>
+                  <Text style={styles.stepDotTxt}>{(activeMission && activeMission.status !== 'ASSIGNED') ? '✓' : '3'}</Text>
+                </View>
+                <Text style={styles.stepLabel}>En Route</Text>
+              </View>
+
+              <View style={[styles.stepLine, (activeMission && activeMission.status === 'COMPLETED') ? styles.stepLineDone : null]} />
+
+              {/* Step 4: Resolved */}
+              <View style={styles.trackerStep}>
+                <View style={[styles.stepDot, (activeMission && activeMission.status === 'COMPLETED') ? styles.stepDotDone : styles.stepDotInactive]}>
+                  <Text style={styles.stepDotTxt}>{(activeMission && activeMission.status === 'COMPLETED') ? '✓' : '4'}</Text>
+                </View>
+                <Text style={styles.stepLabel}>Resolved</Text>
+              </View>
             </View>
           </View>
 
@@ -507,22 +581,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             timestamp={activeSOSPacket.timestamp}
             isUnavailable={activeSOSPacket.latitude === null}
           />
-
-          {/* Nearby Boats Section */}
-          {nearbyBoats.length > 0 && (
-            <View style={styles.boatsCard}>
-              <Text style={styles.boatsTitle}>NEARBY REGISTERED BOATS ({nearbyBoats.length})</Text>
-              <Text style={styles.boatsDisclaimer}>
-                Vessels in proximity (Alert queue):
-              </Text>
-              {nearbyBoats.slice(0, 3).map((boat) => (
-                <View key={boat.id} style={styles.boatRow}>
-                  <Text style={styles.boatName}>⛵ {boat.name} ({boat.captainName})</Text>
-                  <Text style={styles.boatDist}>{boat.distanceKm} km away</Text>
-                </View>
-              ))}
-            </View>
-          )}
 
           {/* Active Action Buttons */}
           <View style={styles.activeButtonsRow}>
@@ -550,7 +608,7 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </View>
       )}
 
-      {/* 5. PENDING SOS VIEW (OFFLINE) */}
+      {/* 4. PENDING SOS VIEW (OFFLINE) */}
       {sosStatus === 'pending' && (
         <View style={styles.pendingContainer}>
           <View style={styles.pendingBanner}>
@@ -579,7 +637,16 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </View>
       )}
 
-      {/* 6. IDLE & IN-PROGRESS POSITION AND CATEGORY CARDS */}
+      {/* 5. System Status Card (MOVED DOWN BELOW EMERGENCY SOS IS ACTIVE CARD IN ACTIVE STATE) */}
+      <SOSStatusCard
+        gpsAvailable={gpsAvailable}
+        communicationStatus={communicationStatus}
+        batteryLevel={realBatteryLevel}
+        sosId={activeSOSPacket?.id || pendingSOSPacket?.id}
+        isPending={sosStatus === 'pending'}
+      />
+
+      {/* 6. IDLE & IN-PROGRESS POSITION CARDS */}
       {(sosStatus === 'idle' ||
         sosStatus === 'getting_location' ||
         sosStatus === 'checking_connection' ||
@@ -595,12 +662,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             timestamp={location?.timestamp ?? liveLocation?.timestamp ?? new Date().toISOString()}
             isUnavailable={!gpsAvailable}
             onRefreshLocation={handleRefreshGps}
-          />
-
-          {/* Optional Emergency Category Selector */}
-          <SOSEmergencyTypeSelector
-            selectedType={emergencyType}
-            onSelectType={(type) => setEmergencyType(type)}
           />
         </View>
       )}
@@ -759,35 +820,114 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     marginBottom: 16,
   },
+  boatsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   boatsTitle: {
     fontSize: 11,
     fontWeight: '900',
     color: Colors.textSecondary,
     letterSpacing: 0.8,
-    marginBottom: 4,
+  },
+  liveIndicatorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F8F5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#A3D9D5',
+  },
+  pulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#27AE60',
+    marginRight: 5,
+  },
+  liveBadgeTxt: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#1E824C',
+    letterSpacing: 0.5,
   },
   boatsDisclaimer: {
     fontSize: 12,
     fontWeight: '600',
     color: Colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   boatRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    alignItems: 'center',
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: Colors.background,
   },
+  boatMainCol: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  boatIcon: {
+    fontSize: 14,
+  },
   boatName: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '900',
     color: Colors.text,
   },
+  regTag: {
+    backgroundColor: '#EBF5FB',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#AED6F1',
+  },
+  regTagTxt: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#2980B9',
+    letterSpacing: 0.3,
+  },
+  boatSubText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  boatDistCol: {
+    alignItems: 'flex-end',
+  },
   boatDist: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '900',
     color: Colors.primary,
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 3,
+  },
+  statusBadgeActive: {
+    backgroundColor: '#E8F8F5',
+  },
+  statusBadgeReturning: {
+    backgroundColor: '#FEF9E7',
+  },
+  statusBadgeAnchored: {
+    backgroundColor: '#EBEDEF',
+  },
+  statusBadgeTxt: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: Colors.primaryDark,
   },
   activeButtonsRow: {
     flexDirection: 'column',
@@ -988,5 +1128,75 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 0.8,
+  },
+
+  /* Rescue Tracker Styles */
+  trackerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  trackerHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: Colors.textSecondary,
+    letterSpacing: 0.8,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  trackerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  trackerStep: {
+    alignItems: 'center',
+    width: 60,
+  },
+  stepDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  stepDotDone: {
+    backgroundColor: '#27AE60',
+  },
+  stepDotActive: {
+    backgroundColor: '#E67E22',
+  },
+  stepDotInactive: {
+    backgroundColor: '#BDC3C7',
+  },
+  stepDotTxt: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  stepLine: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#ECF0F1',
+    marginTop: -16,
+  },
+  stepLineDone: {
+    backgroundColor: '#27AE60',
+  },
+  stepLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.text,
+    textAlign: 'center',
   },
 });

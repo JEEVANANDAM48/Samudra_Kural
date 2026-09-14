@@ -163,6 +163,7 @@ export const FindNetModal: React.FC<FindNetModalProps> = ({
                 releaseLon={net.release_longitude}
                 distanceKm={distanceKm}
                 bearingDeg={bearingDeg}
+                height={430}
               />
             )}
 

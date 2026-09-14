@@ -14,7 +14,7 @@ export const ml: Record<TranslationKeys, string> = {
   placeholderFishing: "മത്സ്യബന്ധന മേഖലകൾ",
   placeholderSafety: "കടൽ സുരക്ഷ",
   placeholderNets: "എന്റെ വലകൾ",
-  placeholderEmergency: "അടിയന്തര സഹായം / SOS",
+  placeholderEmergency: "അടിയന്തര സഹായം",
   askBot: "ബോട്ടിനോട് ചോദിക്കുക",
   askBotSub: "AI കടൽ സഹായി",
   menuAndProfile: "മെനു & പ്രൊഫൈൽ",

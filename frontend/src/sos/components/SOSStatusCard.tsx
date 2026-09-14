@@ -40,7 +40,9 @@ export const SOSStatusCard: React.FC<SOSStatusCardProps> = ({
 
         {/* Communication Status */}
         <View style={styles.statusBox}>
-          <Text style={styles.label}>Communication</Text>
+          <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit={true}>
+            Communication
+          </Text>
           <View style={styles.valueRow}>
             <Text
               style={[
@@ -55,6 +57,8 @@ export const SOSStatusCard: React.FC<SOSStatusCardProps> = ({
                 styles.statusText,
                 communicationStatus === 'online' ? styles.textGreen : styles.textOrange,
               ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
             >
               {communicationStatus === 'online' ? 'Online' : 'Offline'}
             </Text>
@@ -124,10 +128,11 @@ const styles = StyleSheet.create({
     borderColor: '#E0ECEC',
   },
   label: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
     color: Colors.textSecondary,
     marginBottom: 4,
+    textAlign: 'center',
   },
   valueRow: {
     flexDirection: 'row',

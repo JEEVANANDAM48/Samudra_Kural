@@ -165,7 +165,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               style={styles.cgLoginBtn}
             >
               <Text style={styles.cgLoginBtnTxt}>
-                👮 Samudra Kural — Coastal Guard Login
+                Samudra Kural — Coastal Guard Login
               </Text>
             </TouchableOpacity>
 
@@ -245,19 +245,20 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 14,
     height: 58,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   prefix: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.primaryDark,
-    marginRight: 10,
+    marginRight: 8,
   },
   inputWithPrefix: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 15,
     color: Colors.text,
     fontWeight: '600',
+    paddingVertical: 0,
   },
   input: {
     backgroundColor: Colors.surface,
@@ -265,8 +266,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 14,
     height: 58,
-    paddingHorizontal: 16,
-    fontSize: 18,
+    paddingHorizontal: 14,
+    fontSize: 15,
     color: Colors.text,
     fontWeight: '600',
   },
@@ -285,24 +286,24 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   cgLoginBtn: {
-    backgroundColor: '#0F3A5D',
+    backgroundColor: '#E6F4F1',
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 14,
     alignItems: 'center',
     marginTop: 16,
     borderWidth: 1.5,
-    borderColor: '#38BDF8',
-    elevation: 3,
-    shadowColor: '#0F3A5D',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    borderColor: Colors.primary,
+    elevation: 1,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   cgLoginBtnTxt: {
-    color: '#FFFFFF',
+    color: Colors.primaryDark,
     fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.3,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });

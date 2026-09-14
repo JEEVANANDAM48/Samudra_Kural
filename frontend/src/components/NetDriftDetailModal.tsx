@@ -75,14 +75,6 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
 
   if (!net) return null;
 
-  const rawConfidence = trajectory ? trajectory.search_area.confidence : 'MEDIUM';
-  const confidenceKey =
-    rawConfidence === 'HIGH'
-      ? 'confidenceHigh'
-      : rawConfidence === 'LOW'
-      ? 'confidenceLow'
-      : 'confidenceMedium';
-
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
@@ -141,13 +133,6 @@ export const NetDriftDetailModal: React.FC<NetDriftDetailModalProps> = ({
                 <Text style={styles.tileLabel}>{t('likelyDirection')}</Text>
                 <Text style={styles.tileValue}>
                   {trajectory ? tDirection(trajectory.latest_predicted_point.drift_direction_cardinal) : tDirection('Northeast')}
-                </Text>
-              </View>
-
-              <View style={styles.statusTile}>
-                <Text style={styles.tileLabel}>{t('confidence')}</Text>
-                <Text style={[styles.tileValue, { color: Colors.primary }]}>
-                  {t(confidenceKey)}
                 </Text>
               </View>
             </View>
@@ -313,7 +298,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   statusTile: {
-    width: '48%',
+    flex: 1,
+    minWidth: 100,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
