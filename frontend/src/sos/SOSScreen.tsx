@@ -368,59 +368,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
     activeSOSPacket?.longitude ?? location?.longitude ?? null
   );
 
-  const renderNearbyBoatsCard = () => {
-    if (nearbyBoats.length === 0) return null;
-
-    return (
-      <View style={styles.boatsCard}>
-        <View style={styles.boatsHeaderRow}>
-          <Text style={styles.boatsTitle}>LIVE REGISTERED FISHERMEN BOATS ({nearbyBoats.length})</Text>
-          <View style={styles.liveIndicatorBadge}>
-            <View style={styles.pulseDot} />
-            <Text style={styles.liveBadgeTxt}>LIVE RADAR</Text>
-          </View>
-        </View>
-        <Text style={styles.boatsDisclaimer}>
-          Vessels in proximity (Registered alert grid):
-        </Text>
-        {nearbyBoats.slice(0, 4).map((boat, index) => (
-          <View key={`${boat.id}_${index}`} style={styles.boatRow}>
-            <View style={styles.boatMainCol}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <Text style={styles.boatIcon}>⛵</Text>
-                <Text style={styles.boatName}>{boat.name}</Text>
-                {boat.isLive && (
-                  <View style={styles.regTag}>
-                    <Text style={styles.regTagTxt}>REGISTERED</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.boatSubText}>
-                Capt: {boat.captainName} • {boat.id} {boat.vesselType ? `• ${boat.vesselType}` : ''}
-              </Text>
-            </View>
-
-            <View style={styles.boatDistCol}>
-              <Text style={styles.boatDist}>{boat.distanceKm} km away</Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  boat.status === 'active'
-                    ? styles.statusBadgeActive
-                    : boat.status === 'returning'
-                    ? styles.statusBadgeReturning
-                    : styles.statusBadgeAnchored,
-                ]}
-              >
-                <Text style={styles.statusBadgeTxt}>{boat.status.toUpperCase()}</Text>
-              </View>
-            </View>
-          </View>
-        ))}
-      </View>
-    );
-  };
-
   return (
     <ScrollView
       style={styles.container}
@@ -635,9 +582,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             isUnavailable={activeSOSPacket.latitude === null}
           />
 
-          {/* Nearby Boats Section */}
-          {renderNearbyBoatsCard()}
-
           {/* Active Action Buttons */}
           <View style={styles.activeButtonsRow}>
             <TouchableOpacity
@@ -683,8 +627,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             isUnavailable={(pendingSOSPacket?.latitude ?? location?.latitude) === null}
           />
 
-          {renderNearbyBoatsCard()}
-
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => setShowCancelModal(true)}
@@ -721,9 +663,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             isUnavailable={!gpsAvailable}
             onRefreshLocation={handleRefreshGps}
           />
-
-          {/* Live Nearby Registered Boats */}
-          {renderNearbyBoatsCard()}
         </View>
       )}
 
