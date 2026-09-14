@@ -159,9 +159,37 @@ export const clearCGOfficerSession = async (): Promise<void> => {
 
 const ASYNC_FISHERMAN_ACCOUNTS_KEY = '@samudra_kural_fisherman_registered_accounts';
 
-const DEFAULT_FISHERMAN_ACCOUNTS: (FishermanUser & { pin: string })[] = [];
+const DEFAULT_FISHERMAN_ACCOUNTS: (FishermanUser & { pin: string })[] = [
+  {
+    name: 'Ramanan K. (Fisherman)',
+    phone: '9876543210',
+    pin: '123456',
+    address: 'No. 42, Harbour Main Road, Kasimedu',
+    pincode: '600013',
+    emergencyPhone: '+91 94440 99999',
+    vesselName: 'Sea King IX',
+    vesselRegistration: 'TN-01-MM-8492',
+    vesselType: 'Mechanized Motorized Trawler',
+    homePort: 'Kasimedu Harbour, Chennai',
+    licenseNumber: 'IND-TN-2024-94021',
+    aadhaarNumber: 'XXXX-XXXX-8492',
+  },
+];
 
-const DEFAULT_CG_ACCOUNTS: any[] = [];
+const DEFAULT_CG_ACCOUNTS: any[] = [
+  {
+    id: 'CG-OFFICER-DEMO-01',
+    name: 'Cmdr. V. Raman',
+    serviceId: 'CG-9402',
+    rank: 'Commandant (ICG)',
+    station: 'Kasimedu Coast Guard Station, Chennai',
+    phone: '9444099999',
+    email: 'officer.raman@indiancoastguard.gov.in',
+    jurisdiction: 'Tamil Nadu Coastal Zone - District 13',
+    pin: '123456',
+    badgeNumber: 'CG-9402',
+  },
+];
 
 export const saveFishermanRegisteredAccounts = async (accounts: any[]): Promise<void> => {
   try {
@@ -176,12 +204,12 @@ export const getFishermanRegisteredAccounts = async (): Promise<any[]> => {
     const json = await AsyncStorage.getItem(ASYNC_FISHERMAN_ACCOUNTS_KEY);
     if (json) {
       const stored = JSON.parse(json);
-      if (Array.isArray(stored)) {
+      if (Array.isArray(stored) && stored.length > 0) {
         return stored;
       }
     }
   } catch (error) {}
-  return [];
+  return DEFAULT_FISHERMAN_ACCOUNTS;
 };
 
 export const registerFishermanAccount = async (account: any): Promise<void> => {
@@ -204,12 +232,12 @@ export const getCGRegisteredAccounts = async (): Promise<any[]> => {
     const json = await AsyncStorage.getItem(ASYNC_CG_ACCOUNTS_KEY);
     if (json) {
       const stored = JSON.parse(json);
-      if (Array.isArray(stored)) {
+      if (Array.isArray(stored) && stored.length > 0) {
         return stored;
       }
     }
   } catch (error) {}
-  return [];
+  return DEFAULT_CG_ACCOUNTS;
 };
 
 export const registerCGOfficerAccount = async (account: any): Promise<void> => {
