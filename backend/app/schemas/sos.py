@@ -9,6 +9,11 @@ class SOSCreate(BaseModel):
     description: Optional[str] = Field(None, example="Engine died 12km off Chennai port. Drifting NE.")
     people_affected: int = Field(1, ge=1, example=4)
     priority: Optional[str] = Field("CRITICAL", example="CRITICAL") # CRITICAL, HIGH, MEDIUM, LOW
+    fisherman_name: Optional[str] = Field(None, example="Fisherman User")
+    fisherman_phone: Optional[str] = Field(None, example="+91 98400 11223")
+    boat_name: Optional[str] = Field(None, example="Sea King IX")
+    boat_registration: Optional[str] = Field(None, example="IND-TN-02-MM-8492")
+    home_port: Optional[str] = Field(None, example="Kasimedu Harbour, Chennai")
 
 class SOSStatusUpdate(BaseModel):
     status: str = Field(..., example="ACKNOWLEDGED")

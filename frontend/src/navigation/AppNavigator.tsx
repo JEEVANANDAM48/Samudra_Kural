@@ -167,8 +167,8 @@ export const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* 6. HOME & AUTHENTICATED APP SCREENS (TOP HEADER BANNER RENDERED ACROSS ALL PAGES) */}
-      {(currentScreen === 'home' || currentScreen === 'fishing_zones' || currentScreen === 'navigation' || currentScreen === 'profile' || currentScreen === 'bot') && (
+      {/* 6. HOME & AUTHENTICATED MAIN APP CONTAINER */}
+      {currentScreen === 'home' && (
         <HomeScreen
           currentLanguage={language}
           onLogout={handleLogout}
@@ -176,7 +176,7 @@ export const AppNavigator: React.FC = () => {
           onOpenFishingZones={() => setCurrentScreen('fishing_zones')}
           onOpenNavigation={() => setCurrentScreen('navigation')}
           onOpenProfile={() => setCurrentScreen('profile')}
-          initialTab={currentScreen === 'bot' ? 'bot' : undefined}
+          initialTab={undefined}
         />
       )}
 

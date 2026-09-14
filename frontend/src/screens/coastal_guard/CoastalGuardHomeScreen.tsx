@@ -22,7 +22,8 @@ import { CGMissionDetailsScreen } from './CGMissionDetailsScreen';
 import { CGMarineConditionsScreen } from './CGMarineConditionsScreen';
 import { CGMarineMapScreen } from './CGMarineMapScreen';
 import { CGProfileScreen } from './CGProfileScreen';
-import { SOSAlertItem } from '../../services/coastalGuardService';
+import { coastalGuardService, SOSAlertItem } from '../../services/coastalGuardService';
+import { getCGOfficerSession, CGOfficerUser } from '../../storage/storage';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.82;
@@ -42,11 +43,44 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
   const [targetSOSForMission, setTargetSOSForMission] = useState<SOSAlertItem | null>(null);
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [officer, setOfficer] = useState<CGOfficerUser | null>(null);
+  const [latestEmergency, setLatestEmergency] = useState<SOSAlertItem | null>(null);
+  const [activeSOSCount, setActiveSOSCount] = useState<number>(0);
 
   const drawerAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
 
+  React.useEffect(() => {
+    loadOfficer();
+    const interval = setInterval(pollSOSAlerts, 3000);
+    pollSOSAlerts();
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadOfficer = async () => {
+    const session = await getCGOfficerSession();
+    if (session) {
+      setOfficer(session);
+    }
+  };
+
+  const pollSOSAlerts = async () => {
+    try {
+      const allAlerts = await coastalGuardService.getSOSAlerts();
+      const activeAlerts = allAlerts.filter(a => a.status !== 'RESOLVED' && a.status !== 'CANCELLED');
+      setActiveSOSCount(activeAlerts.length);
+
+      const unacknowledged = activeAlerts.find(a => a.status === 'NEW');
+      if (unacknowledged) {
+        setLatestEmergency(unacknowledged);
+      } else {
+        setLatestEmergency(null);
+      }
+    } catch (e) {}
+  };
+
   const openMenuDrawer = () => {
     setIsDrawerOpen(true);
+    loadOfficer();
     Animated.timing(drawerAnim, {
       toValue: 0,
       duration: 300,
@@ -96,8 +130,12 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
           <View style={styles.headerTopRow}>
             <View style={styles.titleContainer}>
               <Text style={styles.appTitle}>SAMUDRA KURAL</Text>
-              <Text style={styles.welcomeText}>Welcome, Cmdr. V. Raman!</Text>
-              <Text style={styles.appSubtitle}>Coastal Guard Emergency Command HQ</Text>
+              <Text style={styles.welcomeText}>
+                Welcome, {officer ? `${officer.rank} (${officer.officerId})` : 'Officer'}!
+              </Text>
+              <Text style={styles.appSubtitle}>
+                {officer?.station || 'Coastal Guard Emergency Command HQ'}
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -109,6 +147,31 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
             </TouchableOpacity>
           </View>
         </View>
+      )}
+
+      {/* Real-time Emergency Broadcast Notification Banner for ALL Coastal Guard Officers */}
+      {isMainScreen && latestEmergency && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          style={styles.sosNotificationBanner}
+          onPress={() => handleOpenSOSDetail(latestEmergency.id)}
+        >
+          <Text style={styles.sosNotificationIcon}>🚨</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sosNotificationTitle}>
+              DISTRESS ALERT: {latestEmergency.emergency_type}
+            </Text>
+            <Text style={styles.sosNotificationSub}>
+              Fisherman: {latestEmergency.fisherman?.name || 'Fisherman User'} • Vessel: {latestEmergency.boat?.name || 'Sea King IX'}
+            </Text>
+            <Text style={styles.sosNotificationCoords}>
+              📍 {latestEmergency.latitude.toFixed(4)}° N, {latestEmergency.longitude.toFixed(4)}° E
+            </Text>
+          </View>
+          <View style={styles.sosNotificationActionBtn}>
+            <Text style={styles.sosNotificationActionTxt}>VIEW ➔</Text>
+          </View>
+        </TouchableOpacity>
       )}
 
       {/* Main Content View Container */}
@@ -193,7 +256,7 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
             setActiveTab(tab);
             setActiveSubScreen('main');
           }}
-          activeSOSCount={2}
+          activeSOSCount={activeSOSCount || 2}
         />
       )}
 
@@ -237,8 +300,8 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
                     <Text style={styles.verifiedBadgeDrawerTxt}>✓ Authorized Coastal Guard</Text>
                   </View>
 
-                  <Text style={styles.profileName}>Cmdr. V. Raman</Text>
-                  <Text style={styles.profilePhone}>ID: CG-8841-TN</Text>
+                  <Text style={styles.profileName}>{officer ? `${officer.rank}` : 'Commander (ICG)'}</Text>
+                  <Text style={styles.profilePhone}>ID: {officer?.officerId || 'CG-8841-TN'}</Text>
 
                   <TouchableOpacity
                     style={styles.fullProfileDrawerBtn}
@@ -261,12 +324,12 @@ export const CoastalGuardHomeScreen: React.FC<CoastalGuardHomeScreenProps> = ({
 
                     <View style={styles.infoBox}>
                       <Text style={styles.infoBoxLabel}>Command Station:</Text>
-                      <Text style={styles.infoBoxValue}>Chennai HQ Base</Text>
+                      <Text style={styles.infoBoxValue}>{officer?.station || 'Chennai HQ Base'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
                       <Text style={styles.infoBoxLabel}>Service Badge ID:</Text>
-                      <Text style={styles.infoBoxValueBadge}>CG-8841-TN</Text>
+                      <Text style={styles.infoBoxValueBadge}>{officer?.officerId || 'CG-8841-TN'}</Text>
                     </View>
 
                     <View style={styles.infoBox}>
@@ -587,5 +650,54 @@ const styles = StyleSheet.create({
     color: Colors.cgCritical,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  sosNotificationBanner: {
+    backgroundColor: '#DC2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 12,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  sosNotificationIcon: {
+    fontSize: 24,
+    marginRight: 10,
+  },
+  sosNotificationTitle: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+  sosNotificationSub: {
+    color: '#FEE2E2',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  sosNotificationCoords: {
+    color: '#FEF08A',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+  sosNotificationActionBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  sosNotificationActionTxt: {
+    color: '#DC2626',
+    fontWeight: 'bold',
+    fontSize: 11,
   },
 });
