@@ -314,24 +314,27 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             circle.bindPopup('<div class="custom-popup"><div class="popup-title">' + iconTxt + ' ' + haz.name + '</div><div class="popup-info"><span class="popup-label">Hazard Type:</span> ' + (haz.type === 'restricted_area' ? 'Restricted Zone' : 'Shallow Submerged Rocks') + '<br><span class="popup-label">Min Depth:</span> ' + haz.minDepthMeters + 'm<br><span class="popup-label">Status:</span> 🛡️ Safely Bypassed by Curved Nav Path</div></div>');
           });
 
-          // 2. Render User GPS Location Pin (Sleek Top-Down White Outline Vessel Vector)
+          // 2. Render User GPS Location Pin (Origami Paper Boat Vector)
           var safeRouteData = ${safeRouteJSON};
           var boatBearing = safeRouteData ? safeRouteData.bearingDegrees : 0;
-          var boatSvg = '<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(' + boatBearing + 'deg); filter: drop-shadow(0 0 8px #00F5D4); transition: transform 0.4s ease;">' +
-            '<path d="M 22 4 C 25.5 11, 28.5 19, 28.5 30 C 28.5 35, 25.5 37, 22 37 C 18.5 37, 15.5 35, 15.5 30 C 15.5 19, 18.5 11, 22 4 Z" fill="#0D2526" fill-opacity="0.92" stroke="#FFFFFF" stroke-width="2.8" stroke-linejoin="round" />' +
-            '<path d="M 18 14 Q 22 11.5 26 14" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" />' +
-            '<rect x="18" y="17" width="8" height="10" rx="1.8" stroke="#FFFFFF" stroke-width="2" fill="#00F5D4" fill-opacity="0.35" />' +
-            '<path d="M 19 37 L 19 40 C 19 41.5, 25 41.5, 25 40 L 25 37" stroke="#FFFFFF" stroke-width="2" fill="#00F5D4" />' +
+          var boatSvg = '<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(' + boatBearing + 'deg); filter: drop-shadow(0 0 10px #00F5D4); transition: transform 0.4s ease;">' +
+            '<polygon points="24,4 4,30 24,36" fill="#0D2E30" fill-opacity="0.95" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round" />' +
+            '<polygon points="24,4 44,30 24,36" fill="#051C1E" fill-opacity="0.95" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round" />' +
+            '<polygon points="24,9 12,27 24,27" fill="#00F5D4" fill-opacity="0.45" stroke="#FFFFFF" stroke-width="2.0" stroke-linejoin="round" />' +
+            '<polygon points="24,9 36,27 24,27" fill="#00F5D4" fill-opacity="0.25" stroke="#FFFFFF" stroke-width="2.0" stroke-linejoin="round" />' +
+            '<line x1="24" y1="4" x2="24" y2="42" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" />' +
+            '<polygon points="4,30 24,36 44,30 24,43" fill="#082325" fill-opacity="0.9" stroke="#FFFFFF" stroke-width="2.2" stroke-linejoin="round" />' +
             '</svg>';
 
           var userIcon = L.divIcon({
             className: 'user-vessel-pin',
             html: boatSvg,
-            iconSize: [44, 44],
-            iconAnchor: [22, 22]
+            iconSize: [48, 48],
+            iconAnchor: [24, 24]
           });
           var userMarker = L.marker([${center.lat}, ${center.lon}], { icon: userIcon }).addTo(map);
-          userMarker.bindPopup('<div class="custom-popup"><div class="popup-title">🚤 YOUR VESSEL (GPS)</div><div class="popup-info">Lat: ${center.lat.toFixed(4)}° N, Lon: ${center.lon.toFixed(4)}° E<br><span class="popup-label">Heading:</span> ' + boatBearing + '°</div></div>');
+          userMarker.bindPopup('<div class="custom-popup"><div class="popup-title">⛵ YOUR PAPER BOAT (GPS)</div><div class="popup-info">Lat: ${center.lat.toFixed(4)}° N, Lon: ${center.lon.toFixed(4)}° E<br><span class="popup-label">Heading:</span> ' + boatBearing + '°</div></div>');
+
 
 
           // 3. Render Hotspots Custom Markers & Target Pin
