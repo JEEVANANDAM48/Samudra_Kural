@@ -96,47 +96,75 @@ class ElevenLabsService:
         language_code: str = "unknown"
     ) -> Dict[str, Any]:
         """
-        Transcribes speech using ElevenLabs Scribe or OpenAI Whisper if configured.
+        Transcribes speech using ElevenLabs Scribe STT.
         """
         if not self.is_available():
-            # Check OpenAI as fallback
             openai_key = (getattr(settings, "OPENAI_API_KEY", None) or "").strip()
             if openai_key:
                 return await self._whisper_stt(audio_bytes, filename, openai_key, language_code)
             return {
                 "status": "error",
-                "message": "Neither ElevenLabs nor OpenAI API key is configured.",
+                "message": "ElevenLabs API key is not configured.",
                 "transcript": ""
             }
 
         url = f"{self.api_url}/speech-to-text"
         headers = {"xi-api-key": self.api_key}
         data = {"model_id": "scribe_v1"}
-        if language_code and language_code != "unknown":
-            data["language_code"] = language_code
 
-        files = {"file": (filename, audio_bytes, "audio/m4a")}
+        # Normalize language code for ElevenLabs (supports 2-letter or 3-letter ISO codes: 'ta'/'tam', 'te'/'tel', etc.)
+        if language_code and language_code != "unknown":
+            raw_lang = language_code.split("-")[0].strip().lower()
+            lang_map = {
+                "tamil": "tam", "ta": "ta",
+                "telugu": "tel", "te": "te",
+                "malayalam": "mal", "ml": "ml",
+                "kannada": "kan", "kn": "kn",
+                "hindi": "hin", "hi": "hi",
+                "marathi": "mar", "mr": "mr",
+                "gujarati": "guj", "gu": "gu",
+                "bengali": "ben", "bn": "bn",
+                "odia": "ori", "or": "or", "od": "or",
+                "english": "eng", "en": "en",
+            }
+            mapped_lang = lang_map.get(raw_lang, raw_lang)
+            if mapped_lang:
+                data["language_code"] = mapped_lang
+
+        # Determine MIME type
+        mime_type = "audio/mp4"
+        if filename.endswith(".wav"):
+            mime_type = "audio/wav"
+        elif filename.endswith(".webm"):
+            mime_type = "audio/webm"
+        elif filename.endswith(".mp3"):
+            mime_type = "audio/mpeg"
+        elif filename.endswith(".m4a") or filename.endswith(".aac") or filename.endswith(".mp4"):
+            mime_type = "audio/mp4"
+
+        files = {"file": (filename, audio_bytes, mime_type)}
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(url, headers=headers, data=data, files=files)
                 if resp.status_code == 200:
                     res_json = resp.json()
                     transcript = res_json.get("text", "").strip()
+                    detected_lang = res_json.get("language_code", language_code)
+                    logger.info(f"ElevenLabs STT success. Lang: {detected_lang}, Transcript: '{transcript}'")
                     return {
                         "status": "success",
                         "transcript": transcript,
-                        "language": language_code
+                        "language": detected_lang
                     }
                 else:
                     logger.warning(f"ElevenLabs STT error ({resp.status_code}): {resp.text}")
-                    # Try OpenAI Whisper fallback
                     openai_key = (getattr(settings, "OPENAI_API_KEY", None) or "").strip()
                     if openai_key:
                         return await self._whisper_stt(audio_bytes, filename, openai_key, language_code)
                     return {
                         "status": "error",
-                        "message": f"ElevenLabs STT error ({resp.status_code})",
+                        "message": f"ElevenLabs STT ({resp.status_code}): {resp.text}",
                         "transcript": ""
                     }
         except Exception as e:
