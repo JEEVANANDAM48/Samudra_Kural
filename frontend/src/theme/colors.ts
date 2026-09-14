@@ -16,4 +16,17 @@ export const Colors = {
   errorBackground: '#FDEDEC',// Light red background for error banner
   success: '#1E824C',        // Clear green for success state
   disabled: '#B0C4C3',       // Disabled button state
+
+  // Coastal Guard (Samudra Kural) Maritime Operational Palette
+  cgPrimary: '#0F3A5D',      // Deep Ocean Command Blue
+  cgPrimaryDark: '#08233B',  // Navy Command Header
+  cgSecondary: '#1E5B8C',    // Tactical Blue
+  cgAccent: '#0284C7',       // Radar Blue
+  cgBackground: '#F4F8FA',   // Light Maritime Sky
+  cgSurface: '#FFFFFF',      // Card White
+  cgCritical: '#DC2626',     // SOS Red
+  cgHigh: '#EA580C',         // High Risk Amber
+  cgWarning: '#F59E0B',      // Caution Yellow
+  cgSuccess: '#10B981',      // Resolved Green
 };
+

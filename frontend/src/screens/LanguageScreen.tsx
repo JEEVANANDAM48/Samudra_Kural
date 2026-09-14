@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
-import { supportedLanguages, t } from '../i18n';
+import { supportedLanguages, t, useLanguage } from '../i18n';
 import { SupportedLanguage, LanguageOption } from '../types';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { saveLanguagePreference } from '../storage/storage';
@@ -26,10 +26,11 @@ export const LanguageScreen: React.FC<LanguageScreenProps> = ({
   onLanguageSelected,
   onCancel,
 }) => {
+  const { setLanguage } = useLanguage();
   const [selectedLang, setSelectedLang] = useState<SupportedLanguage>(initialLanguage);
 
   const handleContinue = async () => {
-    await saveLanguagePreference(selectedLang);
+    await setLanguage(selectedLang);
     onLanguageSelected(selectedLang);
   };
 

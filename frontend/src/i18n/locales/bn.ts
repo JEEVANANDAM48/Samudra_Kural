@@ -198,6 +198,11 @@ export const bn: Record<TranslationKeys, string> = {
   contactPhone: "মোবাইল নম্বর",
   saveProfile: "প্রোফাইল সংরক্ষণ করুন",
   profileUpdated: "প্রোফাইল সফলভাবে আপডেট হয়েছে",
+  verifiedFisherman: "যাচাইকৃত জেলে",
+  vesselBoat: "নৌকা / বোট",
+  registrationNumber: "নিবন্ধন নম্বর",
+  licenseNumber: "লাইসেন্স নম্বর",
+  aadhaarId: "আধার / আইডি",
 
   // Directions (16 Points)
   north: "উত্তর",

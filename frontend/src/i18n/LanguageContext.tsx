@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SupportedLanguage } from '../types';
 import { getLanguagePreference, saveLanguagePreference } from '../storage/storage';
-import { t as translate, TranslationKeys } from './index';
+import { t as translate, TranslationKeys } from './translate';
 
 interface LanguageContextType {
   language: SupportedLanguage;

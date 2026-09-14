@@ -13,9 +13,11 @@ import { FishingZonesScreen } from '../screens/FishingZonesScreen';
 import { NavigationScreen } from '../screens/NavigationScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { BotScreen } from '../screens/BotScreen';
+import { CoastalGuardHomeScreen } from '../screens/coastal_guard/CoastalGuardHomeScreen';
+import { CGLoginScreen } from '../screens/coastal_guard/CGLoginScreen';
 import { HotspotInfo } from '../services/pfzService';
 
-type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile' | 'bot';
+type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile' | 'bot' | 'cg_login' | 'coastal_guard';
 
 export const AppNavigator: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<ScreenState>('loading');
@@ -117,6 +119,7 @@ export const AppNavigator: React.FC = () => {
           currentLanguage={language}
           onGetStarted={handleGetStarted}
           onChangeLanguage={handleOpenLanguage}
+          onOpenCoastalGuard={() => setCurrentScreen('cg_login')}
         />
       )}
 
@@ -134,11 +137,20 @@ export const AppNavigator: React.FC = () => {
         <LoginScreen
           currentLanguage={language}
           onLoginSuccess={handleLoginSuccess}
+          onLoginCoastalGuard={() => setCurrentScreen('cg_login')}
           onNavigateToRegister={() => setCurrentScreen('register')}
         />
       )}
 
-      {/* 4. REGISTER SCREEN */}
+      {/* 4. DEDICATED SAGAR SAKHI COASTAL GUARD OFFICER LOGIN SCREEN */}
+      {currentScreen === 'cg_login' && (
+        <CGLoginScreen
+          onLoginSuccess={() => setCurrentScreen('coastal_guard')}
+          onNavigateToFishermanLogin={() => setCurrentScreen('login')}
+        />
+      )}
+
+      {/* 5. REGISTER SCREEN */}
       {currentScreen === 'register' && (
         <RegisterScreen
           currentLanguage={language}
@@ -147,19 +159,28 @@ export const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* 5. HOME SCREEN */}
+      {/* 6. COASTAL GUARD (SAGAR SAKHI) COMMAND CENTER MODULE */}
+      {currentScreen === 'coastal_guard' && (
+        <CoastalGuardHomeScreen
+          onLogout={handleLogout}
+          onSwitchToFishermanView={() => setCurrentScreen('home')}
+        />
+      )}
+
+      {/* 6. HOME & AUTHENTICATED MAIN APP CONTAINER */}
       {currentScreen === 'home' && (
         <HomeScreen
           currentLanguage={language}
           onLogout={handleLogout}
-          onChangeLanguage={handleOpenLanguage}
+          onLanguageChange={async (newLang) => await setLanguage(newLang)}
           onOpenFishingZones={() => setCurrentScreen('fishing_zones')}
           onOpenNavigation={() => setCurrentScreen('navigation')}
           onOpenProfile={() => setCurrentScreen('profile')}
+          initialTab={undefined}
         />
       )}
 
-      {/* 6. POTENTIAL FISHING ZONES SCREEN (INCOIS REAL DATA) */}
+      {/* 7. POTENTIAL FISHING ZONES SCREEN (INCOIS REAL DATA) */}
       {currentScreen === 'fishing_zones' && (
         <FishingZonesScreen
           currentLanguage={language}
@@ -183,7 +204,7 @@ export const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* 7. LIVE MARINE NAVIGATION SCREEN */}
+      {/* 8. LIVE MARINE NAVIGATION SCREEN */}
       {currentScreen === 'navigation' && (
         <NavigationScreen
           currentLanguage={language}
@@ -209,17 +230,17 @@ export const AppNavigator: React.FC = () => {
         />
       )}
 
-      {/* 8. DEDICATED FISHERMAN PROFILE & SPECS SCREEN */}
+      {/* 9. DEDICATED FISHERMAN PROFILE & SPECS SCREEN */}
       {currentScreen === 'profile' && (
         <ProfileScreen
           currentLanguage={language}
           onBack={() => setCurrentScreen('home')}
           onLogout={handleLogout}
-          onLanguageChange={handleOpenLanguage}
+          onLanguageChange={async (newLang) => await setLanguage(newLang)}
         />
       )}
 
-      {/* 9. ASK BOT (ORCA 12-AI MARINE ASSISTANT) */}
+      {/* 10. ASK BOT SCREEN */}
       {currentScreen === 'bot' && (
         <BotScreen
           currentLanguage={language}

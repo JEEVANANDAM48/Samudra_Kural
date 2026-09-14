@@ -29,6 +29,8 @@ function resolveApiBaseUrl(): string {
 // Base API URL configured for Expo environment with dynamic host detection
 export const API_BASE_URL = resolveApiBaseUrl();
 
+// Base API URL configured for Expo environment with sensible defaults
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.4:8000/api/v1';
 
 export class ApiError extends Error {
   status: number;
