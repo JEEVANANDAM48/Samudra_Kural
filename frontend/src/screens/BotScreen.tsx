@@ -394,25 +394,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
 
-      {/* Header Banner */}
-      <View style={styles.header}>
-        <View style={styles.headerLeftRow}>
-          {onBack && (
-            <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-              <Text style={styles.backBtnTxt}>←</Text>
-            </TouchableOpacity>
-          )}
-          <Image
-            source={require('../../assets/chatbot-logo.png')}
-            style={styles.headerLogo}
-            resizeMode="cover"
-          />
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>{t('askBot')}</Text>
-            <Text style={styles.headerSubtitle}>Real-Time Satellite & Marine Intelligence</Text>
-          </View>
-        </View>
-      </View>
+      {/* Header Banner - Only shown when BotScreen is standalone (not inside HomeScreen tab) */}
       {!hideTopHeader && (
         <View style={styles.header}>
           <View style={styles.headerLeftRow}>
@@ -427,7 +409,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
               resizeMode="cover"
             />
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>Ask Bot (ORCA 12-AI)</Text>
+              <Text style={styles.headerTitle}>{t('askBot')}</Text>
               <Text style={styles.headerSubtitle}>Real-Time Satellite & Marine Intelligence</Text>
             </View>
           </View>
@@ -705,20 +687,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Floating Bottom Navigation Bar */}
-      <BottomNavBar
-        activeTab="bot"
-        onTabPress={(tabId) => {
-          if (onTabPress) {
-            onTabPress(tabId);
-          } else if (tabId === 'home' || tabId === 'nets') {
-            if (onBack) onBack();
-          } else if (tabId === 'sos') {
-            Alert.alert(t('emergencySosTitle'), t('emergencySosMsg'));
-          }
-        }}
-        currentLanguage={lang as SupportedLanguage}
-      />
+      {/* Floating Bottom Navigation Bar - Only when standalone (HomeScreen already provides the bottom bar) */}
       {!hideTopHeader && (
         <BottomNavBar
           activeTab="bot"
@@ -728,7 +697,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
             } else if (tabId === 'home' || tabId === 'nets') {
               if (onBack) onBack();
             } else if (tabId === 'sos') {
-              Alert.alert('Emergency SOS', 'Distress beacon signal transmitted to Coast Guard and nearest vessels.');
+              Alert.alert(t('emergencySosTitle'), t('emergencySosMsg'));
             }
           }}
           currentLanguage={lang as SupportedLanguage}
