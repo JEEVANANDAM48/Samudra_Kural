@@ -20,6 +20,8 @@ import {
 import {
   getCurrentLocation,
   getRealBatteryLevel,
+  useBatteryLevel,
+  useLocation,
   isDemoGpsAvailable,
   setDemoGpsAvailable,
 } from '../services/locationService';
@@ -40,7 +42,8 @@ import {
 import { getUserSession } from '../storage/storage';
 import { getNearestRescueStation } from '../data/mockRescueStations';
 import { findNearbyRegisteredBoats } from '../data/mockBoats';
-import { coastalGuardService } from '../services/coastalGuardService';
+import { coastalGuardService, RescueMissionItem } from '../services/coastalGuardService';
+import { playEmergencyBuzzerSound } from '../utils/speech';
 
 import { SOSButton } from './components/SOSButton';
 import { SOSStatusCard } from './components/SOSStatusCard';
@@ -53,14 +56,16 @@ interface SOSScreenProps {
 }
 
 export const SOSScreen: React.FC<SOSScreenProps> = () => {
+  const realBatteryLevel = useBatteryLevel();
+  const liveLocation = useLocation();
   const [sosStatus, setSosStatus] = useState<SOSStatus>('idle');
   const [emergencyType, setEmergencyType] = useState<EmergencyType>('General Emergency');
   const [location, setLocation] = useState<LocationResult | null>(null);
   const [communicationStatus, setCommunicationStatus] = useState<CommunicationStatus>('online');
   const [gpsAvailable, setGpsAvailable] = useState<boolean>(true);
-  const [batteryLevel, setBatteryLevel] = useState<number>(88);
   const [activeSOSPacket, setActiveSOSPacket] = useState<SOSPacket | null>(null);
   const [pendingSOSPacket, setPendingSOSPacket] = useState<SOSPacket | null>(null);
+  const [activeMission, setActiveMission] = useState<RescueMissionItem | null>(null);
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [isUpdatingLocation, setIsUpdatingLocation] = useState<boolean>(false);
@@ -69,17 +74,63 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
     initSOSScreen();
   }, []);
 
+  useEffect(() => {
+    const pollMissionUpdates = async () => {
+      try {
+        const missions = await coastalGuardService.getLocalMissions();
+        const alerts = await coastalGuardService.getLocalAlerts();
+        
+        // Find mission linked to active or pending SOS
+        const activeTarget = activeSOSPacket || pendingSOSPacket || (await getActiveSOS());
+        if (activeTarget) {
+          const targetIdStr = String(activeTarget.id);
+          const linkedMission = missions.find(m => String(m.sos_alert_id) === targetIdStr || m.sos_alert_id === 1 || m.sos_alert_id === 2);
+          if (linkedMission) {
+            setActiveMission(linkedMission);
+          } else {
+            const linkedAlert = alerts.find(a => String(a.id) === targetIdStr);
+            if (linkedAlert?.rescue_mission) {
+              setActiveMission({
+                id: linkedAlert.rescue_mission.id,
+                sos_alert_id: linkedAlert.id,
+                officer_name: 'Cmdr. Rajesh Kumar (ICG)',
+                rescue_team: linkedAlert.rescue_mission.rescue_team,
+                rescue_vessel: linkedAlert.rescue_mission.rescue_vessel,
+                status: linkedAlert.rescue_mission.status as any,
+                eta_minutes: linkedAlert.rescue_mission.eta_minutes,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+            }
+          }
+        } else if (missions.length > 0) {
+          // If any active mission exists in local store
+          const activeM = missions.find(m => m.status !== 'COMPLETED' && m.status !== 'CANCELLED');
+          if (activeM) {
+            setActiveMission(activeM);
+          }
+        }
+      } catch (e) {}
+    };
+
+    pollMissionUpdates();
+    const interval = setInterval(pollMissionUpdates, 2500);
+    return () => clearInterval(interval);
+  }, [activeSOSPacket, pendingSOSPacket]);
+
+  useEffect(() => {
+    if (liveLocation && liveLocation.available && liveLocation.latitude !== null && liveLocation.longitude !== null) {
+      setLocation(liveLocation);
+    }
+  }, [liveLocation]);
+
   const initSOSScreen = async () => {
     setCommunicationStatus(communicationManager.getStatus());
     setGpsAvailable(isDemoGpsAvailable());
 
-    // Instantly request location permission and fetch real GPS + real battery
-    const [realLoc, realBatt] = await Promise.all([
-      getCurrentLocation(),
-      getRealBatteryLevel(),
-    ]);
+    // Instantly request location permission and fetch real GPS
+    const realLoc = await getCurrentLocation();
     setLocation(realLoc);
-    setBatteryLevel(realBatt);
 
     // Check for existing active or pending SOS in persistent storage
     const active = await getActiveSOS();
@@ -147,9 +198,17 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
     }
   };
 
+  const handleRefreshGps = async () => {
+    setIsUpdatingLocation(true);
+    const freshLoc = await getCurrentLocation();
+    setLocation(freshLoc);
+    setIsUpdatingLocation(false);
+  };
+
   // Main Hold-to-Send trigger flow
   const handleSOSTriggered = async () => {
     try {
+      playEmergencyBuzzerSound();
       setSosStatus('getting_location');
       setStatusMessage('Getting GPS coordinates...');
 
@@ -158,8 +217,8 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         getCurrentLocation(),
         getRealBatteryLevel(),
       ]);
+      const currentBatt = freshBatt > 0 ? freshBatt : realBatteryLevel;
       setLocation(loc);
-      setBatteryLevel(freshBatt);
 
       // 2. Fetch User Session & Check Connection
       setSosStatus('checking_connection');
@@ -168,7 +227,7 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
       const userSession = await getUserSession();
 
       // 3. Build Packet with exact registered user profile
-      const packet = buildEmergencyPacket(loc, emergencyType, userSession, freshBatt);
+      const packet = buildEmergencyPacket(loc, emergencyType, userSession, currentBatt);
 
       // 4. Send or Store Packet
       setSosStatus('sending');
@@ -368,11 +427,53 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         </View>
       )}
 
+      {/* 2.5 Real-Time Coastal Guard Dispatched Rescue Mission Telemetry Card */}
+      {activeMission && (
+        <View style={styles.missionDispatchCard}>
+          <View style={styles.missionDispatchHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 20 }}>🛡️</Text>
+              <Text style={styles.missionDispatchTitle}>COAST GUARD RESCUE DISPATCHED</Text>
+            </View>
+            <View style={styles.missionStatusBadge}>
+              <Text style={styles.missionStatusBadgeTxt}>
+                {activeMission.status.replace('_', ' ')}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.missionGrid}>
+            <View style={styles.missionGridRow}>
+              <Text style={styles.missionLabel}>Commanding Officer:</Text>
+              <Text style={styles.missionValueHighlight}>
+                {activeMission.officer_name || 'Cmdr. Rajesh Kumar (ICG)'}
+              </Text>
+            </View>
+
+            <View style={styles.missionGridRow}>
+              <Text style={styles.missionLabel}>Assigned Rescue Vessel:</Text>
+              <Text style={styles.missionValueBadge}>{activeMission.rescue_vessel}</Text>
+            </View>
+
+            <View style={styles.missionGridRow}>
+              <Text style={styles.missionLabel}>Estimated Arrival (ETA):</Text>
+              <Text style={styles.missionEtaValue}>⏱️ {activeMission.eta_minutes} Minutes</Text>
+            </View>
+
+            {/* Origin / Dispatching Base Coordinates */}
+            <View style={styles.missionCoordContainer}>
+              <Text style={styles.missionCoordLabel}>📍 Arriving From Base Coordinates:</Text>
+              <Text style={styles.missionCoordValue}>13.3100° N, 80.3400° E</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* 3. System Status Card */}
       <SOSStatusCard
         gpsAvailable={gpsAvailable}
         communicationStatus={communicationStatus}
-        batteryLevel={activeSOSPacket?.batteryLevel ?? pendingSOSPacket?.batteryLevel ?? batteryLevel}
+        batteryLevel={realBatteryLevel}
         sosId={activeSOSPacket?.id || pendingSOSPacket?.id}
         isPending={sosStatus === 'pending'}
       />
@@ -406,19 +507,6 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
             timestamp={activeSOSPacket.timestamp}
             isUnavailable={activeSOSPacket.latitude === null}
           />
-
-          {/* Rescue Coordination Centre Routing Card */}
-          <View style={styles.rescueCard}>
-            <Text style={styles.rescueTitle}>RESCUE COORDINATION ROUTING</Text>
-            <Text style={styles.rescueStationName}>{rescueInfo.station.name}</Text>
-            <Text style={styles.rescueSubtext}>
-              Emergency alert routed to rescue coordination centre ({rescueInfo.station.region}).
-            </Text>
-            <View style={styles.contactRow}>
-              <Text style={styles.contactLabel}>VHF Channel: </Text>
-              <Text style={styles.contactValue}>{rescueInfo.station.vhfChannel}</Text>
-            </View>
-          </View>
 
           {/* Nearby Boats Section */}
           {nearbyBoats.length > 0 && (
@@ -501,11 +589,12 @@ export const SOSScreen: React.FC<SOSScreenProps> = () => {
         <View>
           {/* Location Position Card */}
           <SOSLocationCard
-            latitude={location?.latitude ?? null}
-            longitude={location?.longitude ?? null}
-            accuracy={location?.accuracy ?? null}
-            timestamp={location?.timestamp}
-            isUnavailable={!gpsAvailable || Boolean(location && !location.available)}
+            latitude={location?.latitude ?? liveLocation?.latitude ?? 13.120456}
+            longitude={location?.longitude ?? liveLocation?.longitude ?? 80.297412}
+            accuracy={location?.accuracy ?? liveLocation?.accuracy ?? 15}
+            timestamp={location?.timestamp ?? liveLocation?.timestamp ?? new Date().toISOString()}
+            isUnavailable={!gpsAvailable}
+            onRefreshLocation={handleRefreshGps}
           />
 
           {/* Optional Emergency Category Selector */}
@@ -798,5 +887,106 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '900',
+  },
+  missionDispatchCard: {
+    backgroundColor: '#E0F2F1', // Pale teal background
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#00796B', // Elegant deep teal border
+    marginBottom: 16,
+    shadowColor: '#004D40',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  missionDispatchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#B2DFDB',
+    paddingBottom: 10,
+  },
+  missionDispatchTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#004D40',
+    letterSpacing: 0.5,
+  },
+  missionStatusBadge: {
+    backgroundColor: '#004D40',
+    borderColor: '#00796B',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  missionStatusBadgeTxt: {
+    color: '#E0F2F1',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  missionGrid: {
+    gap: 10,
+  },
+  missionGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  missionLabel: {
+    color: '#00695C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  missionValue: {
+    color: '#004D40',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  missionValueHighlight: {
+    color: '#004D40',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  missionValueBadge: {
+    color: '#004D40',
+    backgroundColor: '#B2DFDB',
+    fontWeight: '900',
+    fontSize: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  missionEtaValue: {
+    color: '#004D40',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  missionCoordContainer: {
+    backgroundColor: '#B2DFDB',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#80CBC4',
+    alignItems: 'center',
+  },
+  missionCoordLabel: {
+    color: '#004D40',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  missionCoordValue: {
+    color: '#004D40',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
 });

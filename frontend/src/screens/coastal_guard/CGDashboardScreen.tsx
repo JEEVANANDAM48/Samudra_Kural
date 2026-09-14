@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import {
   coastalGuardService,
@@ -46,14 +46,28 @@ export const CGDashboardScreen: React.FC<CGDashboardScreenProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('');
+  const [newSOSNotification, setNewSOSNotification] = useState<SOSAlertItem | null>(null);
 
   useEffect(() => {
     fetchData();
+
+    // Subscribe to instant SOS alert transmissions and status updates
+    const unsubscribe = coastalGuardService.subscribeToSOS((updatedAlert) => {
+      if (updatedAlert.status === 'NEW') {
+        setNewSOSNotification(updatedAlert);
+      }
+      fetchData(true);
+    });
+
     // 20-second automatic polling for live SOS emergency monitoring
     const timer = setInterval(() => {
       fetchData(true);
     }, 20000);
-    return () => clearInterval(timer);
+
+    return () => {
+      unsubscribe();
+      clearInterval(timer);
+    };
   }, []);
 
   const fetchData = async (isSilent: boolean = false) => {
@@ -115,15 +129,6 @@ export const CGDashboardScreen: React.FC<CGDashboardScreenProps> = ({
         </View>
       )}
 
-      {/* Live Stream Connection Status Bar */}
-      <View style={styles.statusBar}>
-        <View style={styles.livePulseContainer}>
-          <View style={styles.liveDot} />
-          <Text style={styles.statusTxt}>Live SOS Emergency Stream Active</Text>
-        </View>
-        <Text style={styles.timeTxt}>Updated: {lastUpdatedTime || 'Just now'}</Text>
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -131,6 +136,37 @@ export const CGDashboardScreen: React.FC<CGDashboardScreenProps> = ({
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.cgPrimary} />
         }
       >
+        {/* Instant SOS Distress Alert Notification Banner */}
+        {newSOSNotification && (
+          <View style={styles.emergencyNotifCard}>
+            <View style={styles.emergencyNotifHeader}>
+              <View style={styles.emergencyNotifTitleGroup}>
+                <Text style={styles.emergencyNotifIcon}>🚨</Text>
+                <Text style={styles.emergencyNotifTitle}>CRITICAL SOS DISTRESS ALERT RECEIVED!</Text>
+              </View>
+              <TouchableOpacity onPress={() => setNewSOSNotification(null)}>
+                <Text style={styles.emergencyNotifClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.emergencyNotifBody}>
+              Vessel <Text style={{ fontWeight: 'bold' }}>{newSOSNotification.boat?.name || 'Fisherman Unit'}</Text> transmitted <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{newSOSNotification.emergency_type}</Text> at {newSOSNotification.latitude.toFixed(4)}°N, {newSOSNotification.longitude.toFixed(4)}°E.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.dispatchActionBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                const alertId = newSOSNotification.id;
+                setNewSOSNotification(null);
+                onNavigateToSOSDetail(alertId);
+              }}
+            >
+              <Text style={styles.dispatchActionTxt}>Dispatch Rescue Team & View Incident ➔</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Officer Greeting */}
         <View style={styles.greetingSection}>
           <Text style={styles.greetingTitle}>Good Morning, Officer</Text>
@@ -210,75 +246,11 @@ export const CGDashboardScreen: React.FC<CGDashboardScreenProps> = ({
           </View>
 
           <CoastalGuardMapComponent
-            height={480}
+            height={650}
             sosAlerts={latestAlerts}
             riskZones={riskZones}
             missions={missions}
           />
-        </View>
-
-        {/* Latest Active SOS Emergency Alerts Section */}
-        <View style={styles.alertsSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>📢 Latest SOS Emergency Alerts</Text>
-            <TouchableOpacity onPress={onNavigateToSOSList}>
-              <Text style={styles.viewAllTxt}>View All ➔</Text>
-            </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator size="small" color={Colors.cgPrimary} style={{ marginVertical: 20 }} />
-          ) : latestAlerts.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>🛡️</Text>
-              <Text style={styles.emptyTitle}>No Active SOS Alerts</Text>
-              <Text style={styles.emptySub}>Coastal waters are currently safe and clear.</Text>
-            </View>
-          ) : (
-            latestAlerts.slice(0, 3).map((alert) => {
-              const priorityTheme = getPriorityStyle(alert.priority);
-
-              return (
-                <TouchableOpacity
-                  key={alert.id}
-                  style={styles.sosCard}
-                  activeOpacity={0.8}
-                  onPress={() => onNavigateToSOSDetail(alert.id)}
-                >
-                  <View style={styles.sosTopRow}>
-                    <View style={styles.sosTitleGroup}>
-                      <Text style={styles.sosTypeIcon}>🚨</Text>
-                      <View>
-                        <Text style={styles.sosEmergencyTitle}>{alert.emergency_type}</Text>
-                        <Text style={styles.sosBoatName}>
-                          Boat: {alert.boat ? alert.boat.name : 'Sea Vessel'} ({alert.people_affected} affected)
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={[styles.priorityBadge, { backgroundColor: priorityTheme.bg, borderColor: priorityTheme.border }]}>
-                      <Text style={[styles.priorityTxt, { color: priorityTheme.text }]}>
-                        {alert.priority}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.sosDesc} numberOfLines={2}>
-                    {alert.description}
-                  </Text>
-
-                  <View style={styles.sosFooterRow}>
-                    <Text style={styles.sosGpsTxt}>
-                      📍 {alert.latitude.toFixed(4)}° N, {alert.longitude.toFixed(4)}° E ({alert.distance_to_nearest_port_km || 12} km to Port)
-                    </Text>
-                    <Text style={styles.sosStatusTxt}>
-                      Status: <Text style={{ fontWeight: '800', color: Colors.cgPrimary }}>{alert.status}</Text>
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -361,6 +333,65 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 100,
+  },
+  /* Emergency Notification Card Styles */
+  emergencyNotifCard: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#EF4444',
+    borderWidth: 2,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  emergencyNotifHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  emergencyNotifTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  emergencyNotifIcon: {
+    fontSize: 22,
+  },
+  emergencyNotifTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#991B1B',
+    letterSpacing: 0.3,
+  },
+  emergencyNotifClose: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#991B1B',
+    padding: 4,
+  },
+  emergencyNotifBody: {
+    fontSize: 13,
+    color: '#1E293B',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  dispatchActionBtn: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  dispatchActionTxt: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
   },
   greetingSection: {
     marginBottom: 16,

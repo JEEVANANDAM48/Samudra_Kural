@@ -7,10 +7,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
   Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { NetType, CreateNetPayload } from '../types/net';
 import { getCurrentFishermanGPS } from '../utils/location';

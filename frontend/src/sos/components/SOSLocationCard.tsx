@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { Colors } from '../../theme/colors';
 
 interface SOSLocationCardProps {
@@ -8,6 +8,7 @@ interface SOSLocationCardProps {
   accuracy?: number | null;
   timestamp?: string;
   isUnavailable?: boolean;
+  onRefreshLocation?: () => void;
 }
 
 export const SOSLocationCard: React.FC<SOSLocationCardProps> = ({
@@ -16,16 +17,39 @@ export const SOSLocationCard: React.FC<SOSLocationCardProps> = ({
   accuracy,
   timestamp,
   isUnavailable = false,
+  onRefreshLocation,
 }) => {
   const hasValidLocation = !isUnavailable && latitude !== null && longitude !== null;
+
+  const formatDisplayTime = (ts?: string) => {
+    if (!ts) {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    }
+    try {
+      const parsed = new Date(ts);
+      if (isNaN(parsed.getTime())) {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      }
+      return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    } catch (e) {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    }
+  };
 
   return (
     <View style={[styles.cardContainer, !hasValidLocation && styles.cardUnavailable]}>
       <View style={styles.headerRow}>
         <Text style={styles.cardHeaderTitle}>GPS POSITION</Text>
-        <Text style={styles.timeBadge}>
-          {timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'NOW'}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {onRefreshLocation && (
+            <TouchableOpacity onPress={onRefreshLocation} style={styles.refreshBadge}>
+              <Text style={styles.refreshBadgeText}>🔄 REFRESH</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.timeBadge}>
+            {formatDisplayTime(timestamp)}
+          </Text>
+        </View>
       </View>
 
       {hasValidLocation ? (
@@ -56,9 +80,14 @@ export const SOSLocationCard: React.FC<SOSLocationCardProps> = ({
             </Text>
             <View style={styles.warningPill}>
               <Text style={styles.warningPillText}>
-                Emergency SOS will still be transmitted without coordinates
+                Emergency SOS will still be transmitted with Base Port fallback
               </Text>
             </View>
+            {onRefreshLocation && (
+              <TouchableOpacity onPress={onRefreshLocation} style={styles.retryGpsBtn}>
+                <Text style={styles.retryGpsBtnText}>🔄 ACQUIRE REAL-TIME GPS</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -125,7 +154,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   coordValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
     color: Colors.text,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
@@ -181,5 +210,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#902B20',
+  },
+  refreshBadge: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  refreshBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0284C7',
+  },
+  retryGpsBtn: {
+    marginTop: 10,
+    backgroundColor: Colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  retryGpsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

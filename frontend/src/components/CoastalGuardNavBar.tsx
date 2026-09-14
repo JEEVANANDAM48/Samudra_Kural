@@ -31,7 +31,7 @@ export const CoastalGuardNavBar: React.FC<CoastalGuardNavBarProps> = ({
     { id: 'alerts', label: 'SOS Alerts', icon: '🚨' },
     { id: 'missions', label: 'Missions', icon: '🛥️', isCenter: true },
     { id: 'marine', label: 'Marine', icon: '🌊' },
-    { id: 'profile', label: 'Officer', icon: '👮' },
+    { id: 'profile', label: 'Profile', icon: '👤' },
   ];
 
   return (

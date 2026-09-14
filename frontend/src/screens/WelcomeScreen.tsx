@@ -9,6 +9,7 @@ import {
   Easing,
   TouchableOpacity,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
@@ -34,53 +35,50 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onOpenCoastalGuard,
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
 
   // Find native name of current language
   const currentLangObj = supportedLanguages.find((l) => l.code === currentLanguage);
   const langLabel = currentLangObj ? `${currentLangObj.nativeName}` : '🌐';
 
   // Animated values for each fish's (x, y) displacement
-  const animFish1 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current; // Fish 1: facing RIGHT -> moves RIGHT
-  const animFish2 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current; // Fish 2: facing LEFT -> moves LEFT
-  const animFish3 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current; // Fish 3: facing RIGHT -> moves RIGHT-UP
-  const animFish4 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current; // Fish 4: facing LEFT -> moves LEFT-DOWN
+  const animFish1 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const animFish2 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const animFish3 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const animFish4 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
   const handleGetStartedPress = () => {
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // Directional Exit Animations based on each fish's facing heading
     Animated.parallel([
-      // Fish 1 (facing right) -> travels right out of screen
       Animated.timing(animFish1, {
         toValue: { x: width * 1.4, y: 0 },
-        duration: 700,
+        duration: 600,
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }),
-      // Fish 2 (facing left) -> travels left out of screen
       Animated.timing(animFish2, {
         toValue: { x: -width * 1.4, y: 0 },
-        duration: 700,
+        duration: 600,
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }),
-      // Fish 3 (facing right) -> travels right-up diagonally
       Animated.timing(animFish3, {
         toValue: { x: width * 1.4, y: -80 },
-        duration: 750,
+        duration: 650,
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }),
-      // Fish 4 (facing left) -> travels left-down diagonally
       Animated.timing(animFish4, {
         toValue: { x: -width * 1.4, y: 80 },
-        duration: 750,
+        duration: 650,
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }),
     ]).start(() => {
-      onGetStarted();
+      setIsAnimating(false);
+      setShowRoleModal(true);
     });
   };
 
@@ -104,12 +102,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         <Text style={styles.appSubtitle}>{t('welcomeSubtitle', currentLanguage)}</Text>
       </View>
 
-      {/* Wavy transition inspired by reference image */}
       <WavyTopBorder height={40} />
 
       {/* Main Sea Section */}
       <View style={styles.seaContainer}>
-        {/* Central Fish Illustration Area */}
         <View style={styles.fishSection}>
           <FishGroup
             animFish1={animFish1}
@@ -119,7 +115,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           />
         </View>
 
-        {/* Footer with GET STARTED Button & Coastal Guard Portal Button */}
+        {/* Footer with GET STARTED Button */}
         <View style={styles.footer}>
           <PrimaryButton
             title={t('getStarted', currentLanguage)}
@@ -128,18 +124,65 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             variant="secondary"
             textStyle={styles.buttonText}
           />
-
-          {onOpenCoastalGuard && (
-            <TouchableOpacity
-              style={styles.cgWelcomeBtn}
-              activeOpacity={0.8}
-              onPress={onOpenCoastalGuard}
-            >
-              <Text style={styles.cgWelcomeTxt}>👮 Coastal Guard Officer Portal ➔</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
+
+      {/* Login Portal Selection Modal */}
+      <Modal
+        visible={showRoleModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRoleModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalHeaderTitle}>SELECT LOGIN PORTAL</Text>
+              <TouchableOpacity onPress={() => setShowRoleModal(false)} style={styles.closeBtn}>
+                <Text style={styles.closeBtnTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSub}>
+              Choose your account portal to proceed to login:
+            </Text>
+
+            {/* 1. Fisherman Login Option */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.portalOptionBtn}
+              onPress={() => {
+                setShowRoleModal(false);
+                onGetStarted();
+              }}
+            >
+              <Text style={styles.optionIcon}>🎣</Text>
+              <View style={styles.optionTextCol}>
+                <Text style={styles.portalOptionTitle}>Fisherman Login</Text>
+              </View>
+              <Text style={styles.optionArrow}>➔</Text>
+            </TouchableOpacity>
+
+            {/* 2. Coastal Guard Login Option */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.portalOptionBtn}
+              onPress={() => {
+                setShowRoleModal(false);
+                if (onOpenCoastalGuard) {
+                  onOpenCoastalGuard();
+                }
+              }}
+            >
+              <Text style={styles.optionIcon}>🛡️</Text>
+              <View style={styles.optionTextCol}>
+                <Text style={styles.portalOptionTitle}>Coastal Guard Login</Text>
+              </View>
+              <Text style={styles.optionArrow}>➔</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -207,18 +250,83 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
   },
-  cgWelcomeBtn: {
-    backgroundColor: '#0F3A5D',
-    paddingVertical: 12,
-    borderRadius: 14,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 30, 45, 0.75)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#38BDF8',
+    paddingHorizontal: 20,
   },
-  cgWelcomeTxt: {
-    color: '#FFFFFF',
+  modalCard: {
+    width: '100%',
+    backgroundColor: Colors.surface,
+    borderRadius: 24,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.text,
+    letterSpacing: 0.8,
+  },
+  closeBtn: {
+    backgroundColor: '#F1F5F9',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeBtnTxt: {
     fontSize: 14,
     fontWeight: '800',
+    color: '#64748B',
+  },
+  modalSub: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 20,
+    fontWeight: '600',
+  },
+  portalOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F4F1',
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    elevation: 2,
+  },
+  optionIcon: {
+    fontSize: 32,
+    marginRight: 14,
+  },
+  optionTextCol: {
+    flex: 1,
+  },
+  portalOptionTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.primaryDark,
+  },
+  optionArrow: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.primary,
   },
 });

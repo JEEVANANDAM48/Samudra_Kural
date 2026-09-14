@@ -6,193 +6,170 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   StatusBar,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
-import { saveCGOfficerSession } from '../../storage/storage';
+import { PrimaryButton } from '../../components/PrimaryButton';
+import { getCGRegisteredAccounts, saveCGOfficerSession } from '../../storage/storage';
+import { CoastalGuardOfficer } from '../../types';
 
 interface CGLoginScreenProps {
   onLoginSuccess: (officerData?: any) => void;
   onNavigateToFishermanLogin: () => void;
+  onNavigateToRegister?: () => void;
 }
 
 export const CGLoginScreen: React.FC<CGLoginScreenProps> = ({
   onLoginSuccess,
   onNavigateToFishermanLogin,
+  onNavigateToRegister,
 }) => {
-  const [officerId, setOfficerId] = useState<string>('CG-8841-TN');
-  const [station, setStation] = useState<string>('Chennai Command HQ Station');
-  const [securityPin, setSecurityPin] = useState<string>('884412');
-  const [rank, setRank] = useState<string>('Commander (ICG)');
+  const [officerId, setOfficerId] = useState<string>('');
+  const [securityPin, setSecurityPin] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleFillDemo = () => {
-    setOfficerId('CG-8841-TN');
-    setStation('Chennai Command HQ Station');
-    setRank('Commander (ICG)');
-    setSecurityPin('884412');
-    setErrorMsg(null);
-  };
-
   const handleOfficerLogin = async () => {
     setErrorMsg(null);
-    if (!officerId.trim()) {
-      setErrorMsg('Please enter your Officer Service ID / Badge Number.');
+    const cleanId = officerId.trim().toUpperCase();
+    const cleanPin = securityPin.trim();
+
+    if (!cleanId) {
+      setErrorMsg('Please enter your Officer Service ID or registered Mobile Number.');
       return;
     }
-    if (!securityPin.trim() || securityPin.length < 4) {
-      setErrorMsg('Please enter a valid 6-digit Security PIN.');
+    if (!cleanPin || cleanPin.length < 4) {
+      setErrorMsg('Please enter your valid 6-digit Security PIN.');
       return;
     }
 
     setLoading(true);
-    await saveCGOfficerSession({
-      officerId: officerId.trim(),
-      rank,
-      station: station.trim() || 'Chennai Command HQ Station',
-    });
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert(
-        'Officer Authenticated 🛡️',
-        `Welcome, ${rank} (${officerId}). Command HQ System Access Granted.`
+
+    try {
+      const registeredAccounts = await getCGRegisteredAccounts();
+      
+      // Match against registered officer accounts
+      const matchedAccount = registeredAccounts.find(
+        (acc: any) =>
+          acc.serviceId?.toUpperCase() === cleanId || acc.phone === cleanId || acc.email?.toLowerCase() === cleanId.toLowerCase()
       );
-      onLoginSuccess({
-        officerId,
-        rank,
-        station,
-      });
-    }, 600);
+
+      if (!matchedAccount) {
+        setLoading(false);
+        setErrorMsg(`Officer Account Not Registered! Service ID or Mobile ${cleanId} is not registered. Please complete registration first.`);
+        return;
+      }
+
+      if (matchedAccount.pin && matchedAccount.pin !== cleanPin) {
+        setLoading(false);
+        setErrorMsg('Incorrect Security PIN! Please enter your valid 6-digit PIN.');
+        return;
+      }
+
+      const matchedOfficer = matchedAccount;
+      await saveCGOfficerSession(matchedOfficer);
+
+      setTimeout(() => {
+        setLoading(false);
+        Alert.alert(
+          'Officer Authenticated 🛡️',
+          `Welcome, ${matchedOfficer.rank} ${matchedOfficer.name} (${matchedOfficer.serviceId}). Command HQ Access Granted.`
+        );
+        onLoginSuccess(matchedOfficer);
+      }, 500);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMsg(err?.message || 'Authentication error. Please try again.');
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.cgPrimaryDark} />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {/* Header Banner */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header section matching Fisherman Login */}
           <View style={styles.header}>
-            <Text style={styles.brandingApp}>SAMUDRA KURAL</Text>
-            <Text style={styles.brandingSub}>Coastal Guard Officer Portal</Text>
-            <Text style={styles.brandingTagline}>Safer Seas, Stronger Communities</Text>
+            <Text style={styles.title}>Coastal Guard Login</Text>
+            <Text style={styles.subtitle}>Enter officer service ID and 6-digit PIN</Text>
           </View>
 
-          {/* Officer Form Card */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.badgeIcon}>🛡️</Text>
-              <View>
-                <Text style={styles.cardTitle}>Officer Command Login</Text>
-                <Text style={styles.cardSub}>Authorized Maritime Emergency Access</Text>
-              </View>
+          {errorMsg && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
+          )}
 
-            {errorMsg && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>⚠️ {errorMsg}</Text>
-              </View>
-            )}
-
-            {/* Quick Demo Fill Button */}
-            <TouchableOpacity style={styles.demoFillBtn} activeOpacity={0.8} onPress={handleFillDemo}>
-              <Text style={styles.demoFillTxt}>⚡ Auto-Fill Official Demo Credentials</Text>
-            </TouchableOpacity>
-
-            {/* 1. Officer Service ID */}
+          <View style={styles.form}>
+            {/* Officer Service ID / Mobile Field */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Officer Service ID / Badge No.</Text>
+              <Text style={styles.label}>Officer Service ID / Mobile Number</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g. CG-8841-TN"
-                placeholderTextColor="#94A3B8"
+                placeholder="Enter Service ID or Mobile Number"
+                placeholderTextColor={Colors.disabled}
+                autoCapitalize="characters"
                 value={officerId}
                 onChangeText={setOfficerId}
-                autoCapitalize="characters"
               />
             </View>
 
-            {/* 2. Officer Rank / Role */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Officer Rank / Designation</Text>
-              <View style={styles.rankChipsRow}>
-                {['Commander (ICG)', 'Patrol Officer', 'Station Chief'].map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.rankChip, rank === r && styles.rankChipActive]}
-                    onPress={() => setRank(r)}
-                  >
-                    <Text style={[styles.rankTxt, rank === r && styles.rankTxtActive]}>{r}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* 3. Command HQ Station */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Assigned Command Station</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Chennai Command HQ Station"
-                placeholderTextColor="#94A3B8"
-                value={station}
-                onChangeText={setStation}
-              />
-            </View>
-
-            {/* 4. Security PIN */}
+            {/* 6-Digit Security PIN Field */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>6-Digit Security PIN</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Enter 6-digit PIN"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry
+                placeholderTextColor={Colors.disabled}
                 keyboardType="numeric"
+                secureTextEntry
                 maxLength={6}
                 value={securityPin}
-                onChangeText={setSecurityPin}
+                onChangeText={(text) => setSecurityPin(text.replace(/[^0-9]/g, ''))}
               />
             </View>
 
-            {/* Login Submit Button */}
-            <TouchableOpacity
-              style={styles.loginBtn}
-              activeOpacity={0.8}
-              disabled={loading}
+            {/* Submit Login Button */}
+            <PrimaryButton
+              title="LOGIN"
               onPress={handleOfficerLogin}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.loginBtnTxt}>AUTHENTICATE & ENTER COMMAND HQ ➔</Text>
-              )}
-            </TouchableOpacity>
+              loading={loading}
+              style={styles.loginButton}
+            />
 
-            {/* Switch to Fisherman Login Link */}
+            {/* Switch to Fisherman Login Direct Access Button */}
             <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.switchLink}
+              activeOpacity={0.8}
               onPress={onNavigateToFishermanLogin}
+              style={styles.fishermanLoginBtn}
             >
-              <Text style={styles.switchTxt}>🎣 Switch to Fisherman Login</Text>
+              <Text style={styles.fishermanLoginBtnTxt}>
+                🎣 Samudra Kural — Fisherman Login
+              </Text>
             </TouchableOpacity>
-          </View>
 
-          {/* Bottom Security Notice */}
-          <View style={styles.securityNotice}>
-            <Text style={styles.noticeIcon}>🔒</Text>
-            <Text style={styles.noticeTxt}>
-              Restricted to authorized Indian Coast Guard officers and emergency response dispatchers.
-            </Text>
+            {/* Navigation to Register */}
+            {onNavigateToRegister && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={onNavigateToRegister}
+                style={styles.registerLink}
+              >
+                <Text style={styles.registerText}>
+                  New officer? Register Command Account
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -203,186 +180,98 @@ export const CGLoginScreen: React.FC<CGLoginScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.cgPrimaryDark,
+    backgroundColor: Colors.background,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 10 : 20,
-    paddingBottom: 30,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 20 : 40,
+    paddingBottom: 24,
     justifyContent: 'center',
   },
   header: {
-    alignItems: 'center',
+    marginBottom: 28,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    lineHeight: 22,
+  },
+  errorContainer: {
+    backgroundColor: Colors.errorBackground,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.error,
     marginBottom: 20,
   },
-  brandingApp: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  brandingSub: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#38BDF8',
-    marginTop: 2,
-  },
-  brandingTagline: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  card: {
-    backgroundColor: Colors.cgSurface,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 6,
-    borderWidth: 1.5,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 12,
-  },
-  badgeIcon: {
-    fontSize: 32,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.cgPrimary,
-  },
-  cardSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  errorBox: {
-    backgroundColor: '#FEE2E2',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    marginBottom: 12,
-  },
   errorText: {
-    color: '#DC2626',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  demoFillBtn: {
-    backgroundColor: '#E0F2FE',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#38BDF8',
-  },
-  demoFillTxt: {
-    color: Colors.cgPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  inputGroup: {
-    marginBottom: 14,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#1E293B',
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    color: Colors.error,
+    fontSize: 15,
     fontWeight: '600',
   },
-  rankChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
+  form: {
+    width: '100%',
   },
-  rankChip: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
+  inputGroup: {
+    marginBottom: 20,
   },
-  rankChipActive: {
-    backgroundColor: Colors.cgPrimary,
-    borderColor: Colors.cgPrimaryDark,
-  },
-  rankTxt: {
-    fontSize: 11,
+  label: {
+    fontSize: 17,
     fontWeight: '700',
-    color: '#475569',
+    color: Colors.text,
+    marginBottom: 8,
   },
-  rankTxtActive: {
-    color: '#FFFFFF',
-  },
-  loginBtn: {
-    backgroundColor: Colors.cgPrimary,
+  input: {
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.border,
     borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
+    height: 58,
+    paddingHorizontal: 16,
+    fontSize: 18,
+    color: Colors.text,
+    fontWeight: '600',
+  },
+  loginButton: {
     marginTop: 10,
-    shadowColor: Colors.cgPrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  loginBtnTxt: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  switchLink: {
+  registerLink: {
     alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 6,
+    paddingVertical: 16,
+    marginTop: 8,
   },
-  switchTxt: {
-    fontSize: 13,
+  registerText: {
+    fontSize: 17,
     fontWeight: '700',
     color: Colors.primary,
     textDecorationLine: 'underline',
   },
-  securityNotice: {
-    flexDirection: 'row',
+  fishermanLoginBtn: {
+    backgroundColor: '#0F3A5D',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
     alignItems: 'center',
-    gap: 8,
-    marginTop: 20,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    marginTop: 16,
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
+    elevation: 3,
+    shadowColor: '#0F3A5D',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
-  noticeIcon: {
-    fontSize: 14,
-  },
-  noticeTxt: {
-    fontSize: 11,
-    color: '#94A3B8',
-    textAlign: 'center',
+  fishermanLoginBtnTxt: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
 });

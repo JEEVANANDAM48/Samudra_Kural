@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import {
   coastalGuardService,
@@ -28,11 +28,15 @@ export const CGMarineMapScreen: React.FC<CGMarineMapScreenProps> = ({ onBack }) 
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    fetchMapData();
+    fetchMapData(false);
+    const timer = setInterval(() => {
+      fetchMapData(true);
+    }, 4000);
+    return () => clearInterval(timer);
   }, []);
 
-  const fetchMapData = async () => {
-    setLoading(true);
+  const fetchMapData = async (isSilent: boolean = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const [alerts, zones, mList] = await Promise.all([
         coastalGuardService.getSOSAlerts('ALL'),
@@ -59,7 +63,7 @@ export const CGMarineMapScreen: React.FC<CGMarineMapScreenProps> = ({ onBack }) 
           <Text style={styles.backTxt}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Full Marine Map</Text>
-        <TouchableOpacity style={styles.refreshBtn} onPress={fetchMapData}>
+        <TouchableOpacity style={styles.refreshBtn} onPress={() => fetchMapData(false)}>
           <Text style={styles.refreshIcon}>🔄</Text>
         </TouchableOpacity>
       </View>
@@ -73,7 +77,7 @@ export const CGMarineMapScreen: React.FC<CGMarineMapScreenProps> = ({ onBack }) 
           </View>
         ) : (
           <CoastalGuardMapComponent
-            height={560}
+            height="100%"
             sosAlerts={sosAlerts}
             riskZones={riskZones}
             missions={missions}
@@ -107,15 +111,17 @@ export const CGMarineMapScreen: React.FC<CGMarineMapScreenProps> = ({ onBack }) 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.cgBackground,
+    backgroundColor: '#F4F8FA',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.cgPrimaryDark,
+    backgroundColor: '#08233B',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   backBtn: {
     paddingVertical: 4,
@@ -129,6 +135,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '900',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   refreshBtn: {
     padding: 4,
@@ -139,23 +146,28 @@ const styles = StyleSheet.create({
   mapContainer: {
     flex: 1,
     margin: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(15, 58, 93, 0.15)',
   },
   loadingBox: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F0F9FF',
   },
   loadingTxt: {
     marginTop: 12,
     fontSize: 13,
-    color: Colors.cgPrimary,
+    color: '#0F3A5D',
     fontWeight: '600',
   },
   legendBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: Colors.cgSurface,
+    backgroundColor: '#FFFFFF',
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',

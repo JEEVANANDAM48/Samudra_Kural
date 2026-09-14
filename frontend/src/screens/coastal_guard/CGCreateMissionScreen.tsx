@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,12 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { coastalGuardService, SOSAlertItem } from '../../services/coastalGuardService';
+import { getCGOfficerSession } from '../../storage/storage';
 
 interface CGCreateMissionScreenProps {
   targetSOS: SOSAlertItem;
@@ -25,12 +26,23 @@ export const CGCreateMissionScreen: React.FC<CGCreateMissionScreenProps> = ({
   onBack,
   onMissionCreated,
 }) => {
-  const [officerName, setOfficerName] = useState<string>('Cmdr. V. Raman (ICG)');
+  const [officerName, setOfficerName] = useState<string>('Officer Command HQ');
   const [rescueTeam, setRescueTeam] = useState<string>('ICG Tactical Rescue Unit 04');
   const [rescueVessel, setRescueVessel] = useState<string>('ICGS C-438 Fast Patrol Boat');
   const [etaMinutes, setEtaMinutes] = useState<string>('20');
   const [notes, setNotes] = useState<string>('Deploying fast patrol vessel with medical paramedic team & tow rig.');
   const [submitting, setSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    loadOfficerName();
+  }, []);
+
+  const loadOfficerName = async () => {
+    const session = await getCGOfficerSession();
+    if (session?.name) {
+      setOfficerName(`${session.rank ? session.rank + ' ' : ''}${session.name} (ICG)`);
+    }
+  };
 
   const handleCreateMission = async () => {
     if (!rescueTeam.trim() || !rescueVessel.trim() || !officerName.trim()) {

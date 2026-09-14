@@ -41,7 +41,11 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export interface ApiFetchOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
+export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {}): Promise<T> {
   const token = await getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -55,13 +59,24 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
 
-  // 45-second AbortController timeout for comprehensive multi-agent ocean calculations
+  // Smart dynamic timeout: STT, Voice, AI & Chat endpoints get 30,000ms (30s)
+  // Standard endpoints use options.timeoutMs or default to 8,000ms (8s)
+  const isHeavyEndpoint =
+    endpoint.includes('/stt') ||
+    endpoint.includes('/voice') ||
+    endpoint.includes('/bot') ||
+    endpoint.includes('/chat') ||
+    endpoint.includes('/ai');
+
+  const timeoutMs = options.timeoutMs ?? (isHeavyEndpoint ? 30000 : 8000);
+  const { timeoutMs: _, ...fetchOptions } = options;
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
-      ...options,
+      ...fetchOptions,
       headers,
       signal: controller.signal,
     });
@@ -83,13 +98,13 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     }
     if (error.name === 'AbortError') {
       throw new ApiError(
-        'Backend connection timed out. Ensure backend FastAPI server is running.',
+        'Request timed out. Please check backend server and connection.',
         0,
         { isOffline: true }
       );
     }
     throw new ApiError(
-      error.message || 'Unable to connect to backend server. Ensure backend is running.',
+      error.message || 'Unable to connect to backend server.',
       0,
       { isOffline: true }
     );

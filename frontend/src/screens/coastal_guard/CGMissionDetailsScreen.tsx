@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { coastalGuardService, RescueMissionItem } from '../../services/coastalGuardService';
 
@@ -29,11 +29,15 @@ export const CGMissionDetailsScreen: React.FC<CGMissionDetailsScreenProps> = ({
   const [logNote, setLogNote] = useState<string>('');
 
   useEffect(() => {
-    fetchMission();
+    fetchMission(false);
+    const timer = setInterval(() => {
+      fetchMission(true);
+    }, 3000);
+    return () => clearInterval(timer);
   }, [missionId]);
 
-  const fetchMission = async () => {
-    setLoading(true);
+  const fetchMission = async (isSilent: boolean = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const data = await coastalGuardService.getMissionDetail(missionId);
       setMission(data);
@@ -158,6 +162,15 @@ export const CGMissionDetailsScreen: React.FC<CGMissionDetailsScreenProps> = ({
               value={logNote}
               onChangeText={setLogNote}
             />
+            {logNote.trim().length > 0 && (
+              <TouchableOpacity
+                style={styles.addLogBtn}
+                disabled={updating}
+                onPress={() => handleUpdateStatus(mission.status)}
+              >
+                <Text style={styles.addLogBtnTxt}>+ Add Log Entry</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -171,23 +184,43 @@ export const CGMissionDetailsScreen: React.FC<CGMissionDetailsScreenProps> = ({
                 disabled={updating}
                 onPress={() => handleUpdateStatus('DEPARTED')}
               >
-                <Text style={styles.btnTxt}>⛵ Departed Base</Text>
+                <View style={styles.btnRow}>
+                  <Text style={styles.btnIcon}>⛵</Text>
+                  <Text style={styles.btnTxt}>Departed Base</Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.statusBtn, { backgroundColor: '#D97706' }]}
+                style={[styles.statusBtn, { backgroundColor: '#0284C7' }]}
                 disabled={updating}
                 onPress={() => handleUpdateStatus('APPROACHING')}
               >
-                <Text style={styles.btnTxt}>🎯 Approaching SOS</Text>
+                <View style={styles.btnRow}>
+                  <Text style={styles.btnIcon}>🎯</Text>
+                  <Text style={styles.btnTxt}>Approaching SOS</Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.statusBtn, { backgroundColor: '#7C3AED' }]}
+                style={[styles.statusBtn, { backgroundColor: '#0284C7' }]}
                 disabled={updating}
                 onPress={() => handleUpdateStatus('VICTIM_LOCATED')}
               >
-                <Text style={styles.btnTxt}>👀 Victim Located</Text>
+                <View style={styles.btnRow}>
+                  <Text style={styles.btnIcon}>👀</Text>
+                  <Text style={styles.btnTxt}>Victim Located</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.statusBtn, { backgroundColor: '#0284C7' }]}
+                disabled={updating}
+                onPress={() => handleUpdateStatus('RETURNING')}
+              >
+                <View style={styles.btnRow}>
+                  <Text style={styles.btnIcon}>⚓</Text>
+                  <Text style={styles.btnTxt}>Returning to Base</Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -195,7 +228,21 @@ export const CGMissionDetailsScreen: React.FC<CGMissionDetailsScreenProps> = ({
                 disabled={updating}
                 onPress={() => handleUpdateStatus('COMPLETED')}
               >
-                <Text style={styles.btnTxt}>✅ Complete & Resolve</Text>
+                <View style={styles.btnRow}>
+                  <Text style={styles.btnIcon}>✅</Text>
+                  <Text style={styles.btnTxt}>Complete & Resolve</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.statusBtn, { backgroundColor: '#DC2626' }]}
+                disabled={updating}
+                onPress={() => handleUpdateStatus('CANCELLED')}
+              >
+                <View style={styles.btnRow}>
+                  <Text style={styles.btnIcon}>❌</Text>
+                  <Text style={styles.btnTxt}>Abort / Cancel Mission</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -238,7 +285,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 140,
   },
   statusTopCard: {
     backgroundColor: Colors.cgSurface,
@@ -365,6 +412,7 @@ const styles = StyleSheet.create({
   },
   addLogBox: {
     marginTop: 4,
+    gap: 8,
   },
   logInput: {
     backgroundColor: '#F1F5F9',
@@ -373,6 +421,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 12,
     color: '#1E293B',
+  },
+  addLogBtn: {
+    backgroundColor: Colors.cgPrimary,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: 'flex-end',
+  },
+  addLogBtnTxt: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   actionsBox: {
     marginTop: 10,
@@ -384,16 +444,34 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   btnGrid: {
-    gap: 8,
+    gap: 10,
   },
   statusBtn: {
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  btnIcon: {
+    fontSize: 18,
   },
   btnTxt: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
 });

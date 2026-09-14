@@ -11,7 +11,7 @@ const MAP_HEIGHT = 580;
 interface INCOISMapComponentProps {
   center: { lat: number; lon: number };
   hotspots: HotspotInfo[];
-  activeLayer: 'chl' | 'sst' | 'bathymetry';
+  activeLayer: 'chl' | 'sst' | 'bathymetry' | 'ibl';
   selectedNavigationTarget?: HotspotInfo | null;
   onNavigateToHotspot?: (hotspot: HotspotInfo) => void;
   onSelectHotspot?: (hotspot: HotspotInfo) => void;
@@ -220,7 +220,9 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
               ? '🌱 Chlorophyll-a'
               : activeLayer === 'sst'
               ? '🌡️ SST Temp Fronts'
-              : '⚓ Gebco Bathymetry'
+              : activeLayer === 'bathymetry'
+              ? '⚓ Gebco Bathymetry'
+              : '🚨 International Maritime Boundary (IBL)'
           }
         </div>
         <script>
@@ -238,9 +240,9 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
             attributionControl: false
           }).setView([${center.lat}, ${center.lon}], 9.5);
 
-          // Base Satellite / Ocean Map Layer
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
+          // High-Resolution ESRI World Ocean Satellite Base Layer
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
             minZoom: 3
           }).addTo(map);
 
@@ -277,6 +279,50 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
                 }).addTo(map);
               `
           }
+
+          // International Maritime Boundary Line (IBL) Coordinates & Hazard Layer
+          var iblCoords = [
+            [11.2667, 80.2000],
+            [10.8333, 79.9167],
+            [10.3833, 79.8667],
+            [10.0833, 79.5000],
+            [9.6667, 79.5333],
+            [9.3833, 79.5333],
+            [9.1000, 79.5333],
+            [8.8000, 79.1167],
+            [8.3667, 78.6333]
+          ];
+
+          ${
+            activeLayer === 'ibl'
+              ? `
+                var iblGlow = L.polyline(iblCoords, {
+                  color: '#FF0033',
+                  weight: 8,
+                  opacity: 0.5
+                }).addTo(map);
+
+                var iblPolyline = L.polyline(iblCoords, {
+                  color: '#FF2A2A',
+                  weight: 5,
+                  dashArray: '10, 6',
+                  opacity: 1.0
+                }).addTo(map);
+
+                // Fit bounds to show full International Maritime Boundary Line when selected
+                map.fitBounds(L.polyline(iblCoords).getBounds(), { padding: [40, 40] });
+              `
+              : `
+                var iblPolyline = L.polyline(iblCoords, {
+                  color: '#FF2A2A',
+                  weight: 3.5,
+                  dashArray: '8, 6',
+                  opacity: 0.95
+                }).addTo(map);
+              `
+          }
+
+          iblPolyline.bindPopup("<div class='custom-popup'><div class='popup-title'>🚨 INDIA - SRI LANKA IBL</div><div class='popup-info'>International Maritime Boundary Line.<br>Eastward sector is strictly restricted.</div></div>");
 
           function sendWebMessage(obj) {
             if (window.ReactNativeWebView) {

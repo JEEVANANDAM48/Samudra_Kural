@@ -608,3 +608,52 @@ export async function cancelAudioRecording(): Promise<void> {
     console.warn('[Voice Recording] Error cancelling recording:', err);
   }
 }
+
+const EMERGENCY_BEEP_WAV_BASE64 = 'data:audio/wav;base64,UklGRgQMAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YeALAAAN8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N8/Pz8w0NDQ3z8/PzDQ0NDfPz8/MNDQ3z8/PzDQ0NDfPz8/MNDQ0N8/PzDQ0NDfPz8/MNDQ0N8/Pz8w0NDfPz8/MNDQ0N8/Pz8w0NDQ3z8/MNDQ0N8/Pz8w0NDQ3z8/PzDQ0N';
+
+/**
+ * Play a high-decibel emergency siren buzzer tone (BEEP! BEEP! BEEP!) using Web Audio API synthesis and Base64 Audio.
+ */
+export function playEmergencyBuzzerSound(): void {
+  try {
+    // 1. Play HTML5 Audio Base64 WAV Beep File
+    if (typeof window !== 'undefined' && 'Audio' in window) {
+      try {
+        const audio = new Audio(EMERGENCY_BEEP_WAV_BASE64);
+        audio.volume = 1.0;
+        audio.play().catch(e => console.warn('HTML5 Beep playback:', e));
+      } catch (e) {}
+    }
+
+    // 2. Synthesize additional piercing siren frequency backup via Web Audio API
+    if (typeof window !== 'undefined') {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+        const now = ctx.currentTime;
+
+        [0, 0.20, 0.40, 0.60].forEach((offset, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(idx % 2 === 0 ? 1050 : 1350, now + offset);
+
+          gain.gain.setValueAtTime(0.7, now + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.16);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.17);
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Emergency buzzer sound error:', err);
+  }
+}

@@ -647,7 +647,10 @@ export const BotScreen: React.FC<BotScreenProps> = ({
       </View>
 
       {/* Bottom Voice & Text Input Bar */}
-      <View style={styles.inputContainer}>
+      <View style={[
+        styles.inputContainer,
+        hideTopHeader && styles.inputContainerEmbedded
+      ]}>
         {/* Microphone Button */}
         <TouchableOpacity
           style={[
@@ -1088,11 +1091,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.surface,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 14 : 10,
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    paddingBottom: Platform.OS === 'ios' ? 88 : 80,
+  },
+  inputContainerEmbedded: {
+    paddingBottom: Platform.OS === 'ios' ? 86 : 76,
   },
   micBtn: {
     width: 44,

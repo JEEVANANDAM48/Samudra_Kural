@@ -8,9 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { coastalGuardService, SOSAlertItem } from '../../services/coastalGuardService';
 
@@ -20,23 +20,59 @@ interface CGSOSAlertsScreenProps {
   hideTopHeader?: boolean;
 }
 
+const INITIAL_SOS_ALERTS: SOSAlertItem[] = [
+  {
+    id: 1,
+    fisherman: { name: 'Karthik Raja', phone: '+91 98401 23456', home_port: 'Chennai Harbour' },
+    boat: { name: 'Sea Star', registration: 'IND-TN-02-MM-4412', vessel_type: 'Mechanized Trawler' },
+    latitude: 13.1250,
+    longitude: 80.4120,
+    emergency_type: 'Engine Failure',
+    description: 'Main diesel engine failed 14km offshore. Drifting NE with 4 crew members.',
+    people_affected: 4,
+    priority: 'CRITICAL',
+    status: 'NEW',
+    distance_to_nearest_port_km: 14.2,
+    created_at: new Date(Date.now() - 10 * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    fisherman: { name: 'Murugan Swamy', phone: '+91 97890 54321', home_port: 'Kattupalli Port' },
+    boat: { name: 'Kadal Kanni', registration: 'IND-TN-02-MM-1890', vessel_type: 'Gillnetter' },
+    latitude: 13.2980,
+    longitude: 80.3540,
+    emergency_type: 'Medical',
+    description: 'Crew member hand injury from winch gear. Medevac requested.',
+    people_affected: 1,
+    priority: 'CRITICAL',
+    status: 'ACKNOWLEDGED',
+    distance_to_nearest_port_km: 18.6,
+    created_at: new Date(Date.now() - 45 * 60000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export const CGSOSAlertsScreen: React.FC<CGSOSAlertsScreenProps> = ({
   onSelectAlert,
   onBack,
   hideTopHeader = false,
 }) => {
-  const [alerts, setAlerts] = useState<SOSAlertItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [alerts, setAlerts] = useState<SOSAlertItem[]>(INITIAL_SOS_ALERTS);
+  const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     fetchAlerts();
+    const timer = setInterval(() => {
+      fetchAlerts();
+    }, 3000);
+    return () => clearInterval(timer);
   }, [activeFilter, searchQuery]);
 
   const fetchAlerts = async () => {
-    setLoading(true);
     try {
       const data = await coastalGuardService.getSOSAlerts(
         activeFilter,
@@ -171,9 +207,11 @@ export const CGSOSAlertsScreen: React.FC<CGSOSAlertsScreenProps> = ({
                 </Text>
 
                 <View style={styles.cardFooter}>
-                  <Text style={styles.gpsCoords}>
-                    📍 {alert.latitude.toFixed(4)}° N, {alert.longitude.toFixed(4)}° E
-                  </Text>
+                  <View style={styles.gpsBadge}>
+                    <Text style={styles.gpsCoordsText}>
+                      📍 <Text style={styles.gpsCoordsVal}>{alert.latitude.toFixed(4)}° N, {alert.longitude.toFixed(4)}° E</Text>
+                    </Text>
+                  </View>
                   <View style={styles.statusGroup}>
                     <Text style={styles.statusTxt}>
                       Status: <Text style={{ fontWeight: '800', color: Colors.cgPrimary }}>{alert.status}</Text>
@@ -330,10 +368,25 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
     paddingTop: 8,
+    gap: 8,
   },
-  gpsCoords: {
-    fontSize: 11,
-    color: '#64748B',
+  gpsBadge: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  gpsCoordsText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.cgPrimary,
+  },
+  gpsCoordsVal: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: Colors.cgPrimaryDark,
   },
   statusGroup: {
     flexDirection: 'row',

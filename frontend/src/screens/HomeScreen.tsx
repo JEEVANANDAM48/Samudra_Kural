@@ -98,8 +98,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     });
   };
 
+  const [navTick, setNavTick] = useState<number>(0);
+
   const handleTabPress = (tabId: string) => {
     setActiveTab(tabId);
+    setNavTick((t) => t + 1);
   };
 
   const handleLogout = async () => {
@@ -137,15 +140,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
       </View>
 
-      {/* Main Content Area */}
+      {/* Main Content Area with Instant Navigation Auto-Reload Keys */}
       {activeTab === 'sos' ? (
-        <SOSScreen currentLanguage={currentLanguage} />
+        <SOSScreen key={`sos_${navTick}`} currentLanguage={currentLanguage} />
       ) : activeTab === 'nav' ? (
         <NavigationScreen
+          key={`nav_${navTick}`}
           currentLanguage={currentLanguage}
           initialTarget={selectedHotspot}
-          onBack={() => setActiveTab('nav')}
-          onOpenMap={() => setActiveTab('fishing')}
+          onBack={() => handleTabPress('nav')}
+          onOpenMap={() => handleTabPress('fishing')}
           onLogout={handleLogout}
           onOpenProfile={onOpenProfile}
           onTabPress={handleTabPress}
@@ -153,33 +157,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         />
       ) : activeTab === 'fishing' ? (
         <FishingZonesScreen
+          key={`fishing_${navTick}`}
           currentLanguage={currentLanguage}
           initialTarget={selectedHotspot}
-          onBack={() => setActiveTab('nav')}
+          onBack={() => handleTabPress('nav')}
           onNavigateToHotspot={(spot) => {
             setSelectedHotspot(spot);
-            setActiveTab('nav');
+            handleTabPress('nav');
           }}
           onTabPress={handleTabPress}
           hideTopHeader={true}
         />
       ) : activeTab === 'bot' ? (
         <BotScreen
+          key={`bot_${navTick}`}
           currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('nav')}
+          onBack={() => handleTabPress('nav')}
           onNavigateToHotspot={(spot) => {
             setSelectedHotspot(spot);
-            setActiveTab('nav');
+            handleTabPress('nav');
           }}
           onTabPress={handleTabPress}
           hideTopHeader={true}
         />
       ) : activeTab === 'nets' ? (
-        <MyNetsScreen />
+        <MyNetsScreen key={`nets_${navTick}`} />
       ) : activeTab === 'profile' ? (
         <ProfileScreen
+          key={`profile_${navTick}`}
           currentLanguage={currentLanguage}
-          onBack={() => setActiveTab('nav')}
+          onBack={() => handleTabPress('nav')}
           onLogout={handleLogout}
           onLanguageChange={onLanguageChange}
         />
@@ -316,7 +323,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <View style={styles.logoutWrapper}>
                   <PrimaryButton
                     title={t('logout', currentLanguage)}
-                    variant="outline"
+                    variant="danger"
                     onPress={handleLogout}
                   />
                 </View>

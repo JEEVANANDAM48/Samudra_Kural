@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/colors';
 import { coastalGuardService, SOSAlertItem } from '../../services/coastalGuardService';
 import { CoastalGuardMapComponent } from '../../components/CoastalGuardMapComponent';
@@ -31,11 +31,15 @@ export const CGSOSDetailsScreen: React.FC<CGSOSDetailsScreenProps> = ({
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    fetchDetail();
+    fetchDetail(false);
+    const timer = setInterval(() => {
+      fetchDetail(true);
+    }, 3000);
+    return () => clearInterval(timer);
   }, [sosId]);
 
-  const fetchDetail = async () => {
-    setLoading(true);
+  const fetchDetail = async (isSilent: boolean = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const data = await coastalGuardService.getSOSAlertDetail(sosId);
       setAlert(data);
@@ -214,7 +218,7 @@ export const CGSOSDetailsScreen: React.FC<CGSOSDetailsScreenProps> = ({
 
           <View style={{ marginTop: 12 }}>
             <CoastalGuardMapComponent
-              height={220}
+              height={480}
               sosAlerts={[alert]}
               center={{ lat: alert.latitude, lon: alert.longitude }}
             />
@@ -471,13 +475,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   locLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#64748B',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   locVal: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     color: Colors.cgPrimary,
     marginTop: 2,
   },
