@@ -68,9 +68,17 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
             raw_b64 = raw_b64.split(",", 1)[1]
         
         audio_bytes = base64.b64decode(raw_b64)
+        logger.info(f"[STT Received] Audio base64 length: {len(raw_b64)}, Decoded bytes: {len(audio_bytes)}, Format: {payload.format}, Lang: {payload.language}")
         if len(audio_bytes) == 0:
             return {"success": False, "status": "error", "message": "Decoded audio is empty", "transcript": ""}
         
+        # Save scratch copy for audio verification
+        try:
+            with open("scratch/last_mobile_audio.m4a", "wb") as f:
+                f.write(audio_bytes)
+        except Exception:
+            pass
+
         filename = f"audio.{payload.format or 'm4a'}"
 
         # 1. Try Sarvam AI

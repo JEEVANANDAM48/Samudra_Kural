@@ -233,50 +233,57 @@ export interface TranscribeResponse {
 }
 
 async function readLocalAudioBase64(uri: string): Promise<string> {
-  // 1. Try expo-file-system/legacy
-  try {
-    const FileSystemLegacy = require('expo-file-system/legacy');
-    if (FileSystemLegacy && typeof FileSystemLegacy.readAsStringAsync === 'function') {
-      const b64 = await FileSystemLegacy.readAsStringAsync(uri, {
-        encoding: FileSystemLegacy.EncodingType?.Base64 || 'base64',
-      });
-      if (b64 && b64.length > 0) {
-        console.log('[STT Request] Read via expo-file-system/legacy. Length:', b64.length);
-        return b64;
-      }
-    }
-  } catch (e) {}
+  const urisToTry = [
+    uri,
+    uri.startsWith('file://') ? uri.replace('file://', '') : `file://${uri}`,
+  ];
 
-  // 2. Try regular expo-file-system readAsStringAsync
-  try {
-    const FileSystemModule = require('expo-file-system');
-    if (FileSystemModule && typeof FileSystemModule.readAsStringAsync === 'function') {
-      const b64 = await FileSystemModule.readAsStringAsync(uri, {
-        encoding: FileSystemModule.EncodingType?.Base64 || 'base64',
-      });
-      if (b64 && b64.length > 0) {
-        console.log('[STT Request] Read via expo-file-system readAsStringAsync. Length:', b64.length);
-        return b64;
-      }
-    }
-  } catch (e) {}
-
-  // 3. Try modern expo-file-system File class (SDK 57)
-  try {
-    const FileSystemModule = require('expo-file-system');
-    if (FileSystemModule && FileSystemModule.File) {
-      const file = new FileSystemModule.File(uri);
-      if (file && typeof file.base64 === 'function') {
-        const b64 = await file.base64();
-        if (b64 && b64.length > 0) {
-          console.log('[STT Request] Read via expo-file-system File.base64(). Length:', b64.length);
+  for (const testUri of urisToTry) {
+    // 1. Try legacy readAsStringAsync
+    try {
+      const FileSystemLegacy = require('expo-file-system/legacy');
+      if (FileSystemLegacy && typeof FileSystemLegacy.readAsStringAsync === 'function') {
+        const b64 = await FileSystemLegacy.readAsStringAsync(testUri, {
+          encoding: FileSystemLegacy.EncodingType?.Base64 || 'base64',
+        });
+        if (b64 && b64.length > 50) {
+          console.log('[STT Request] Read via expo-file-system/legacy. Length:', b64.length);
           return b64;
         }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
 
-  // 3. Fallback: native fetch blob + FileReader
+    // 2. Try standard readAsStringAsync
+    try {
+      const FileSystemModule = require('expo-file-system');
+      if (FileSystemModule && typeof FileSystemModule.readAsStringAsync === 'function') {
+        const b64 = await FileSystemModule.readAsStringAsync(testUri, {
+          encoding: FileSystemModule.EncodingType?.Base64 || 'base64',
+        });
+        if (b64 && b64.length > 50) {
+          console.log('[STT Request] Read via expo-file-system readAsStringAsync. Length:', b64.length);
+          return b64;
+        }
+      }
+    } catch (e) {}
+
+    // 3. Try modern expo-file-system File class (SDK 57)
+    try {
+      const FileSystemModule = require('expo-file-system');
+      if (FileSystemModule && FileSystemModule.File) {
+        const file = new FileSystemModule.File(testUri);
+        if (file && typeof file.base64 === 'function') {
+          const b64 = await file.base64();
+          if (b64 && b64.length > 50) {
+            console.log('[STT Request] Read via expo-file-system File.base64(). Length:', b64.length);
+            return b64;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 4. Fallback: native fetch blob + FileReader
   try {
     const response = await fetch(uri);
     const blob = await response.blob();
@@ -289,7 +296,7 @@ async function readLocalAudioBase64(uri: string): Promise<string> {
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-    if (b64 && b64.length > 0) {
+    if (b64 && b64.length > 50) {
       console.log('[STT Request] Read via fetch blob FileReader. Base64 length:', b64.length);
       return b64;
     }
