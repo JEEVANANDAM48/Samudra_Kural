@@ -119,16 +119,24 @@ export const NavigationToReleaseMap: React.FC<NavigationToReleaseMapProps> = ({
     }).addTo(map);
     bounds.extend(routeLine.getBounds());
 
-    // 1. Green Marker: Current Fisherman Location (Boat)
+    // 1. Top-Down White Outline Vessel Marker: Current Fisherman Location (Boat)
+    var boatSvg = '<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(45deg); filter: drop-shadow(0 0 8px #00F5D4);">' +
+      '<path d="M 22 4 C 25.5 11, 28.5 19, 28.5 30 C 28.5 35, 25.5 37, 22 37 C 18.5 37, 15.5 35, 15.5 30 C 15.5 19, 18.5 11, 22 4 Z" fill="#0D2526" fill-opacity="0.92" stroke="#FFFFFF" stroke-width="2.8" stroke-linejoin="round" />' +
+      '<path d="M 18 14 Q 22 11.5 26 14" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" />' +
+      '<rect x="18" y="17" width="8" height="10" rx="1.8" stroke="#FFFFFF" stroke-width="2" fill="#00F5D4" fill-opacity="0.35" />' +
+      '<path d="M 19 37 L 19 40 C 19 41.5, 25 41.5, 25 40 L 25 37" stroke="#FFFFFF" stroke-width="2" fill="#00F5D4" />' +
+      '</svg>';
+
     var boatIcon = L.divIcon({
-      className: 'pulse-marker',
-      html: '<div class="pulse-ring" style="border: 2px solid #2ECC71; background: rgba(46,204,113,0.3);"></div><div class="pulse-dot" style="background: #2ECC71;"></div>',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      className: 'user-vessel-pin',
+      html: boatSvg,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
     });
     var boatMarker = L.marker([${fishermanLat}, ${fishermanLon}], { icon: boatIcon }).addTo(map);
-    boatMarker.bindPopup("<b>👤 Your Current Location (Boat)</b><br>Lat: ${fishermanLat.toFixed(4)}<br>Lon: ${fishermanLon.toFixed(4)}", { className: 'custom-popup' });
+    boatMarker.bindPopup("<b>🚤 Your Current Location (Boat)</b><br>Lat: ${fishermanLat.toFixed(4)}° N<br>Lon: ${fishermanLon.toFixed(4)}° E", { className: 'custom-popup' });
     bounds.extend([${fishermanLat}, ${fishermanLon}]);
+
 
     // 2. Blue Marker: Original Net Release Point
     var releaseIcon = L.divIcon({
