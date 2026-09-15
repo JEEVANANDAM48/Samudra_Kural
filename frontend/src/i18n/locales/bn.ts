@@ -19,7 +19,7 @@ export const bn: Record<TranslationKeys, string> = {
   placeholderFishing: "মাছ ধরার অঞ্চল",
   placeholderSafety: "সমুদ্র নিরাপত্তা",
   placeholderNets: "আমার জাল",
-  placeholderEmergency: "জরুরি সহায়তা / SOS",
+  placeholderEmergency: "জরুরি সহায়তা",
   askBot: "বটের সাথে কথা বলুন",
   askBotSub: "AI সামুদ্রিক সহায়ক",
   menuAndProfile: "মেনু এবং প্রোফাইল",

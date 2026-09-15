@@ -19,7 +19,7 @@ export const kn: Record<TranslationKeys, string> = {
   placeholderFishing: "ಮೀನುಗಾರಿಕೆ ವಲಯಗಳು",
   placeholderSafety: "ಸಮುದ್ರ ಸುರಕ್ಷತೆ",
   placeholderNets: "ನನ್ನ ಬಲೆಗಳು",
-  placeholderEmergency: "ತುರ್ತು ನೆರವು / SOS",
+  placeholderEmergency: "ತುರ್ತು ನೆರವು",
   askBot: "ಬಾಟ್‌ನೊಂದಿಗೆ ಮಾತನಾಡಿ",
   askBotSub: "AI ಸಾಗರ ಸಹಾಯಕ",
   menuAndProfile: "ಮೆನು & ಪ್ರೊಫೈಲ್",

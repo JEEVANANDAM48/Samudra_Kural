@@ -113,7 +113,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   const { t, tDirection, tSeaState, language } = useLanguage();
   // Current Boat Location (Positioned offshore in Bay of Bengal sea)
   const [boatLocation, setBoatLocation] = useState({ lat: 13.0827, lon: 80.3800 });
-  const [boatSpeedKnots, setBoatSpeedKnots] = useState<number>(8.5);
+  const [boatSpeedKnots, setBoatSpeedKnots] = useState<number>(0.0);
   const [isNavigating, setIsNavigating] = useState<boolean>(true);
   const [isVoiceActive, setIsVoiceActive] = useState<boolean>(true);
   const [isPickerVisible, setIsPickerVisible] = useState<boolean>(false);
@@ -121,8 +121,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   const [telemetry, setTelemetry] = useState<LiveMarineTelemetry | null>(null);
   const [telemetryLoading, setTelemetryLoading] = useState<boolean>(true);
 
-  // Active Target (PFZ Hotspot or Shore)
-  const [activeTarget, setActiveTarget] = useState<NavigationTarget>(() => {
+  // Active Target (PFZ Hotspot or Shore) - No default target! Fisherman must fix target.
+  const [activeTarget, setActiveTarget] = useState<NavigationTarget | null>(() => {
     if (initialTarget) {
       return {
         id: initialTarget.id,
@@ -137,7 +137,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         is_shore: false,
       };
     }
-    return DEFAULT_HOTSPOT;
+    return null;
   });
 
   const iblTelemetry = checkIBLProximity(boatLocation.lat, boatLocation.lon);
@@ -184,51 +184,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     }
   };
 
-  // Custom Coordinate Form State (Only Latitude & Longitude)
-  const [isAddCustomVisible, setIsAddCustomVisible] = useState<boolean>(false);
-  const [customName, setCustomName] = useState<string>('');
-  const [customLat, setCustomLat] = useState<string>('');
-  const [customLon, setCustomLon] = useState<string>('');
 
-  const handleAddCustomCoordinate = () => {
-    const latNum = parseFloat(customLat);
-    const lonNum = parseFloat(customLon);
-
-    if (isNaN(latNum) || isNaN(lonNum)) {
-      Alert.alert(t('genericError'), 'Please enter valid numeric values for Latitude and Longitude.');
-      return;
-    }
-
-    if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
-      Alert.alert(t('genericError'), 'Latitude must be between -90° and 90°, Longitude between -180° and 180°.');
-      return;
-    }
-
-    const newSpot: NavigationTarget = {
-      id: `CUSTOM_${Date.now()}`,
-      name: customName.trim() ? `[Custom Target] ${customName.trim()}` : `[Custom Target] (${latNum.toFixed(4)}°N, ${lonNum.toFixed(4)}°E)`,
-      latitude: latNum,
-      longitude: lonNum,
-      depth_meters: 28,
-      reliability_score: '100% User Defined',
-      is_shore: false,
-    };
-
-    setAvailableTargets((prev) => [newSpot, ...prev]);
-    setActiveTarget(newSpot);
-    setIsNavigating(true);
-    setIsAddCustomVisible(false);
-    setIsPickerVisible(false);
-
-    setCustomName('');
-    setCustomLat('');
-    setCustomLon('');
-
-    Alert.alert(
-      t('targetWaypoint'),
-      `Lat: ${latNum.toFixed(4)}°N, Lon: ${lonNum.toFixed(4)}°E`
-    );
-  };
 
   // Real Smartphone GPS Tracking Subscription (No simulation loops!)
   useEffect(() => {
@@ -251,9 +207,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           const lonVal = Number(loc.coords.longitude.toFixed(4));
           setBoatLocation({ lat: latVal, lon: lonVal });
 
-          if (loc.coords.speed && loc.coords.speed > 0) {
-            setBoatSpeedKnots(Number((loc.coords.speed * 1.94384).toFixed(1)));
-          }
+          const liveSpeedKts = (loc.coords.speed && loc.coords.speed > 0.2) ? Number((loc.coords.speed * 1.94384).toFixed(1)) : 0.0;
+          setBoatSpeedKnots(liveSpeedKts);
 
           // Reverse geocode to show real physical location name
           try {
@@ -283,9 +238,8 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             const updatedLon = Number(newLoc.coords.longitude.toFixed(4));
             setBoatLocation({ lat: updatedLat, lon: updatedLon });
 
-            if (newLoc.coords.speed && newLoc.coords.speed > 0) {
-              setBoatSpeedKnots(Number((newLoc.coords.speed * 1.94384).toFixed(1)));
-            }
+            const liveSpeedKts = (newLoc.coords.speed && newLoc.coords.speed > 0.2) ? Number((newLoc.coords.speed * 1.94384).toFixed(1)) : 0.0;
+            setBoatSpeedKnots(liveSpeedKts);
           }
         );
       } catch (err) {
@@ -351,26 +305,30 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     }
   };
 
-  // Calculate live navigation metrics
-  const navDetails: CalculatedNavigationData = getNavigationDetails(
-    boatLocation.lat,
-    boatLocation.lon,
-    activeTarget.latitude,
-    activeTarget.longitude,
-    boatSpeedKnots
-  );
+  // Calculate live navigation metrics (if target fixed by fisherman)
+  const navDetails: CalculatedNavigationData | null = activeTarget
+    ? getNavigationDetails(
+        boatLocation.lat,
+        boatLocation.lon,
+        activeTarget.latitude,
+        activeTarget.longitude,
+        boatSpeedKnots > 0 ? boatSpeedKnots : 8.5
+      )
+    : null;
 
   // Animated compass needle rotation
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(rotateAnim, {
-      toValue: navDetails.bearing_degrees,
-      duration: 600,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-  }, [navDetails.bearing_degrees]);
+    if (navDetails) {
+      Animated.timing(rotateAnim, {
+        toValue: navDetails.bearing_degrees,
+        duration: 600,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [navDetails?.bearing_degrees]);
 
   const spinNeedle = rotateAnim.interpolate({
     inputRange: [0, 360],
@@ -403,11 +361,14 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
     setIsNavigating(true);
   };
 
+  // Active Category Filter Pill ('telemetry' | 'geofence' | 'pfz' | 'sos')
+  const [activeSection, setActiveSection] = useState<string>('telemetry');
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
 
-      {/* Header */}
+      {/* Top Header Banner */}
       {!hideTopHeader && (
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => (onOpenProfile ? onOpenProfile() : setIsProfileModalOpen(true))}>
@@ -425,9 +386,95 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
       )}
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* 1. CENTERED HERO LATITUDE & LONGITUDE DISPLAY */}
+        {/* 0. Top Horizontal Category Pill Scroll Bar */}
+        <View style={styles.categoryBarContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryBarScroll}>
+            <TouchableOpacity
+              style={[styles.categoryPill, activeSection === 'telemetry' && styles.categoryPillActive]}
+              onPress={() => setActiveSection('telemetry')}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.categoryIconCircle, activeSection === 'telemetry' && styles.categoryIconCircleActive]}>
+                <Text style={styles.categoryIconTxt}>📡</Text>
+              </View>
+              <Text style={[styles.categoryPillTxt, activeSection === 'telemetry' && styles.categoryPillTxtActive]}>
+                Live Telemetry
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.categoryPill, activeSection === 'geofence' && styles.categoryPillActive]}
+              onPress={() => setActiveSection('geofence')}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.categoryIconCircle, activeSection === 'geofence' && styles.categoryIconCircleActive]}>
+                <Text style={styles.categoryIconTxt}>🛡️</Text>
+              </View>
+              <Text style={[styles.categoryPillTxt, activeSection === 'geofence' && styles.categoryPillTxtActive]}>
+                IBL Geo-Fence
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.categoryPill, activeSection === 'pfz' && styles.categoryPillActive]}
+              onPress={() => {
+                setActiveSection('pfz');
+                if (onTabPress) onTabPress('fishing');
+              }}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.categoryIconCircle, activeSection === 'pfz' && styles.categoryIconCircleActive]}>
+                <Text style={styles.categoryIconTxt}>🐟</Text>
+              </View>
+              <Text style={[styles.categoryPillTxt, activeSection === 'pfz' && styles.categoryPillTxtActive]}>
+                Fishing Zones
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.categoryPill, activeSection === 'sos' && styles.categoryPillActive]}
+              onPress={() => {
+                setActiveSection('sos');
+                if (onTabPress) onTabPress('sos');
+              }}
+              activeOpacity={0.85}
+            >
+              <View style={[styles.categoryIconCircle, activeSection === 'sos' && styles.categoryIconCircleActive]}>
+                <Text style={styles.categoryIconTxt}>🚨</Text>
+              </View>
+              <Text style={[styles.categoryPillTxt, activeSection === 'sos' && styles.categoryPillTxtActive]}>
+                Emergency SOS
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
+        {/* 0.5 Modern Glassmorphic Search Bar */}
+        <TouchableOpacity
+          style={styles.searchBarContainer}
+          activeOpacity={0.85}
+          onPress={() => setIsPickerVisible(true)}
+        >
+          <Text style={styles.searchIcon}>🔍</Text>
+          <Text style={styles.searchPlaceholder}>Search coordinates, harbor or fishing zone...</Text>
+          <View style={styles.searchFilterBadge}>
+            <Text style={styles.searchFilterBadgeTxt}>TARGETS ▾</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* 1. GLASSMORPHIC MARINE HERO COORDINATES CARD */}
         <View style={styles.heroGpsCard}>
-          <Text style={styles.heroGpsTitle}>VESSEL CURRENT COORDINATES</Text>
+          <View style={styles.heroCardHeaderRow}>
+            <View style={styles.compassHeaderGroup}>
+              <Text style={styles.compassIcon}>🧭</Text>
+              <Text style={styles.heroGpsTitle}>VESSEL POSITION</Text>
+            </View>
+
+            <View style={styles.heroGpsBadge}>
+              <View style={styles.heroGpsDot} />
+              <Text style={styles.heroGpsBadgeText}>LIVE GPS LOCKED 🟢</Text>
+            </View>
+          </View>
 
           <View style={styles.heroGpsValueBox}>
             <View style={styles.coordColumn}>
@@ -447,7 +494,12 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             </View>
           </View>
 
-          <Text style={styles.heroGpsSubText}>📍 {gpsPlaceName}</Text>
+          <View style={styles.gpsLocationRow}>
+            <Text style={styles.gpsLocationIcon}>📍</Text>
+            <Text style={styles.heroGpsSubText} numberOfLines={1}>
+              {gpsPlaceName}
+            </Text>
+          </View>
         </View>
 
         {/* 1.5 INTERNATIONAL MARITIME BOUNDARY LINE (IBL) GEO-FENCE CARD */}
@@ -518,42 +570,81 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
         {/* 2. OCEAN & VESSEL TELEMETRY GRID */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{t('oceanAndVesselTelemetry')}</Text>
+          <View style={styles.telemetryLiveBadge}>
+            <Text style={styles.telemetryLiveBadgeText}>LIVE TELEMETRY</Text>
+          </View>
         </View>
 
         <View style={styles.telemetryGrid}>
           {/* Card 1: Wave Height */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryValue}>{telemetry?.waveHeight || '0.8m'}</Text>
+            <View style={styles.telemetryCardTop}>
+              <View style={styles.telemetryIconCircle}>
+                <Text style={styles.telemetryIcon}>🌊</Text>
+              </View>
+            </View>
+            <Text style={styles.telemetryValue}>{telemetry?.waveHeight || '0.8m - 1.4m'}</Text>
             <Text style={styles.telemetryLabel}>Wave Height</Text>
-            <Text style={styles.telemetrySub}>Sea State: {telemetry?.seaState || 'Slight'}</Text>
+            <Text style={styles.telemetrySub}>Sea State: {telemetry?.seaState || 'Slight to Moderate'}</Text>
           </View>
 
           {/* Card 2: Wind Speed */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryValue}>{telemetry?.windSpeedKnots || '12 kts'}</Text>
+            <View style={styles.telemetryCardTop}>
+              <View style={styles.telemetryIconCircle}>
+                <Text style={styles.telemetryIcon}>💨</Text>
+              </View>
+            </View>
+            <Text style={styles.telemetryValue}>{telemetry?.windSpeedKnots || '3.2 kts'}</Text>
             <Text style={styles.telemetryLabel}>{t('windSpeed')}</Text>
             <Text style={styles.telemetrySub}>
-              {telemetry?.windDirectionDegrees ? `${t('likelyDirection')}: ${telemetry.windDirectionDegrees}°` : tDirection('Northeast')}
+              {telemetry?.windDirectionDegrees ? `${t('likelyDirection')}: ${telemetry.windDirectionDegrees}°` : 'Likely Direction: 170°'}
             </Text>
           </View>
 
           {/* Card 3: Boat Speed */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryValue}>{boatSpeedKnots} knots</Text>
+            <View style={styles.telemetryCardTop}>
+              <View style={styles.telemetryIconCircle}>
+                <Text style={styles.telemetryIcon}>🚤</Text>
+              </View>
+            </View>
+            <Text style={styles.telemetryValue}>{boatSpeedKnots > 0 ? `${boatSpeedKnots} knots` : '0.0 knots'}</Text>
             <Text style={styles.telemetryLabel}>{t('boatSpeed')}</Text>
-            <Text style={styles.telemetrySub}>({(boatSpeedKnots * 1.852).toFixed(1)} km/h)</Text>
+            <Text style={styles.telemetrySub}>
+              {boatSpeedKnots > 0 ? `(${(boatSpeedKnots * 1.852).toFixed(1)} km/h)` : 'On Shore / Parked'}
+            </Text>
           </View>
 
           {/* Card 4: Distance & ETA */}
           <View style={styles.telemetryCard}>
-            <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
+            <View style={styles.telemetryCardTop}>
+              <View style={styles.telemetryIconCircle}>
+                <Text style={styles.telemetryIcon}>⏱️</Text>
+              </View>
+            </View>
+            <Text style={styles.telemetryValue}>{navDetails ? `${navDetails.distance_nautical_miles} NM` : '--'}</Text>
             <Text style={styles.telemetryLabel}>{t('distanceAndEta')}</Text>
-            <Text style={styles.telemetrySub}>{t('eta')} {navDetails.formatted_eta}</Text>
+            <Text style={styles.telemetrySub}>{navDetails ? `${t('eta')} ${navDetails.formatted_eta}` : 'No Target Fixed'}</Text>
           </View>
         </View>
 
-        {/* 3. TARGET ZONE LATITUDE & LONGITUDE METRICS GRID */}
-        {!activeTarget.is_shore && (
+        {/* 3. TARGET ZONE LATITUDE & LONGITUDE METRICS GRID & COMPLETE DETAILS */}
+        {!activeTarget ? (
+          <View style={styles.noTargetCard}>
+            <Text style={styles.noTargetIcon}>📍</Text>
+            <Text style={styles.noTargetTitle}>No Target Destination Fixed</Text>
+            <Text style={styles.noTargetDesc}>
+              The fisherman has not selected target coordinates yet. Please select a target destination (PFZ Hotspot or Shore Base) from the target list or Ocean Map to calculate course and distance.
+            </Text>
+            <TouchableOpacity
+              style={styles.fixTargetBtn}
+              onPress={() => setIsPickerVisible(true)}
+            >
+              <Text style={styles.fixTargetBtnText}>🎯 Fix / Select Target Destination</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
           <>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>{t('targetZoneCoordinates')}</Text>
@@ -562,6 +653,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             <View style={styles.telemetryGrid}>
               {/* Card 1: Target Latitude */}
               <View style={styles.telemetryCard}>
+                <View style={styles.telemetryCardTop}>
+                  <View style={styles.telemetryIconCircle}>
+                    <Text style={styles.telemetryIcon}>🌐</Text>
+                  </View>
+                </View>
                 <Text style={styles.telemetryValue}>{activeTarget.latitude.toFixed(4)}° N</Text>
                 <Text style={styles.telemetryLabel}>{t('targetLatitude')}</Text>
                 <Text style={styles.telemetrySub}>{t('degreesNorth')}</Text>
@@ -569,6 +665,11 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Card 2: Target Longitude */}
               <View style={styles.telemetryCard}>
+                <View style={styles.telemetryCardTop}>
+                  <View style={styles.telemetryIconCircle}>
+                    <Text style={styles.telemetryIcon}>📍</Text>
+                  </View>
+                </View>
                 <Text style={styles.telemetryValue}>{activeTarget.longitude.toFixed(4)}° E</Text>
                 <Text style={styles.telemetryLabel}>{t('targetLongitude')}</Text>
                 <Text style={styles.telemetrySub}>{t('degreesEast')}</Text>
@@ -576,88 +677,149 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Card 3: Distance to Target */}
               <View style={styles.telemetryCard}>
-                <Text style={styles.telemetryValue}>{navDetails.distance_nautical_miles} NM</Text>
+                <View style={styles.telemetryCardTop}>
+                  <View style={styles.telemetryIconCircle}>
+                    <Text style={styles.telemetryIcon}>📏</Text>
+                  </View>
+                </View>
+                <Text style={styles.telemetryValue}>{navDetails ? `${navDetails.distance_nautical_miles} NM` : '--'}</Text>
                 <Text style={styles.telemetryLabel}>{t('distanceToTarget')}</Text>
-                <Text style={styles.telemetrySub}>({(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km)</Text>
+                <Text style={styles.telemetrySub}>
+                  {navDetails ? `(${(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km)` : '--'}
+                </Text>
               </View>
 
               {/* Card 4: Water Depth */}
               <View style={styles.telemetryCard}>
+                <View style={styles.telemetryCardTop}>
+                  <View style={styles.telemetryIconCircle}>
+                    <Text style={styles.telemetryIcon}>⚓</Text>
+                  </View>
+                </View>
                 <Text style={styles.telemetryValue}>{activeTarget.depth_meters ? `${activeTarget.depth_meters}m` : '26m'}</Text>
                 <Text style={styles.telemetryLabel}>{t('waterDepth')}</Text>
                 <Text style={styles.telemetrySub}>{t('seaFloorBathymetry')}</Text>
               </View>
             </View>
+
+            {/* Complete Details About Target Zone Card */}
+            <View style={styles.completeDetailsCard}>
+              <View style={styles.completeDetailsHeader}>
+                <Text style={styles.completeDetailsHeaderIcon}>{activeTarget.is_shore ? '🏠' : '🎯'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.completeDetailsTag}>
+                    {activeTarget.is_shore ? 'SHORE BASE STATION' : 'POTENTIAL FISHING ZONE (PFZ)'}
+                  </Text>
+                  <Text style={styles.completeDetailsTitle}>{activeTarget.name}</Text>
+                </View>
+                <View style={styles.stateBadge}>
+                  <Text style={styles.stateBadgeText}>{getStateLabel(activeTarget)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailsDivider} />
+
+              <View style={styles.detailsListGrid}>
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Waypoint Coordinates:</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.latitude.toFixed(4)}° N, {activeTarget.longitude.toFixed(4)}° E
+                  </Text>
+                </View>
+
+                {navDetails && (
+                  <View style={styles.detailRowItem}>
+                    <Text style={styles.detailRowLabel}> Navigation Bearing:</Text>
+                    <Text style={styles.detailRowVal}>
+                      {navDetails.bearing_degrees}° ({navDetails.direction_cardinal})
+                    </Text>
+                  </View>
+                )}
+
+                {navDetails && (
+                  <View style={styles.detailRowItem}>
+                    <Text style={styles.detailRowLabel}> Distance & Estimated Arrival:</Text>
+                    <Text style={styles.detailRowVal}>
+                      {navDetails.distance_nautical_miles} NM ({(navDetails.distance_nautical_miles * 1.852).toFixed(1)} km) • ETA: {navDetails.formatted_eta}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Sea Surface Temp (SST):</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.sst_celsius ? `${activeTarget.sst_celsius}°C` : '28.4°C'}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Chlorophyll-a Level:</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.chlorophyll_mg_m3 ? `${activeTarget.chlorophyll_mg_m3} mg/m³` : '1.25 mg/m³'}
+                  </Text>
+                </View>
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Bathymetry Sea Depth:</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.depth_meters ? `${activeTarget.depth_meters} meters` : '26 meters'}
+                  </Text>
+                </View>
+
+                {activeTarget.target_species && activeTarget.target_species.length > 0 && (
+                  <View style={styles.detailRowItem}>
+                    <Text style={styles.detailRowLabel}> Abundant Fish Species:</Text>
+                    <Text style={styles.detailRowVal}>
+                      {activeTarget.target_species.join(', ')}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.detailRowItem}>
+                  <Text style={styles.detailRowLabel}> Zone Reliability Score:</Text>
+                  <Text style={styles.detailRowVal}>
+                    {activeTarget.reliability_score || '96% High Potential'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.switchButtonRow}>
+                {activeTarget.is_shore ? (
+                  <TouchableOpacity style={styles.switchTargetBtn} onPress={handleSwitchTargetToPFZ}>
+                    <Text style={styles.switchTargetBtnText}>Switch to Fishing Zone Target</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.switchShoreBtn} onPress={handleSwitchTargetToShore}>
+                    <Text style={styles.switchShoreBtnText}>Return to Shore Base</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.clearTargetBtn} onPress={() => setActiveTarget(null)}>
+                  <Text style={styles.clearTargetBtnText}>Clear Target</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </>
         )}
-
-        {/* 4. Active Destination Card */}
-        <View style={styles.targetCard}>
-          <View style={styles.targetHeaderRow}>
-            <View style={styles.targetIconBadge}>
-              <Text style={styles.targetIcon}>{activeTarget.is_shore ? '🏠' : '🐟'}</Text>
-            </View>
-            <View style={styles.targetTitleGroup}>
-              <Text style={styles.targetLabel}>{t('currentDestination')}</Text>
-              <Text style={styles.targetName}>{activeTarget.name}</Text>
-              <Text style={styles.targetCoords}>
-                {t('targetWaypoint')}: {activeTarget.latitude.toFixed(4)}° N, {activeTarget.longitude.toFixed(4)}° E
-              </Text>
-            </View>
-          </View>
-
-          {/* Destination Badges */}
-          <View style={styles.targetDetailsRow}>
-            <View style={styles.stateBadge}>
-              <Text style={styles.stateBadgeText}>{getStateLabel(activeTarget)}</Text>
-            </View>
-            {activeTarget.reliability_score && (
-              <View style={styles.activeTag}>
-                <Text style={styles.activeTagText}>{t('reliability')}: {activeTarget.reliability_score}</Text>
-              </View>
-            )}
-            {activeTarget.depth_meters !== undefined && (
-              <View style={styles.detailPill}>
-                <Text style={styles.detailPillLabel}>{t('depth')}:</Text>
-                <Text style={styles.detailPillValue}>{activeTarget.depth_meters}m</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Switch Button */}
-          <View style={styles.switchButtonRow}>
-            {activeTarget.is_shore ? (
-              <TouchableOpacity style={styles.switchTargetBtn} onPress={handleSwitchTargetToPFZ}>
-                <Text style={styles.switchTargetBtnText}>Switch to Fishing Zone Target</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.switchShoreBtn} onPress={handleSwitchTargetToShore}>
-                <Text style={styles.switchShoreBtnText}>Return to Shore Base</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
 
         {/* CONTROL ACTION BUTTONS */}
         <View style={styles.controlButtonsGroup}>
           <TouchableOpacity
-            style={styles.addCustomMainBtn}
-            onPress={() => setIsAddCustomVisible(true)}
-          >
-            <Text style={styles.addCustomMainBtnText}>Add Custom Coordinates for Fishing Zone</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={styles.changeTargetMainBtn}
             onPress={() => setIsPickerVisible(true)}
+            activeOpacity={0.85}
           >
-            <Text style={styles.changeTargetMainBtnText}>Change Target Destination (Select Hotspot / Shore)</Text>
+            <Text style={styles.btnIcon}>🎯</Text>
+            <Text style={styles.changeTargetMainBtnText}>
+              Select Target Destination (Hotspot / Shore)
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionBtn, isNavigating ? styles.pauseBtn : styles.startBtn]}
             onPress={() => setIsNavigating(!isNavigating)}
+            activeOpacity={0.85}
           >
+            <Text style={styles.btnIcon}>{isNavigating ? '⏸️' : '▶️'}</Text>
             <Text style={styles.actionBtnText}>
               {isNavigating ? 'Pause GPS Tracking' : 'Resume GPS Tracking'}
             </Text>
@@ -666,7 +828,9 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
           <TouchableOpacity
             style={styles.mapBtn}
             onPress={onOpenMap}
+            activeOpacity={0.85}
           >
+            <Text style={styles.btnIcon}>🗺️</Text>
             <Text style={styles.mapBtnText}>Open Ocean Map</Text>
           </TouchableOpacity>
         </View>
@@ -696,22 +860,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
             </View>
 
             <ScrollView style={styles.targetListScroll} showsVerticalScrollIndicator={false}>
-              {/* Option: Enter Custom Coordinates */}
-              <TouchableOpacity
-                style={[styles.targetItemCard, styles.customPickerCard]}
-                onPress={() => {
-                  setIsPickerVisible(false);
-                  setIsAddCustomVisible(true);
-                }}
-              >
-                <View style={styles.itemIconContainer}>
-                  <Text style={styles.targetItemIcon}>➕</Text>
-                </View>
-                <View style={styles.targetItemDetails}>
-                  <Text style={styles.targetItemName}>{t('enterCustomCoordinates')}</Text>
-                </View>
-              </TouchableOpacity>
-
               {/* Option: Pick from Ocean Map */}
               <TouchableOpacity
                 style={[styles.targetItemCard, styles.mapPickerCard]}
@@ -730,7 +878,7 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
 
               {/* Target List: Shore Base & PFZ Hotspots */}
               {availableTargets.map((target) => {
-                const isSelected = target.id === activeTarget.id;
+                const isSelected = activeTarget ? target.id === activeTarget.id : false;
                 const itemNav = getNavigationDetails(
                   boatLocation.lat,
                   boatLocation.lon,
@@ -772,58 +920,6 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                   </TouchableOpacity>
                 );
               })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal: Add Custom Coordinates */}
-      <Modal
-        visible={isAddCustomVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsAddCustomVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>📍 {t('enterCustomCoordinates')}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setIsAddCustomVisible(false)}
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.customFormScroll} showsVerticalScrollIndicator={false}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('latitude')} (°N)*</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={customLat}
-                  onChangeText={setCustomLat}
-                  placeholder="e.g. 13.0827"
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>{t('longitude')} (°E)*</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={customLon}
-                  onChangeText={setCustomLon}
-                  placeholder="e.g. 80.3500"
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <TouchableOpacity style={styles.saveCustomBtn} onPress={handleAddCustomCoordinate}>
-                <Text style={styles.saveCustomBtnText}>🧭 {t('startNavigation')}</Text>
-              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
@@ -980,35 +1076,142 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   container: {
-    paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
     paddingBottom: 90,
   },
-  heroGpsCard: {
+  /* 0. Top Horizontal Category Pill Scroll Bar */
+  categoryBarContainer: {
+    marginBottom: 12,
+    marginTop: 2,
+  },
+  categoryBarScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 2,
+  },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  categoryPillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primaryDark,
+  },
+  categoryIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  categoryIconCircleActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  categoryIconTxt: {
+    fontSize: 14,
+  },
+  categoryPillTxt: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  categoryPillTxtActive: {
+    color: '#FFFFFF',
+  },
+  /* 0.5 Modern Search Bar (Reference App UI) */
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.surface,
     borderRadius: 16,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  searchIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  searchFilterBadge: {
+    backgroundColor: '#E6F4F1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  searchFilterBadgeTxt: {
+    color: Colors.primaryDark,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  /* 1. Hero Coordinates Card (Marine Gradient Glassmorphism) */
+  heroGpsCard: {
+    backgroundColor: '#E6F4F1',
+    borderRadius: 24,
+    padding: 18,
     borderWidth: 2,
     borderColor: Colors.primary,
     marginBottom: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  heroCardHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  compassHeaderGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compassIcon: {
+    fontSize: 18,
   },
   heroGpsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 95, 96, 0.1)',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 12,
     gap: 6,
-    marginBottom: 6,
     borderWidth: 1,
-    borderColor: 'rgba(0, 95, 96, 0.25)',
+    borderColor: Colors.primary,
   },
   heroGpsDot: {
     width: 8,
@@ -1018,109 +1221,120 @@ const styles = StyleSheet.create({
   },
   heroGpsBadgeText: {
     color: Colors.primaryDark,
-    fontSize: 12,
+    fontSize: 10.5,
     fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-  fishermanWelcomeText: {
-    color: Colors.primaryDark,
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 4,
-    marginBottom: 2,
-    textAlign: 'center',
     letterSpacing: 0.4,
   },
   heroGpsTitle: {
-    color: Colors.textSecondary,
+    color: Colors.primaryDark,
     fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    fontWeight: '900',
+    letterSpacing: 0.6,
   },
   heroGpsValueBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    paddingVertical: 14,
     paddingHorizontal: 10,
     width: '100%',
     borderWidth: 1.5,
     borderColor: Colors.border,
-    marginBottom: 8,
+    marginBottom: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
   },
   coordColumn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 2,
   },
   coordLabel: {
     color: Colors.primary,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.6,
     marginBottom: 2,
     textAlign: 'center',
   },
   coordValue: {
-    color: Colors.text,
-    fontSize: 26,
+    color: Colors.primaryDark,
+    fontSize: 24,
     fontWeight: '900',
     letterSpacing: 0.4,
     textAlign: 'center',
   },
   coordDivider: {
     width: 1.5,
-    height: 32,
+    height: 36,
     backgroundColor: Colors.border,
     marginHorizontal: 4,
   },
-  heroGpsSubText: {
-    color: Colors.textSecondary,
+  gpsLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  gpsLocationIcon: {
     fontSize: 14,
+    marginRight: 6,
+  },
+  heroGpsSubText: {
+    color: Colors.primaryDark,
+    fontSize: 13,
     fontWeight: '800',
+    textAlign: 'center',
   },
   targetCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1.5,
     borderColor: Colors.primary,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 2,
   },
   targetHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   targetIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 10,
     borderWidth: 1.5,
     borderColor: Colors.secondaryDark,
   },
   targetIcon: {
-    fontSize: 18,
+    fontSize: 20,
   },
   targetTitleGroup: {
     flex: 1,
   },
   targetLabel: {
     color: Colors.primary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -1141,7 +1355,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
     marginTop: 6,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   detailPill: {
     flexDirection: 'row',
@@ -1156,23 +1370,23 @@ const styles = StyleSheet.create({
   },
   detailPillLabel: {
     color: Colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   detailPillValue: {
     color: Colors.text,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '900',
   },
   switchButtonRow: {
-    marginTop: 4,
+    marginTop: 6,
   },
   switchShoreBtn: {
     backgroundColor: 'rgba(192, 57, 43, 0.12)',
     borderColor: '#C0392B',
     borderWidth: 1.5,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   switchShoreBtnText: {
@@ -1184,8 +1398,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary,
     borderColor: Colors.secondaryDark,
     borderWidth: 1.5,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   switchTargetBtnText: {
@@ -1202,45 +1416,25 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: Colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   telemetryLiveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 245, 212, 0.18)',
-    borderColor: '#00F5D4',
-    borderWidth: 1.5,
-    borderRadius: 10,
+    backgroundColor: '#E6F4F1',
+    borderColor: Colors.primary,
+    borderWidth: 1,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
-  },
-  telemetryLiveBadgeDot: {
-    fontSize: 9,
-    marginRight: 4,
   },
   telemetryLiveBadgeText: {
-    color: '#00F5D4',
-    fontSize: 12,
+    color: Colors.primaryDark,
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.4,
-  },
-  oceanCardTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  oceanCardSubBadge: {
-    color: '#00F5D4',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    backgroundColor: 'rgba(0, 245, 212, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
   },
   telemetryGrid: {
     flexDirection: 'row',
@@ -1251,29 +1445,41 @@ const styles = StyleSheet.create({
   telemetryCard: {
     width: '48.5%',
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 12,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  telemetryCardTop: {
+    marginBottom: 8,
+  },
+  telemetryIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E6F4F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.primary,
   },
   telemetryIcon: {
-    fontSize: 20,
-    marginBottom: 2,
+    fontSize: 16,
   },
   telemetryValue: {
     color: Colors.text,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
   },
   telemetryLabel: {
     color: Colors.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     marginTop: 2,
   },
@@ -1281,7 +1487,7 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 11,
     fontWeight: '800',
-    marginTop: 1,
+    marginTop: 2,
   },
   oceanCard: {
     backgroundColor: Colors.surface,
@@ -1348,19 +1554,31 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   controlButtonsGroup: {
-    gap: 12,
+    gap: 10,
     marginBottom: 16,
   },
+  btnIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
   actionBtn: {
-    paddingVertical: 10,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   startBtn: {
     backgroundColor: Colors.primary,
   },
   pauseBtn: {
-    backgroundColor: '#D35400',
+    backgroundColor: Colors.primaryDark,
   },
   actionBtnText: {
     color: '#FFFFFF',
@@ -1368,53 +1586,48 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   mapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.surface,
     borderColor: Colors.primary,
     borderWidth: 1.5,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   mapBtnText: {
     color: Colors.primary,
     fontSize: 14,
     fontWeight: '800',
   },
-  addCustomMainBtn: {
-    backgroundColor: '#00F5D4',
-    borderColor: '#00A896',
-    borderWidth: 2,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  addCustomMainBtnText: {
-    color: '#003840',
-    fontSize: 14,
-    fontWeight: '900',
-  },
   changeTargetMainBtn: {
-    backgroundColor: Colors.secondary,
-    borderColor: Colors.secondaryDark,
-    borderWidth: 2,
-    paddingVertical: 10,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    justifyContent: 'center',
+    backgroundColor: '#E6F4F1',
+    borderColor: Colors.primary,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2,
   },
   changeTargetMainBtnText: {
+    flex: 1,
     color: Colors.primaryDark,
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 13.5,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   customPickerCard: {
     backgroundColor: 'rgba(0, 245, 212, 0.12)',
@@ -1818,5 +2031,136 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
+  },
+  /* No Target Card Styles */
+  noTargetCard: {
+    backgroundColor: '#E6F4F1',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 18,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  noTargetIcon: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
+  noTargetTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.primaryDark,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  noTargetDesc: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 16,
+    fontWeight: '600',
+  },
+  fixTargetBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fixTargetBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14.5,
+    fontWeight: '900',
+  },
+  /* Complete Target Zone Details Card Styles */
+  completeDetailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  completeDetailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  completeDetailsHeaderIcon: {
+    fontSize: 28,
+  },
+  completeDetailsTag: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: Colors.primary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  completeDetailsTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: Colors.text,
+    marginTop: 2,
+  },
+  detailsDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 12,
+  },
+  detailsListGrid: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  detailRowItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailRowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    flex: 1,
+  },
+  detailRowVal: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0F172A',
+    flex: 1.2,
+    textAlign: 'right',
+  },
+  clearTargetBtn: {
+    backgroundColor: '#64748B',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  clearTargetBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

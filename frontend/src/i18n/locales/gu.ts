@@ -19,7 +19,7 @@ export const gu: Record<TranslationKeys, string> = {
   placeholderFishing: "માછીમારી ઝોન",
   placeholderSafety: "સાગર સુરક્ષા",
   placeholderNets: "મારી જાળીઓ",
-  placeholderEmergency: "ઇમરજન્સી સહાય / SOS",
+  placeholderEmergency: "ઇમરજન્સી સહાય",
   askBot: "બોટને પૂછો",
   askBotSub: "AI સાગરી સહાયક",
   menuAndProfile: "મેનુ અને પ્રોફાઇલ",

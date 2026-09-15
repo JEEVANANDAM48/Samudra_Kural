@@ -265,19 +265,19 @@ export const BotScreen: React.FC<BotScreenProps> = ({
 
         // Pass the user's active selected language (e.g. 'ta') so STT recognizes in that language
         const res = await transcribeAudio(audioData, lang || 'ta');
-        if (res.success && res.transcript && res.transcript.trim()) {
+        setIsTranscribing(false);
+
+        if (res && res.transcript && res.transcript.trim()) {
           const recognizedText = res.transcript.trim();
           const detectedLang = res.language && res.language !== 'unknown' ? res.language : lang;
-          console.log('[Voice STT] Recognized:', recognizedText, 'Language:', detectedLang);
-          setIsTranscribing(false);
+          console.log('[Voice STT] Recognized Spoken Words:', recognizedText, 'Language:', detectedLang);
           // Automatically send the recognized speech with the detected language to ORCA
           handleSend(recognizedText, true, detectedLang);
         } else {
           Alert.alert(
-            'Speech Recognition',
-            res.message || 'Could not understand audio. Please speak clearly and try again.'
+            'Voice Input',
+            res?.message || 'Could not understand audio. Please speak clearly into the microphone or type your question.'
           );
-          setIsTranscribing(false);
         }
       } catch (err: any) {
         console.warn('[STT Notice]', err?.message || err);
@@ -301,7 +301,7 @@ export const BotScreen: React.FC<BotScreenProps> = ({
         return;
       }
 
-      await startRealAudioRecording();
+      await startRealAudioRecording(lang || 'ta');
       setIsRecording(true);
     } catch (err: any) {
       console.error('Failed to start audio recording:', err);

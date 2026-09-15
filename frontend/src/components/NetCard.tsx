@@ -12,13 +12,6 @@ interface NetCardProps {
 export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
   const { t, tNetType } = useLanguage();
 
-  const confidenceColor =
-    net.confidence === 'HIGH'
-      ? Colors.success
-      : net.confidence === 'LOW'
-      ? '#D35400'
-      : '#B7950B';
-
   const movementText =
     net.estimated_movement_km !== undefined && net.estimated_movement_km !== null
       ? `~${net.estimated_movement_km} km`
@@ -35,23 +28,13 @@ export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
       ? 'lost'
       : 'archived';
 
-  const confidenceKey =
-    net.confidence === 'HIGH'
-      ? 'confidenceHigh'
-      : net.confidence === 'LOW'
-      ? 'confidenceLow'
-      : 'confidenceMedium';
-
   return (
     <View style={styles.card}>
       {/* Top Header Row */}
       <View style={styles.topRow}>
         <View style={styles.titleArea}>
-          <Text style={styles.netIcon}>🕸️</Text>
-          <View>
-            <Text style={styles.netName}>{net.name}</Text>
-            <Text style={styles.netType}>{tNetType(net.net_type_display || net.net_type)}</Text>
-          </View>
+          <Text style={styles.netName} numberOfLines={1}>{net.name}</Text>
+          <Text style={styles.netType} numberOfLines={1}>{tNetType(net.net_type_display || net.net_type)}</Text>
         </View>
 
         <View style={[styles.statusBadge, net.status === 'ACTIVE' ? styles.activeBadge : styles.inactiveBadge]}>
@@ -65,30 +48,20 @@ export const NetCard: React.FC<NetCardProps> = ({ net, onViewDrift }) => {
       <View style={styles.bodyGrid}>
         <View style={styles.infoCol}>
           <Text style={styles.label}>{t('deployment')}</Text>
-          <Text style={styles.valueHighlight}>{net.elapsed_time_formatted}</Text>
+          <Text style={styles.valueHighlight} numberOfLines={1}>{net.elapsed_time_formatted}</Text>
         </View>
 
         <View style={styles.infoCol}>
           <Text style={styles.label}>{t('estimatedMovement')}</Text>
-          <Text style={styles.valueHighlight}>{movementText}</Text>
+          <Text style={styles.valueHighlight} numberOfLines={1}>{movementText}</Text>
         </View>
       </View>
 
-      {/* Search Area Banner */}
-      <View style={styles.searchAreaBox}>
-        <Text style={styles.searchAreaLabel}>{t('probableSearchArea')}</Text>
-        <Text style={styles.searchAreaValue}>{searchAreaText}</Text>
-      </View>
-
-      {/* Confidence & Action Row */}
-      <View style={styles.footerRow}>
-        <View style={styles.confidenceWrapper}>
-          <Text style={styles.confidenceLabel}>{t('confidence')}:</Text>
-          <View style={[styles.confidencePill, { backgroundColor: confidenceColor + '20', borderColor: confidenceColor }]}>
-            <Text style={[styles.confidenceText, { color: confidenceColor }]}>
-              {t(confidenceKey)}
-            </Text>
-          </View>
+      {/* Probable Search Area & Likely Direction Action */}
+      <View style={styles.bottomSection}>
+        <View style={styles.searchAreaBox}>
+          <Text style={styles.searchAreaLabel}>{t('probableSearchArea')}</Text>
+          <Text style={styles.searchAreaValue}>{searchAreaText}</Text>
         </View>
 
         <TouchableOpacity
@@ -107,8 +80,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 18,
-    marginVertical: 8,
+    padding: 16,
+    marginVertical: 6,
     borderWidth: 1.5,
     borderColor: Colors.border,
     shadowColor: '#000',
@@ -121,28 +94,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#EEF6F6',
     paddingBottom: 10,
   },
   titleArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  netIcon: {
-    fontSize: 28,
-    marginRight: 10,
+    flex: 1,
+    marginRight: 8,
   },
   netName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
     color: Colors.text,
   },
   netType: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     color: Colors.textSecondary,
+    marginTop: 1,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -170,6 +140,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
+    gap: 8,
   },
   infoCol: {
     flex: 1,
@@ -185,58 +156,49 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.primaryDark,
   },
+  bottomSection: {
+    gap: 10,
+    marginTop: 2,
+  },
   searchAreaBox: {
+    width: '100%',
     backgroundColor: Colors.secondary,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: Colors.secondaryDark,
   },
   searchAreaLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10.5,
+    fontWeight: '800',
     color: Colors.primaryDark,
-    marginBottom: 2,
+    marginBottom: 3,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   searchAreaValue: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
     color: Colors.text,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  confidenceWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  confidenceLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    marginRight: 6,
-  },
-  confidencePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  confidenceText: {
-    fontSize: 11,
-    fontWeight: '900',
+    lineHeight: 18,
   },
   viewDriftButton: {
     backgroundColor: Colors.primary,
+    paddingVertical: 13,
     paddingHorizontal: 16,
-    paddingVertical: 9,
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   viewDriftText: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 13.5,
+    fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: 0.4,
   },

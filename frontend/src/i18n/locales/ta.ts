@@ -19,7 +19,7 @@ export const ta: Record<TranslationKeys, string> = {
   placeholderFishing: "மீன்பிடி மண்டலங்கள்",
   placeholderSafety: "கடல் பாதுகாப்பு",
   placeholderNets: "எனது வலைகள்",
-  placeholderEmergency: "அவசர உதவி / SOS",
+  placeholderEmergency: "அவசர உதவி",
   askBot: "ஆஸ்க் பாட்",
   askBotSub: "கடல் AI உதவியாளர்",
   menuAndProfile: "பட்டி & சுயவிவரம்",

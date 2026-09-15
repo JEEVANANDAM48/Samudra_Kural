@@ -19,7 +19,7 @@ export const or: Record<TranslationKeys, string> = {
   placeholderFishing: "ମାଛ ଧରା ଅଞ୍ଚଳ",
   placeholderSafety: "ସମୁଦ୍ର ସୁରକ୍ଷା",
   placeholderNets: "ମୋର ଜାଲ",
-  placeholderEmergency: "ଜରୁରୀକାଳୀନ ସହାୟତା / SOS",
+  placeholderEmergency: "ଜରୁରୀକାଳୀନ ସହାୟତା",
   askBot: "ବଟ୍ କୁ ପଚାରନ୍ତୁ",
   askBotSub: "AI ସାମୁଦ୍ରିକ ସହାୟକ",
   menuAndProfile: "ମେନୁ ଏବଂ ପ୍ରୋଫାଇଲ୍",
