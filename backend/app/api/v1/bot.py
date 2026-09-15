@@ -75,7 +75,24 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
         filename = f"audio.{payload.format or 'm4a'}"
         req_lang = orca_orchestrator._normalize_lang_code(payload.language) or payload.language or "unknown"
 
-        # 1. Try Sarvam AI
+        # 1. Primary STT: ElevenLabs Scribe STT (Fast, high-accuracy multilingual speech-to-text)
+        if elevenlabs_service.is_available():
+            el_res = await elevenlabs_service.speech_to_text(
+                audio_bytes,
+                filename=filename,
+                language_code=req_lang
+            )
+            if el_res.get("status") == "success" and el_res.get("transcript"):
+                det_lang = orca_orchestrator._normalize_lang_code(el_res.get("language") or req_lang) or "en"
+                return {
+                    "success": True,
+                    "status": "success",
+                    "transcript": el_res.get("transcript", ""),
+                    "language": det_lang,
+                    "language_code": f"{det_lang}-IN"
+                }
+
+        # 2. Fallback STT: Sarvam AI
         res = await sarvam_service.speech_to_text(
             audio_bytes,
             filename=filename,
@@ -90,27 +107,11 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
                 "language": det_lang,
                 "language_code": f"{det_lang}-IN"
             }
-        
-        # 2. Try ElevenLabs / Whisper STT Fallback
-        el_res = await elevenlabs_service.speech_to_text(
-            audio_bytes,
-            filename=filename,
-            language_code=req_lang
-        )
-        if el_res.get("status") == "success" and el_res.get("transcript"):
-            det_lang = orca_orchestrator._normalize_lang_code(el_res.get("language") or req_lang) or "en"
-            return {
-                "success": True,
-                "status": "success",
-                "transcript": el_res.get("transcript", ""),
-                "language": det_lang,
-                "language_code": f"{det_lang}-IN"
-            }
 
         # Clear human message when audio was quiet, corrupted, or uninterpretable
-        err_msg = el_res.get("message") or "Speech recognition could not detect clear audio. Please speak closer to the microphone and try again."
-        if "402" in err_msg or "quota" in err_msg.lower():
-            err_msg = "Speech recognition service is temporarily busy. Please try speaking again or type your question."
+        err_msg = (el_res.get("message") if elevenlabs_service.is_available() else None) or res.get("message") or "Speech recognition could not detect clear audio."
+        if "402" in err_msg or "quota" in err_msg.lower() or "credits" in err_msg.lower():
+            err_msg = "Could not capture clear speech. Please hold the mic button, speak clearly for 2-3 seconds, and try again."
         elif "invalid_audio" in err_msg or "corrupted" in err_msg.lower() or "validation_error" in err_msg:
             err_msg = "Could not capture clear voice audio. Please hold the mic button, speak clearly for 2-3 seconds, and try again."
 
@@ -139,6 +140,25 @@ async def voice_speech_to_text(
             return {"success": False, "status": "error", "message": "Uploaded audio file is empty", "transcript": ""}
 
         req_lang = orca_orchestrator._normalize_lang_code(language) or language or "unknown"
+        
+        # 1. Primary: ElevenLabs STT
+        if elevenlabs_service.is_available():
+            el_res = await elevenlabs_service.speech_to_text(
+                content,
+                filename=file.filename or "audio.m4a",
+                language_code=req_lang
+            )
+            if el_res.get("status") == "success" and el_res.get("transcript"):
+                det_lang = orca_orchestrator._normalize_lang_code(el_res.get("language") or req_lang) or "en"
+                return {
+                    "success": True,
+                    "status": "success",
+                    "transcript": el_res.get("transcript", ""),
+                    "language": det_lang,
+                    "language_code": f"{det_lang}-IN"
+                }
+
+        # 2. Fallback: Sarvam AI
         res = await sarvam_service.speech_to_text(
             content,
             filename=file.filename or "audio.m4a",
@@ -150,21 +170,6 @@ async def voice_speech_to_text(
                 "success": True,
                 "status": "success",
                 "transcript": res.get("transcript", ""),
-                "language": det_lang,
-                "language_code": f"{det_lang}-IN"
-            }
-
-        el_res = await elevenlabs_service.speech_to_text(
-            content,
-            filename=file.filename or "audio.m4a",
-            language_code=req_lang
-        )
-        if el_res.get("status") == "success":
-            det_lang = orca_orchestrator._normalize_lang_code(el_res.get("language") or req_lang) or "en"
-            return {
-                "success": True,
-                "status": "success",
-                "transcript": el_res.get("transcript", ""),
                 "language": det_lang,
                 "language_code": f"{det_lang}-IN"
             }

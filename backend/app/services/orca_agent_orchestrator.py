@@ -16,6 +16,7 @@ from app.schemas.environment import EnvironmentalState
 logger = logging.getLogger(__name__)
 
 env_aggregator = UnifiedEnvironmentService()
+_WEATHER_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
 
 class AgentExecutionStep(BaseModel):
     agent_id: int
@@ -468,35 +469,6 @@ class OrcaAgentOrchestrator:
         )
 
         voice_audio_b64 = None
-        try:
-            # 1. Try Sarvam TTS first if configured
-            tts_res = await asyncio.wait_for(
-                sarvam_service.text_to_speech(text=voice_text, language_code=language),
-                timeout=2.5
-            )
-            if tts_res.get("status") == "success":
-                voice_audio_b64 = tts_res.get("audio_base64")
-            elif elevenlabs_service.is_available():
-                el_res = await asyncio.wait_for(
-                    elevenlabs_service.text_to_speech(text=voice_text, language_code=language),
-                    timeout=5.0
-                )
-                if el_res.get("status") == "success":
-                    voice_audio_b64 = el_res.get("audio_base64")
-        except Exception as e:
-            # If Sarvam timed out or failed, try ElevenLabs directly
-            if elevenlabs_service.is_available() and not voice_audio_b64:
-                try:
-                    el_res = await asyncio.wait_for(
-                        elevenlabs_service.text_to_speech(text=voice_text, language_code=language),
-                        timeout=5.0
-                    )
-                    if el_res.get("status") == "success":
-                        voice_audio_b64 = el_res.get("audio_base64")
-                except Exception as el_err:
-                    logger.warning(f"ElevenLabs TTS fallback error: {el_err}")
-            else:
-                logger.warning(f"TTS generation skipped or timed out: {e}")
 
         quick_actions = [
             {"id": "map", "label": "🧭 Show Route on Ocean Map", "action": "NAVIGATE_MAP"},
@@ -616,17 +588,17 @@ class OrcaAgentOrchestrator:
 
         if any(w in q_lower for w in [
             "fishing zone", "mackerel fishing zone", "mackerel zone", "tuna zone", "nearest fishing zone", "pfz",
-            "potential fishing zone", "hotspot", "where can i fish", "where is the nearest", "where is", "nearest spot",
-            "where should i go", "where to go", "zone",
-            "மீன்பிடி மண்டலம்", "கானாங்களுத்தி மீன்பிடி", "மண்டலம்", "எங்கே", "எங்கு", "எங்கு செல்ல வேண்டும்",
-            "చేపల వేట ప్రాంతం", "చేపల వేట మండలం", "ఎక్కడ ఉంది", "ఎక్కడికి వెళ్ళాలి", "ఎక్కడ",
-            "മത്സ്യബന്ധന മേഖല", "മീൻപിടിത്ത മേഖല", "മേഖല", "എവിടെയാണ്", "എവിടെ പോകണം",
-            "मत्स्य क्षेत्र", "मछली पकड़ने का क्षेत्र", "कहाँ है", "कहाँ जाऊं", "कहाँ",
-            "मासेमारी क्षेत्र", "कुठे आहे",
-            "માછીમારી વિસ્તાર", "ક્યાં છે",
-            "ମତ୍ସ୍ୟ କ୍ଷେତ୍ର", "କେଉଁଠାରେ ଅଛି",
-            "ಮೀನುಗಾರಿಕಾ ವಲಯ", "ಎಲ್ಲಿದೆ",
-            "মাছ ধরার অঞ্চল", "কোথায়"
+            "potential fishing zone", "hotspot", "where can i fish", "where to fish", "where should i fish", "where to catch fish",
+            "fish zone", "fishing sector",
+            "மீன்பிடி மண்டலம்", "கானாங்களுத்தி மீன்பிடி", "மீன்பிடி பகுதி",
+            "చేపల వేట ప్రాంతం", "చేపల వేట మండలం",
+            "മത്സ്യബന്ധന മേഖല", "മീൻപിടിത്ത മേഖല",
+            "मत्स्य क्षेत्र", "मछली पकड़ने का क्षेत्र",
+            "मासेमारी क्षेत्र",
+            "માછીમારી વિસ્તાર",
+            "ମତ୍ସ୍ୟ କ୍ଷେତ୍ର",
+            "ಮೀನುಗಾರಿಕಾ ವಲಯ",
+            "মাছ ধরার অঞ্চল"
         ]):
             return "find_pfz"
 
@@ -724,13 +696,22 @@ class OrcaAgentOrchestrator:
         return wmo_map.get(code, "Fair Maritime Weather")
 
     async def _fetch_live_openmeteo_weather(self, lat: float, lon: float) -> Dict[str, Any]:
+        global _WEATHER_CACHE
+        import time
+        cache_key = f"{round(lat, 2)}_{round(lon, 2)}"
+        now = time.time()
+        if cache_key in _WEATHER_CACHE:
+            ts, cached_w = _WEATHER_CACHE[cache_key]
+            if now - ts < 300: # 5 minutes TTL
+                return cached_w
+
         try:
             url_atmos = (
                 f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
                 f"&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m"
                 f"&hourly=precipitation_probability,precipitation&forecast_days=2"
             )
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=2.0) as client:
                 res = await client.get(url_atmos)
                 if res.status_code == 200:
                     data = res.json()
@@ -747,7 +728,7 @@ class OrcaAgentOrchestrator:
                     rain_probs = hourly.get("precipitation_probability", [10])
                     rain_prob = rain_probs[0] if rain_probs else 10
 
-                    return {
+                    w_res = {
                         "temp_c": temp_c,
                         "wind_kmh": wind_speed_kmh,
                         "wind_gusts_kmh": wind_gusts_kmh,
@@ -757,10 +738,12 @@ class OrcaAgentOrchestrator:
                         "rain_prob": rain_prob,
                         "sea_temp_c": round(temp_c - 0.8, 1)
                     }
+                    _WEATHER_CACHE[cache_key] = (now, w_res)
+                    return w_res
         except Exception as e:
             logger.warning(f"Open-Meteo live atmospheric fetch warning: {e}")
 
-        return {
+        fallback_w = {
             "temp_c": 29.0,
             "wind_kmh": 18.0,
             "wind_gusts_kmh": 24.3,
@@ -770,6 +753,8 @@ class OrcaAgentOrchestrator:
             "rain_prob": 10,
             "sea_temp_c": 28.2
         }
+        _WEATHER_CACHE[cache_key] = (now, fallback_w)
+        return fallback_w
 
     def _evaluate_risk(self, wind_kmh: float, wave_height: float, rain_prob: int = 10) -> RiskAssessment:
         effective_wind = wind_kmh
