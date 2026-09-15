@@ -7,6 +7,7 @@ function resolveApiBaseUrl(): string {
     return 'http://localhost:8000/api/v1';
   }
 
+  // 1. Check Expo Go hostUri / debuggerHost dynamically
   const debuggerHost =
     Constants.expoConfig?.hostUri ||
     (Constants as any).manifest?.debuggerHost ||
@@ -19,11 +20,13 @@ function resolveApiBaseUrl(): string {
     }
   }
 
-  if (process.env.EXPO_PUBLIC_API_URL) {
+  // 2. Check environment variable
+  if (process.env.EXPO_PUBLIC_API_URL && !process.env.EXPO_PUBLIC_API_URL.includes('192.168.0.4')) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  return 'http://192.168.0.4:8000/api/v1';
+  // 3. Fallback to current machine WiFi IP
+  return 'http://10.11.92.132:8000/api/v1';
 }
 
 // Base API URL configured for Expo environment with dynamic host detection
@@ -59,8 +62,8 @@ export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {
 
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
 
-  // Smart dynamic timeout: STT, Voice, AI & Chat endpoints get 30,000ms (30s)
-  // Standard endpoints use options.timeoutMs or default to 8,000ms (8s)
+  // Smart dynamic timeout: STT, Voice, AI & Chat endpoints get 45,000ms (45s)
+  // Standard endpoints use options.timeoutMs or default to 15,000ms (15s)
   const isHeavyEndpoint =
     endpoint.includes('/stt') ||
     endpoint.includes('/voice') ||
@@ -68,7 +71,7 @@ export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {
     endpoint.includes('/chat') ||
     endpoint.includes('/ai');
 
-  const timeoutMs = options.timeoutMs ?? (isHeavyEndpoint ? 30000 : 8000);
+  const timeoutMs = options.timeoutMs ?? (isHeavyEndpoint ? 45000 : 15000);
   const { timeoutMs: _, ...fetchOptions } = options;
 
   const controller = new AbortController();
