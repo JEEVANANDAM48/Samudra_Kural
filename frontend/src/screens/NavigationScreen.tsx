@@ -19,6 +19,7 @@ import {
   NavigationTarget,
   getNavigationDetails,
   CalculatedNavigationData,
+  calculateSafeMaritimeRoute,
 } from '../services/navigationService';
 import {
   fetchSectorAdvisory,
@@ -308,6 +309,16 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
   // Calculate live navigation metrics (if target fixed by fisherman)
   const navDetails: CalculatedNavigationData | null = activeTarget
     ? getNavigationDetails(
+        boatLocation.lat,
+        boatLocation.lon,
+        activeTarget.latitude,
+        activeTarget.longitude,
+        boatSpeedKnots > 0 ? boatSpeedKnots : 8.5
+      )
+    : null;
+
+  const safeRoutePlan = activeTarget
+    ? calculateSafeMaritimeRoute(
         boatLocation.lat,
         boatLocation.lon,
         activeTarget.latitude,
@@ -797,6 +808,62 @@ export const NavigationScreen: React.FC<NavigationScreenProps> = ({
                   <Text style={styles.clearTargetBtnText}>Clear Target</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {/* DYNAMIC OBSTACLE & ROCK AVOIDANCE RADAR CARD */}
+            <View style={styles.radarCardContainer}>
+              <View style={styles.radarCardHeader}>
+                <View style={styles.radarTitleRow}>
+                  <Text style={styles.radarTitleTxt}>🛡️ Dynamic Rock Avoidance Radar</Text>
+                  <View style={styles.radarSafeScoreBadge}>
+                    <Text style={styles.radarSafeScoreTxt}>100% BYPASS ACTIVE</Text>
+                  </View>
+                </View>
+                <Text style={styles.radarSubTxt}>
+                  {safeRoutePlan && safeRoutePlan.avoided_hazards.length > 0
+                    ? `${safeRoutePlan.avoided_hazards.length} underwater hazard(s) safely skirted (+1000m seaward clearance)`
+                    : 'Clear deep-water corridor • 0 submerged rock hazards intersecting direct route'}
+                </Text>
+              </View>
+
+              {safeRoutePlan && safeRoutePlan.avoided_hazards.length > 0 ? (
+                <View style={styles.radarHazardsTable}>
+                  {safeRoutePlan.avoided_hazards.map((haz, idx) => (
+                    <View key={haz.id || idx} style={styles.radarHazardRow}>
+                      <View style={styles.radarHazardInfo}>
+                        <Text style={styles.radarHazardName}>
+                          {haz.type === 'shallow_rock' ? '🪨' : '⛔'} {haz.name}
+                        </Text>
+                        <Text style={styles.radarHazardDetail}>
+                          Min Depth: {haz.minDepthMeters}m • Clearance: +{haz.clearanceMarginMeters}m Seaward
+                        </Text>
+                      </View>
+                      <View style={styles.radarBypassBadge}>
+                        <Text style={styles.radarBypassTxt}>✓ {haz.status}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.radarClearWaterBox}>
+                  <Text style={styles.radarClearWaterTxt}>🌊 All submerged reefs, granite shallows and naval restricted perimeters cleared.</Text>
+                </View>
+              )}
+
+              {/* Waypoint Route Steps */}
+              {safeRoutePlan && safeRoutePlan.control_waypoints.length > 0 && (
+                <View style={styles.radarWaypointSection}>
+                  <Text style={styles.radarWaypointHeading}>Navigation Course Waypoints ({safeRoutePlan.control_waypoints.length})</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radarWaypointsRow}>
+                    {safeRoutePlan.control_waypoints.map((wp, idx) => (
+                      <View key={wp.id || idx} style={styles.radarWaypointChip}>
+                        <Text style={styles.radarWaypointNum}>#{idx + 1}</Text>
+                        <Text style={styles.radarWaypointName} numberOfLines={1}>{wp.name}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </>
         )}
@@ -2162,5 +2229,148 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+
+  /* Dynamic Rock Avoidance Radar Card Styles */
+  radarCardContainer: {
+    backgroundColor: '#0D2526',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: '#00F5D4',
+    shadowColor: '#00F5D4',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  radarCardHeader: {
+    marginBottom: 10,
+  },
+  radarTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  radarTitleTxt: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+    flex: 1,
+  },
+  radarSafeScoreBadge: {
+    backgroundColor: '#00F5D4',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  radarSafeScoreTxt: {
+    color: '#071516',
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  radarSubTxt: {
+    fontSize: 11,
+    color: '#7DE8D5',
+    fontWeight: '700',
+  },
+  radarHazardsTable: {
+    gap: 8,
+    marginBottom: 10,
+  },
+  radarHazardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 245, 212, 0.25)',
+  },
+  radarHazardInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  radarHazardName: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  radarHazardDetail: {
+    fontSize: 10.5,
+    color: '#A7F3D0',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  radarBypassBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderColor: '#10B981',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  radarBypassTxt: {
+    fontSize: 9.5,
+    fontWeight: '900',
+    color: '#34D399',
+  },
+  radarClearWaterBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 245, 212, 0.2)',
+    marginBottom: 10,
+  },
+  radarClearWaterTxt: {
+    fontSize: 11.5,
+    color: '#7DE8D5',
+    fontWeight: '700',
+  },
+  radarWaypointSection: {
+    marginTop: 4,
+  },
+  radarWaypointHeading: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#7DE8D5',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 6,
+  },
+  radarWaypointsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  radarWaypointChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: '#00F5D4',
+    gap: 5,
+  },
+  radarWaypointNum: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#00F5D4',
+  },
+  radarWaypointName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    maxWidth: 160,
   },
 });

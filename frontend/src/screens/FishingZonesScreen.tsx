@@ -31,6 +31,7 @@ import { BottomNavBar } from '../components/BottomNavBar';
 import { SupportedLanguage } from '../types';
 import { useLanguage } from '../i18n';
 import { checkIBLProximity } from '../services/iblService';
+import { calculateSafeMaritimeRoute } from '../services/navigationService';
 
 const { width } = Dimensions.get('window');
 
@@ -154,18 +155,39 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
   };
 
   // Route metrics calculations
-  const routeDistanceKm = selectedNavigationTarget
-    ? calculateHaversineKm(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
-    : 0;
-  const routeDistanceNM = routeDistanceKm / 1.852;
   const cruiseSpeedKnots = 8.5;
   const vesselSpeedKnots = liveSpeedKnots;
   const effectiveSpeedKnots = liveSpeedKnots > 0 ? liveSpeedKnots : cruiseSpeedKnots;
-  const routeEtaMins = routeDistanceNM > 0 ? Math.round((routeDistanceNM / effectiveSpeedKnots) * 60) : 0;
-  const routeBearing = selectedNavigationTarget
+
+  const safeRoutePlan = selectedNavigationTarget
+    ? calculateSafeMaritimeRoute(
+        userLocation.lat,
+        userLocation.lon,
+        selectedNavigationTarget.latitude,
+        selectedNavigationTarget.longitude,
+        effectiveSpeedKnots
+      )
+    : null;
+
+  const routeDistanceKm = safeRoutePlan
+    ? safeRoutePlan.total_distance_km
+    : selectedNavigationTarget
+    ? calculateHaversineKm(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
+    : 0;
+  const routeDistanceNM = safeRoutePlan
+    ? safeRoutePlan.total_distance_nm
+    : routeDistanceKm / 1.852;
+  const routeEtaMins = safeRoutePlan
+    ? safeRoutePlan.eta_minutes
+    : routeDistanceNM > 0 ? Math.round((routeDistanceNM / effectiveSpeedKnots) * 60) : 0;
+  const routeBearing = safeRoutePlan
+    ? safeRoutePlan.initial_bearing_degrees
+    : selectedNavigationTarget
     ? calculateBearingDeg(userLocation.lat, userLocation.lon, selectedNavigationTarget.latitude, selectedNavigationTarget.longitude)
     : 0;
-  const routeCardinal = degreesToCardinal(routeBearing);
+  const routeCardinal = safeRoutePlan
+    ? safeRoutePlan.initial_direction_cardinal
+    : degreesToCardinal(routeBearing);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -243,8 +265,8 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
 
               <View style={styles.routeMetricItem}>
                 <Text style={styles.routeMetricIcon}>⏱️</Text>
-                <Text style={styles.routeMetricVal}>{routeEtaMins} mins</Text>
-                <Text style={styles.routeMetricSub}>(~{(routeEtaMins / 60).toFixed(1)} hrs)</Text>
+                <Text style={styles.routeMetricVal}>{safeRoutePlan ? safeRoutePlan.formatted_eta : `${routeEtaMins} mins`}</Text>
+                <Text style={styles.routeMetricSub}>Safe Spline ETA</Text>
                 <Text style={styles.routeMetricLabel}>{t('estTravelTime')}</Text>
               </View>
 
@@ -254,6 +276,62 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
                 <Text style={styles.routeMetricSub}>{t('compassCourse')}</Text>
                 <Text style={styles.routeMetricLabel}>{t('bearing')}</Text>
               </View>
+            </View>
+
+            {/* 2. SUBMERGED ROCK & RESTRICTED ZONE RADAR CARD */}
+            <View style={styles.hazardRadarContainer}>
+              <View style={styles.hazardRadarHeader}>
+                <View style={styles.hazardRadarTitleRow}>
+                  <Text style={styles.hazardRadarTitle}>🛡️ Dynamic Rock Avoidance Radar</Text>
+                  <View style={styles.safeScoreBadge}>
+                    <Text style={styles.safeScoreTxt}>100% BYPASS ACTIVE</Text>
+                  </View>
+                </View>
+                <Text style={styles.hazardRadarSub}>
+                  {safeRoutePlan && safeRoutePlan.avoided_hazards.length > 0
+                    ? `${safeRoutePlan.avoided_hazards.length} underwater rock hazard(s) skirted with +1000m seaward clearance`
+                    : 'Clear deep-water corridor • 0 submerged rock hazards intersecting trajectory'}
+                </Text>
+              </View>
+
+              {safeRoutePlan && safeRoutePlan.avoided_hazards.length > 0 ? (
+                <View style={styles.hazardsTable}>
+                  {safeRoutePlan.avoided_hazards.map((haz, idx) => (
+                    <View key={haz.id || idx} style={styles.hazardTableRow}>
+                      <View style={styles.hazardInfoCol}>
+                        <Text style={styles.hazardNameTxt}>
+                          {haz.type === 'shallow_rock' ? '🪨' : '⛔'} {haz.name}
+                        </Text>
+                        <Text style={styles.hazardDetailTxt}>
+                          Min Depth: {haz.minDepthMeters}m • Clearance: +{haz.clearanceMarginMeters}m Seaward
+                        </Text>
+                      </View>
+                      <View style={styles.hazardBypassBadge}>
+                        <Text style={styles.hazardBypassTxt}>✓ {haz.status}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.clearWaterNotice}>
+                  <Text style={styles.clearWaterTxt}>🌊 Clear water passage active. All submerged reefs and military perimeters cleared.</Text>
+                </View>
+              )}
+
+              {/* Waypoint Route Steps Sequence */}
+              {safeRoutePlan && safeRoutePlan.control_waypoints.length > 0 && (
+                <View style={styles.waypointListContainer}>
+                  <Text style={styles.waypointListHeading}>Navigation Course Waypoints ({safeRoutePlan.control_waypoints.length})</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.waypointChipsRow}>
+                    {safeRoutePlan.control_waypoints.map((wp, idx) => (
+                      <View key={wp.id || idx} style={styles.waypointChip}>
+                        <Text style={styles.waypointChipNum}>#{idx + 1}</Text>
+                        <Text style={styles.waypointChipTxt} numberOfLines={1}>{wp.name}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -341,6 +419,8 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
               hotspots={advisory.hotspots}
               activeLayer={activeLayer}
               selectedNavigationTarget={selectedNavigationTarget}
+              boatBearingDeg={safeRoutePlan ? safeRoutePlan.initial_bearing_degrees : routeBearing}
+              boatSpeedKnots={vesselSpeedKnots}
               onNavigateToHotspot={handleStartNavigation}
               onSelectHotspot={(spot) => setSelectedHotspot(spot)}
             />
@@ -902,6 +982,142 @@ const styles = StyleSheet.create({
     color: '#0D6E6E',
     textAlign: 'center',
     textTransform: 'uppercase',
+  },
+
+  /* Hazard Radar Styles inside routeTelemetryCard */
+  hazardRadarContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(13, 148, 136, 0.25)',
+  },
+  hazardRadarHeader: {
+    marginBottom: 8,
+  },
+  hazardRadarTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  hazardRadarTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#042F2C',
+    letterSpacing: 0.2,
+    flex: 1,
+  },
+  safeScoreBadge: {
+    backgroundColor: '#0D9488',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  safeScoreTxt: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  hazardRadarSub: {
+    fontSize: 10,
+    color: '#0D6E6E',
+    fontWeight: '700',
+  },
+  hazardsTable: {
+    gap: 6,
+    marginBottom: 8,
+  },
+  hazardTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 148, 136, 0.2)',
+  },
+  hazardInfoCol: {
+    flex: 1,
+    marginRight: 6,
+  },
+  hazardNameTxt: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#042F2C',
+  },
+  hazardDetailTxt: {
+    fontSize: 9.5,
+    color: '#0D6E6E',
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  hazardBypassBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  hazardBypassTxt: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#047857',
+  },
+  clearWaterNotice: {
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 148, 136, 0.2)',
+    marginBottom: 8,
+  },
+  clearWaterTxt: {
+    fontSize: 10.5,
+    color: '#0D6E6E',
+    fontWeight: '700',
+  },
+  waypointListContainer: {
+    marginTop: 4,
+  },
+  waypointListHeading: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0D6E6E',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  waypointChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  waypointChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#0D9488',
+    gap: 4,
+  },
+  waypointChipNum: {
+    fontSize: 9.5,
+    fontWeight: '900',
+    color: '#0D9488',
+  },
+  waypointChipTxt: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#042F2C',
+    maxWidth: 140,
   },
 
   sectionTitle: {
