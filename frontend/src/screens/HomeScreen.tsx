@@ -177,7 +177,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onBack={() => handleTabPress('nav')}
           onNavigateToHotspot={(spot) => {
             setSelectedHotspot(spot);
-            handleTabPress('nav');
+            handleTabPress('fishing');
           }}
           onTabPress={handleTabPress}
           hideTopHeader={true}

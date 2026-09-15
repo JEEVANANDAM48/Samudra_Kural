@@ -116,7 +116,10 @@ export const FishingZonesScreen: React.FC<FishingZonesScreenProps> = ({
         fetchNearbyPFZ(userLocation.lat, userLocation.lon).catch(() => []),
       ]);
 
-      const allSpots = getRealSatellitePFZHotspots(undefined, userLocation.lat, userLocation.lon);
+      let allSpots = getRealSatellitePFZHotspots(undefined, userLocation.lat, userLocation.lon);
+      if (initialTarget && !allSpots.some(s => s.id === initialTarget.id || (Math.abs(s.latitude - initialTarget.latitude) < 0.001 && Math.abs(s.longitude - initialTarget.longitude) < 0.001))) {
+        allSpots = [initialTarget, ...allSpots];
+      }
       advData.hotspots = allSpots;
       setAdvisory(advData);
       if (layerData) {

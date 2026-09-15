@@ -352,20 +352,22 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
           var markerGroup = L.featureGroup();
           var sectorGroups = {};
 
+          var foundTarget = false;
           hotspots.forEach(function(spot) {
             var secId = spot.id.split('-')[0];
             if (!sectorGroups[secId]) sectorGroups[secId] = [];
             sectorGroups[secId].push([spot.latitude, spot.longitude]);
 
-            var isSelectedTarget = navTarget && navTarget.id === spot.id;
+            var isSelectedTarget = navTarget && (navTarget.id === spot.id || (Math.abs(navTarget.latitude - spot.latitude) < 0.0001 && Math.abs(navTarget.longitude - spot.longitude) < 0.0001));
+            if (isSelectedTarget) foundTarget = true;
             var pinClass = isSelectedTarget ? 'target-pin' : 'pfz-pin';
             var pinIcon = isSelectedTarget ? '🎯' : '🐟';
 
             var icon = L.divIcon({
               className: 'pfz-pin-wrapper',
               html: '<div class="' + pinClass + '">' + pinIcon + '</div>',
-              iconSize: [32, 32],
-              iconAnchor: [16, 16]
+              iconSize: isSelectedTarget ? [36, 36] : [32, 32],
+              iconAnchor: isSelectedTarget ? [18, 18] : [16, 16]
             });
 
             var marker = L.marker([spot.latitude, spot.longitude], { icon: icon });
@@ -389,6 +391,29 @@ export const INCOISMapComponent: React.FC<INCOISMapComponentProps> = ({
               sendWebMessage({ type: 'HOTSPOT_SELECT', data: spot });
             });
           });
+
+          // If navTarget is custom from AI bot and not in default hotspots, add dedicated target marker!
+          if (navTarget && !foundTarget) {
+            var targetIcon = L.divIcon({
+              className: 'pfz-pin-wrapper',
+              html: '<div class="target-pin">🎯</div>',
+              iconSize: [36, 36],
+              iconAnchor: [18, 18]
+            });
+            var targetMarker = L.marker([navTarget.latitude, navTarget.longitude], { icon: targetIcon });
+            markerGroup.addLayer(targetMarker);
+            var targetPopup = '<div class="custom-popup">' +
+              '<div class="popup-title">🎯 ' + navTarget.name + '</div>' +
+              '<div class="popup-info">' +
+                '<span class="popup-label">📍 Latitude:</span> <span class="popup-value">' + navTarget.latitude.toFixed(4) + '° N</span><br>' +
+                '<span class="popup-label">📍 Longitude:</span> <span class="popup-value">' + navTarget.longitude.toFixed(4) + '° E</span><br>' +
+                (navTarget.depth_meters ? '<span class="popup-label">⚓ Depth:</span> <span class="popup-value">' + navTarget.depth_meters + 'm</span><br>' : '') +
+                (navTarget.reliability_score ? '<span class="popup-label">🎯 Reliability:</span> <span class="popup-score">' + navTarget.reliability_score + '</span>' : '') +
+              '</div>' +
+              '<button class="copy-btn" onclick="copyGpsCoords(' + navTarget.latitude + ', ' + navTarget.longitude + ')">📋 Copy GPS (' + navTarget.latitude.toFixed(4) + ', ' + navTarget.longitude.toFixed(4) + ')</button>' +
+            '</div>';
+            targetMarker.bindPopup(targetPopup);
+          }
 
           markerGroup.addTo(map);
 
