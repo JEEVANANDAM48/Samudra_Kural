@@ -156,6 +156,24 @@ class ElevenLabsService:
                     import re
                     clean_transcript = re.sub(r'\[.*?\]', '', raw_transcript).strip()
 
+                    def normalize_2letter(c: str) -> str:
+                        if not c:
+                            return "ta"
+                        cl = c.strip().lower()
+                        rev_map = {
+                            "tam": "ta", "tamil": "ta", "ta": "ta", "ta-in": "ta",
+                            "eng": "en", "english": "en", "en": "en", "en-in": "en", "en-us": "en",
+                            "tel": "te", "telugu": "te", "te": "te", "te-in": "te",
+                            "mal": "ml", "malayalam": "ml", "ml": "ml", "ml-in": "ml",
+                            "hin": "hi", "hindi": "hi", "hi": "hi", "hi-in": "hi",
+                            "kan": "kn", "kannada": "kn", "kn": "kn", "kn-in": "kn",
+                            "mar": "mr", "marathi": "mr", "mr": "mr", "mr-in": "mr",
+                            "guj": "gu", "gujarati": "gu", "gu": "gu", "gu-in": "gu",
+                            "ori": "or", "odia": "or", "or": "or", "od": "or", "or-in": "or",
+                            "ben": "bn", "bengali": "bn", "bn": "bn", "bn-in": "bn",
+                        }
+                        return rev_map.get(cl, cl[:2] if len(cl) >= 2 else "ta")
+
                     # If clean transcript is empty and a language was specified, retry in auto-detect mode
                     if not clean_transcript and "language_code" in data:
                         retry_data = {"model_id": "scribe_v1"}
@@ -165,18 +183,18 @@ class ElevenLabsService:
                             retry_raw = retry_json.get("text", "").strip()
                             retry_clean = re.sub(r'\[.*?\]', '', retry_raw).strip()
                             if retry_clean:
-                                detected_lang = retry_json.get("language_code", detected_lang)
+                                retry_lang = retry_json.get("language_code", detected_lang)
                                 return {
                                     "status": "success",
                                     "transcript": retry_clean,
-                                    "language": detected_lang
+                                    "language": normalize_2letter(retry_lang)
                                 }
 
                     if clean_transcript:
                         return {
                             "status": "success",
                             "transcript": clean_transcript,
-                            "language": detected_lang
+                            "language": normalize_2letter(detected_lang)
                         }
                     else:
                         return {

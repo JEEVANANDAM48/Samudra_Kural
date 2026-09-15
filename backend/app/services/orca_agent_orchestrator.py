@@ -96,9 +96,27 @@ INTENT_AGENT_ROUTING: Dict[str, List[int]] = {
 
 class OrcaAgentOrchestrator:
 
-    def _detect_query_language(self, query: str, fallback_lang: str = "ta") -> str:
-        if not fallback_lang or fallback_lang == "unknown":
-            fallback_lang = "ta"
+    def _normalize_lang_code(self, lang: Optional[str]) -> str:
+        if not lang or lang.strip().lower() in ("unknown", "auto", "none", "", "any"):
+            return ""
+        l = lang.strip().lower()
+        mapping = {
+            "english": "en", "eng": "en", "en": "en", "en-in": "en", "en-us": "en",
+            "tamil": "ta", "tam": "ta", "ta": "ta", "ta-in": "ta",
+            "telugu": "te", "tel": "te", "te": "te", "te-in": "te",
+            "malayalam": "ml", "mal": "ml", "ml": "ml", "ml-in": "ml",
+            "hindi": "hi", "hin": "hi", "hi": "hi", "hi-in": "hi",
+            "kannada": "kn", "kan": "kn", "kn": "kn", "kn-in": "kn",
+            "marathi": "mr", "mar": "mr", "mr": "mr", "mr-in": "mr",
+            "gujarati": "gu", "guj": "gu", "gu": "gu", "gu-in": "gu",
+            "odia": "or", "ori": "or", "or": "or", "or-in": "or", "od": "or",
+            "bengali": "bn", "ben": "bn", "bn": "bn", "bn-in": "bn",
+        }
+        return mapping.get(l, l[:2] if len(l) >= 2 else "en")
+
+    def _detect_query_language(self, query: str, fallback_lang: str = "en") -> str:
+        clean_fallback = self._normalize_lang_code(fallback_lang)
+        has_latin = False
         for ch in query:
             code = ord(ch)
             if 0x0B80 <= code <= 0x0BFF:
@@ -116,8 +134,15 @@ class OrcaAgentOrchestrator:
             elif 0x0980 <= code <= 0x09FF:
                 return "bn"
             elif 0x0900 <= code <= 0x097F:
-                return "hi" if fallback_lang not in ("hi", "mr") else fallback_lang
-        return fallback_lang or "ta"
+                return "hi" if clean_fallback not in ("hi", "mr") else clean_fallback
+            elif ('a' <= ch <= 'z') or ('A' <= ch <= 'Z'):
+                has_latin = True
+
+        # If query has Latin letters (e.g. English query like 'What is the wave height?'):
+        if has_latin:
+            return "en"
+
+        return clean_fallback or "en"
 
     async def process_query(
         self,
@@ -125,13 +150,13 @@ class OrcaAgentOrchestrator:
         lat: float = 13.0827,
         lon: float = 80.3800,
         vessel_type: str = "Trawler",
-        language: str = "ta"
+        language: str = "en"
     ) -> OrcaChatResponse:
         steps: List[AgentExecutionStep] = []
         q_lower = query.lower().strip()
 
-        # Guarantee response matches input language
-        language = self._detect_query_language(query, language or "ta")
+        # Guarantee response strictly matches input query language
+        language = self._detect_query_language(query, language or "en")
 
         intent = self._agent_1_intent(q_lower)
         selected_agent_ids = INTENT_AGENT_ROUTING.get(intent, [1, 3, 4, 8, 9])
@@ -806,7 +831,7 @@ class OrcaAgentOrchestrator:
         drift_dist_km: Optional[float] = None,
         drift_cardinal: Optional[str] = None
     ) -> tuple[str, str]:
-        lang = language if language in ("ta", "te", "ml", "hi", "mr", "gu", "or", "kn", "bn", "en") else "ta"
+        lang = self._normalize_lang_code(language) or "en"
         sp_text = ", ".join(spot.target_species)
 
         if intent == "cyclone_storm":

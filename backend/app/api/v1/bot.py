@@ -16,11 +16,11 @@ class BotQueryRequest(BaseModel):
     latitude: Optional[float] = 13.0827
     longitude: Optional[float] = 80.3800
     vessel_type: Optional[str] = "Trawler"
-    language: Optional[str] = "ta"
+    language: Optional[str] = "en"
 
 class VoiceTTSRequest(BaseModel):
     text: str
-    language: Optional[str] = "ta"
+    language: Optional[str] = "en"
 
 @router.post("/chat", response_model=OrcaChatResponse)
 async def ask_bot_chat(payload: BotQueryRequest):
@@ -32,12 +32,13 @@ async def ask_bot_chat(payload: BotQueryRequest):
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
     try:
+        norm_lang = orca_orchestrator._normalize_lang_code(payload.language or "en") or "en"
         response = await orca_orchestrator.process_query(
             query=payload.query.strip(),
             lat=payload.latitude or 13.0827,
             lon=payload.longitude or 80.3800,
             vessel_type=payload.vessel_type or "Trawler",
-            language=payload.language or "ta"
+            language=norm_lang
         )
         return response
     except Exception as e:
@@ -68,46 +69,50 @@ async def voice_speech_to_text_base64(payload: VoiceSTTBase64Request):
             raw_b64 = raw_b64.split(",", 1)[1]
         
         audio_bytes = base64.b64decode(raw_b64)
-        print(f"\n[STT DEBUG] Received payload: base64_len={len(raw_b64)}, audio_bytes={len(audio_bytes)}, format={payload.format}, lang={payload.language}", flush=True)
         if len(audio_bytes) == 0:
             return {"success": False, "status": "error", "message": "Decoded audio is empty", "transcript": ""}
 
         filename = f"audio.{payload.format or 'm4a'}"
+        req_lang = orca_orchestrator._normalize_lang_code(payload.language) or payload.language or "unknown"
 
         # 1. Try Sarvam AI
         res = await sarvam_service.speech_to_text(
             audio_bytes,
             filename=filename,
-            language_code=payload.language or "unknown"
+            language_code=req_lang
         )
         if res.get("status") == "success" and res.get("transcript"):
+            det_lang = orca_orchestrator._normalize_lang_code(res.get("language")) or "en"
             return {
                 "success": True,
                 "status": "success",
                 "transcript": res.get("transcript", ""),
-                "language": res.get("language", "ta"),
-                "language_code": res.get("language_code", "ta-IN")
+                "language": det_lang,
+                "language_code": f"{det_lang}-IN"
             }
         
         # 2. Try ElevenLabs / Whisper STT Fallback
         el_res = await elevenlabs_service.speech_to_text(
             audio_bytes,
             filename=filename,
-            language_code=payload.language or "unknown"
+            language_code=req_lang
         )
         if el_res.get("status") == "success" and el_res.get("transcript"):
+            det_lang = orca_orchestrator._normalize_lang_code(el_res.get("language") or req_lang) or "en"
             return {
                 "success": True,
                 "status": "success",
                 "transcript": el_res.get("transcript", ""),
-                "language": el_res.get("language", payload.language or "ta"),
-                "language_code": f"{payload.language or 'ta'}-IN"
+                "language": det_lang,
+                "language_code": f"{det_lang}-IN"
             }
 
-        # Clear human message when audio was quiet or uninterpretable
+        # Clear human message when audio was quiet, corrupted, or uninterpretable
         err_msg = el_res.get("message") or "Speech recognition could not detect clear audio. Please speak closer to the microphone and try again."
         if "402" in err_msg or "quota" in err_msg.lower():
-            err_msg = "Speech recognition could not process audio. Please try speaking again or type your question."
+            err_msg = "Speech recognition service is temporarily busy. Please try speaking again or type your question."
+        elif "invalid_audio" in err_msg or "corrupted" in err_msg.lower() or "validation_error" in err_msg:
+            err_msg = "Could not capture clear voice audio. Please hold the mic button, speak clearly for 2-3 seconds, and try again."
 
         return {
             "success": False,
@@ -133,32 +138,35 @@ async def voice_speech_to_text(
         if not content or len(content) == 0:
             return {"success": False, "status": "error", "message": "Uploaded audio file is empty", "transcript": ""}
 
+        req_lang = orca_orchestrator._normalize_lang_code(language) or language or "unknown"
         res = await sarvam_service.speech_to_text(
             content,
             filename=file.filename or "audio.m4a",
-            language_code=language
+            language_code=req_lang
         )
         if res.get("status") == "success" and res.get("transcript"):
+            det_lang = orca_orchestrator._normalize_lang_code(res.get("language")) or "en"
             return {
                 "success": True,
                 "status": "success",
                 "transcript": res.get("transcript", ""),
-                "language": res.get("language", "ta"),
-                "language_code": res.get("language_code", "ta-IN")
+                "language": det_lang,
+                "language_code": f"{det_lang}-IN"
             }
 
         el_res = await elevenlabs_service.speech_to_text(
             content,
             filename=file.filename or "audio.m4a",
-            language_code=language
+            language_code=req_lang
         )
         if el_res.get("status") == "success":
+            det_lang = orca_orchestrator._normalize_lang_code(el_res.get("language") or req_lang) or "en"
             return {
                 "success": True,
                 "status": "success",
                 "transcript": el_res.get("transcript", ""),
-                "language": el_res.get("language", language or "ta"),
-                "language_code": f"{language}-IN"
+                "language": det_lang,
+                "language_code": f"{det_lang}-IN"
             }
 
         err_msg = el_res.get("message") or res.get("message") or "Speech recognition failed"
