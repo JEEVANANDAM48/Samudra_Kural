@@ -21,7 +21,17 @@ import { Colors } from '../theme/colors';
 import { SupportedLanguage } from '../types';
 import { useLanguage } from '../i18n';
 import { BottomNavBar } from '../components/BottomNavBar';
-import { askOrcaBot, OrcaChatResponse, HotspotSummary, transcribeAudio, synthesizeSpeech } from '../services/botService';
+import {
+  askOrcaBot,
+  OrcaChatResponse,
+  HotspotSummary,
+  transcribeAudio,
+  synthesizeSpeech,
+  getSessionChatMessages,
+  saveSessionChatMessages,
+  clearSessionChatMessages,
+  BotChatMessage,
+} from '../services/botService';
 import {
   speakNativeText,
   stopNativeSpeech,
@@ -35,14 +45,7 @@ import {
 
 const { width } = Dimensions.get('window');
 
-interface ChatMessage {
-  id: string;
-  sender: 'user' | 'bot';
-  text: string;
-  timestamp: string;
-  isVoice?: boolean;
-  botData?: OrcaChatResponse;
-}
+type ChatMessage = BotChatMessage;
 
 interface BotScreenProps {
   currentLanguage?: SupportedLanguage;
@@ -119,7 +122,20 @@ export const BotScreen: React.FC<BotScreenProps> = ({
   const { language: globalLang, setLanguage, t } = useLanguage();
   const lang = (globalLang || currentLanguage || 'en') as SupportedLanguage;
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const saved = getSessionChatMessages();
+    if (saved && saved.length > 0) {
+      return saved;
+    }
+    return [
+      {
+        id: 'msg-welcome',
+        sender: 'bot',
+        text: t('botWelcome'),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ];
+  });
   const [inputText, setInputText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -130,6 +146,13 @@ export const BotScreen: React.FC<BotScreenProps> = ({
 
   const scrollViewRef = useRef<ScrollView>(null);
   const micPulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Persist messages in session memory whenever messages state changes
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      saveSessionChatMessages(messages);
+    }
+  }, [messages]);
 
   useEffect(() => {
     // Fetch live device location for precise agent calculations
@@ -153,19 +176,21 @@ export const BotScreen: React.FC<BotScreenProps> = ({
     };
   }, []);
 
-  // Update welcome message whenever active language changes
+  // Update welcome message when active language changes ONLY if chat is brand new
   useEffect(() => {
     const welcomeText = t('botWelcome');
     setMessages((prev) => {
-      if (prev.length <= 1) {
-        return [
+      if (prev.length === 1 && prev[0].id === 'msg-welcome') {
+        const updated: ChatMessage[] = [
           {
             id: 'msg-welcome',
             sender: 'bot',
             text: welcomeText,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: prev[0].timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ];
+        saveSessionChatMessages(updated);
+        return updated;
       }
       return prev;
     });
@@ -388,6 +413,33 @@ export const BotScreen: React.FC<BotScreenProps> = ({
     }
   };
 
+  const handleClearChat = () => {
+    Alert.alert(
+      'Clear Chat History',
+      'Are you sure you want to clear your active conversation history?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            clearSessionChatMessages();
+            const resetMsg: ChatMessage[] = [
+              {
+                id: 'msg-welcome',
+                sender: 'bot',
+                text: t('botWelcome'),
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              },
+            ];
+            setMessages(resetMsg);
+            saveSessionChatMessages(resetMsg);
+          },
+        },
+      ]
+    );
+  };
+
   const currentPrompts = QUICK_PROMPTS[lang] || QUICK_PROMPTS['ta'];
 
   return (
@@ -414,9 +466,20 @@ export const BotScreen: React.FC<BotScreenProps> = ({
             </View>
           </View>
 
-          <View style={styles.onlineBadge}>
-            <Text style={styles.onlineDot}>🟢</Text>
-            <Text style={styles.onlineText}>12 AGENTS LIVE</Text>
+          <View style={styles.headerRightRow}>
+            {messages.length > 1 && (
+              <TouchableOpacity
+                style={styles.clearChatBtn}
+                onPress={handleClearChat}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearChatTxt}>🗑️ Clear</Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.onlineBadge}>
+              <Text style={styles.onlineDot}>🟢</Text>
+              <Text style={styles.onlineText}>12 LIVE</Text>
+            </View>
           </View>
         </View>
       )}
@@ -757,6 +820,24 @@ const styles = StyleSheet.create({
     color: Colors.secondary,
     fontSize: 11,
     fontWeight: '600',
+  },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  clearChatBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  clearChatTxt: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
   },
   onlineBadge: {
     flexDirection: 'row',

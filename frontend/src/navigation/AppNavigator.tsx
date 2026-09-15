@@ -17,6 +17,7 @@ import { CoastalGuardHomeScreen } from '../screens/coastal_guard/CoastalGuardHom
 import { CGLoginScreen } from '../screens/coastal_guard/CGLoginScreen';
 import { CGRegisterScreen } from '../screens/coastal_guard/CGRegisterScreen';
 import { HotspotInfo } from '../services/pfzService';
+import { clearSessionChatMessages } from '../services/botService';
 
 type ScreenState = 'loading' | 'welcome' | 'language' | 'login' | 'register' | 'home' | 'fishing_zones' | 'navigation' | 'profile' | 'bot' | 'cg_login' | 'cg_register' | 'coastal_guard';
 
@@ -96,6 +97,7 @@ export const AppNavigator: React.FC = () => {
 
   // Step 5: Logout -> Returns to Welcome Screen
   const handleLogout = () => {
+    clearSessionChatMessages();
     setCurrentScreen('welcome');
   };
 

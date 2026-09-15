@@ -592,4 +592,37 @@ export async function synthesizeSpeech(
   }
 }
 
+export interface BotChatMessage {
+  id: string;
+  sender: 'user' | 'bot';
+  text: string;
+  timestamp: string;
+  isVoice?: boolean;
+  botData?: OrcaChatResponse;
+}
+
+let sessionChatMessages: BotChatMessage[] = [];
+
+/**
+ * Returns a copy of the active in-memory session chat messages.
+ */
+export function getSessionChatMessages(): BotChatMessage[] {
+  return [...sessionChatMessages];
+}
+
+/**
+ * Persists messages in the active in-memory session history.
+ */
+export function saveSessionChatMessages(messages: BotChatMessage[]): void {
+  sessionChatMessages = [...messages];
+}
+
+/**
+ * Clears the session chat history (called on logout or user reset).
+ */
+export function clearSessionChatMessages(): void {
+  sessionChatMessages = [];
+}
+
+
 

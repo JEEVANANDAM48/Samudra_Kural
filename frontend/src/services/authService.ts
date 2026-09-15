@@ -1,5 +1,6 @@
 import { apiFetch, ApiError } from './api';
 import { LoginPayload, RegisterPayload, AuthResponse, FishermanUser } from '../types';
+import { clearSessionChatMessages } from './botService';
 import {
   saveAuthToken,
   saveUserSession,
@@ -156,9 +157,10 @@ export const authService = {
   },
 
   /**
-   * Logout user and clear tokens
+   * Logout user and clear tokens and active chat session
    */
   async logout(): Promise<void> {
+    clearSessionChatMessages();
     await clearSession();
   }
 };
